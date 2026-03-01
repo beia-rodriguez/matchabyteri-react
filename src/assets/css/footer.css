@@ -1,0 +1,177 @@
+/* ============================= */
+/* FOOTER */
+/* ============================= */
+
+.footer {
+  margin-top: 60px;
+  color: #fff;
+  background-image: linear-gradient(
+      rgba(0, 0, 0, 0.45),
+      rgba(0, 0, 0, 0.45)
+    ),
+    url("/images/mamachacha 1.png");
+  background-size: cover;
+  background-position: center;
+  padding-top: 70px;
+}
+
+/* ============================= */
+/* INNER GRID */
+/* ============================= */
+
+.footer-inner {
+  width: min(1400px, 96%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  column-gap: 80px;
+  row-gap: 28px;
+  align-items: start;
+}
+
+/* ============================= */
+/* BRAND COLUMN */
+/* ============================= */
+
+.footer-brand img {
+  width: min(460px, 100%);
+  height: auto;
+  display: block;
+  margin: 0 auto 18px;
+}
+
+.footer-brand p {
+  max-width: 42ch;
+  margin: 0 auto;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+  opacity: 0.95;
+}
+
+/* ============================= */
+/* NAV + HOURS COLUMNS */
+/* ============================= */
+
+.footer-nav,
+.footer-hours {
+  font-size: 20px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  padding-top: 13%;
+}
+
+.footer-nav ul,
+.footer-hours ul {
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.footer ul {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+}
+
+.footer li {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ============================= */
+/* FOLLOW SECTION */
+/* ============================= */
+
+.footer-follow {
+  grid-column: 2 / 4;
+  text-align: center;
+  margin-top: 10px;
+  font-size: 20px;
+}
+
+.footer-follow p {
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1.4;
+  letter-spacing: 0.4px;
+}
+
+/* Icons */
+
+.footer-icons {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  align-items: center;
+}
+
+.footer-icons a {
+  width: 44px;
+  display: grid;
+  padding: 10px;
+  place-items: center;
+}
+
+.footer-icons img {
+  width: 24px;
+  height: 24px;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+/* ============================= */
+/* BOTTOM BAR */
+/* ============================= */
+
+.footer-bottom {
+  margin: 40px auto 0;
+  background: var(--matcha-green);
+  border-radius: 26px 26px 0 0;
+  padding: 10px 26px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer-bottom .copyright-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.footer-bottom p {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ============================= */
+/* RESPONSIVE */
+/* ============================= */
+
+@media (max-width: 900px) {
+  .footer-inner {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+  }
+
+  .footer-follow {
+    grid-column: auto;
+    text-align: left;
+  }
+
+  .footer-icons {
+    justify-content: flex-start;
+  }
+}

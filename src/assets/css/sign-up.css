@@ -1,0 +1,268 @@
+   :root{
+      --bg: #2f5d4e;
+      --bg-2: #2a5346;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --shadow: 0 18px 45px rgba(0,0,0,.18);
+      --radius: 16px;
+      --btn: #2f5d4e;
+      --btn-hover: #274d41;
+      --link: #2f5d4e;
+
+      --danger-bg: #fee2e2;
+      --danger-border: #fecaca;
+      --danger-text: #991b1b;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    .login-page {
+  background: radial-gradient(
+    1100px 600px at 10% 30%,
+    #3b735f 0%,
+    var(--bg) 55%,
+    var(--bg-2) 100%
+  );
+  min-height: 100vh;
+}
+
+    .page{
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 2.2vw, 34px);
+    }
+
+    .shell{
+      width: min(1200px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      align-items: center;
+      gap: clamp(18px, 3vw, 44px);
+    }
+
+    .brand{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(6px, 1.2vw, 18px);
+    }
+
+    .brand-logo{
+      width: min(560px, 95%);
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.22));
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .card{
+      width: 100%;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 20px; /* ✅ smaller padding inside the form card */
+      justify-self: end;
+      font-family:"Bricolage Grotesque", system-ui, sans-serif;
+    }
+
+    .card h1{
+      margin: 0 0 10px; /* ✅ tighter */
+      text-align: center;
+      font-size: 22px;
+      letter-spacing: .3px;
+      font-weight: 800;
+      font-family: "Brasika Display Regular", serif;
+    }
+
+    .alert{
+      margin: 0 0 10px; /* ✅ tighter */
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    /* ✅ reduce spacing between fields */
+    .field{ margin: 8px 0; }
+
+    .label{
+      display: block;
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .input{
+      width: 100%;
+      height: 42px; /* ✅ slightly shorter */
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .input:focus{
+      border-color: rgba(47,93,78,.85);
+      box-shadow: 0 0 0 4px rgba(47,93,78,.12);
+    }
+
+    .input-wrap{ position: relative; }
+
+    .toggle{
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      padding: 6px 8px;
+      cursor: pointer;
+      color: var(--muted);
+      border-radius: 8px;
+    }
+
+    .toggle:focus{
+      outline: none;
+      box-shadow: 0 0 0 4px rgba(47,93,78,.12);
+    }
+
+    .msg{
+      font-size: 12.5px;
+      margin: 4px 0 0;
+      min-height: 16px;
+      color: var(--muted);
+    }
+
+    /* ✅ Individual rule popups with tighter padding */
+    .rules{
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+
+    .rule{
+      display: grid;
+      grid-template-columns: 16px 1fr;
+      align-items: center;
+      gap: 9px;
+
+      padding: 8px 10px;              /* ✅ smaller */
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fafafa;
+
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(-6px);
+      overflow: hidden;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-width: 0;
+
+      transition:
+        max-height .24s ease,
+        opacity .20s ease,
+        transform .20s ease,
+        padding .24s ease,
+        border-width .24s ease;
+    }
+
+    .rule.show{
+      max-height: 56px;
+      opacity: 1;
+      transform: translateY(0);
+      padding-top: 8px;
+      padding-bottom: 8px;
+      border-width: 1px;
+    }
+
+    .dot{
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #ef4444;
+      box-shadow: 0 0 0 4px rgba(239,68,68,.10);
+      transition: background .18s ease, box-shadow .18s ease;
+      justify-self: center;
+    }
+
+    .rule.ok .dot{
+      background: #16a34a;
+      box-shadow: 0 0 0 4px rgba(22,163,74,.10);
+    }
+
+    .rule .text{
+      font-size: 12.5px;
+      color: #991b1b;
+      transition: color .18s ease;
+    }
+
+    .rule.ok .text{
+      color: #065f46;
+      font-weight: 700;
+    }
+
+    .btn{
+      width: 100%;
+      height: 44px;        /* ✅ smaller */
+      border: none;
+      border-radius: 999px;
+      background: var(--btn);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: .5px;
+      cursor: pointer;
+      transition: transform .06s ease, background .15s ease, opacity .15s ease;
+      margin-top: 10px;    /* ✅ tighter */
+    }
+    .btn:hover{ background: var(--btn-hover); }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{ cursor: not-allowed; opacity: .65; }
+
+    .footer{
+      margin-top: 12px; /* ✅ tighter */
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    a{
+      color: var(--link);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    a:hover{ text-decoration: underline; }
+
+    /* Responsive */
+    @media (min-width: 1400px){
+      .shell{ grid-template-columns: 1fr 460px; }
+      .brand-logo{ width: min(620px, 95%); }
+    }
+    @media (max-width: 1100px){
+      .shell{ grid-template-columns: 1fr 390px; }
+      .brand-logo{ width: min(520px, 95%); }
+    }
+    @media (max-width: 900px){
+      .shell{ grid-template-columns: 1fr 360px; gap: 18px; }
+      .card{ justify-self: center; }
+    }
+    @media (max-width: 760px){
+      .shell{ grid-template-columns: 1fr; }
+      .brand{ padding: 6px 0; }
+      .brand-logo{ width: min(420px, 92%); }
+      .card{ justify-self: center; }
+    }

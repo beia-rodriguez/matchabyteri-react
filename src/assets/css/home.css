@@ -1,0 +1,218 @@
+.image-wrap {
+    width: 100%;
+    height: 70vh;
+    background-image: url("/images/mamachacha 1.png");
+    background-size: cover;
+    background-position: center;
+    align-items: center;
+    position: relative;
+}
+
+.image-wrap img {
+    display: block;
+    margin: 0 auto;
+    width: 1000px;
+}
+
+.text-box {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    z-index: 3;
+    text-align: center;
+}
+
+.text-box p {
+    margin-top: 5px;
+    font-size: 1.5rem;
+    font-family:"Bricolage Grotesque", system-ui, sans-serif;
+}
+
+:root {
+  --matcha-green: #5f8c3c;
+  --matcha-green-dark: #2f5a2b;
+  --text-body: #3c4b32;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.welcome-section {
+  padding: 20px;
+  background: #ffffff;
+}
+
+.welcome-pill {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 10px 26px;
+  border-radius: 999px;
+  background: var(--matcha-green);
+  color: #ffffff;
+  font-size: 1.5rem;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.welcome-inner {
+  max-width: none;
+  width: 80%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 80px;   
+  margin-bottom: 50px;
+}
+
+.welcome-text {
+  max-width: none;
+  width: 100%;  
+  transform: translateX(-70px);
+}
+
+.welcome-text h2 {
+  font-family: "Brasika Display Regular", serif;
+  font-size: 4rem;
+  color: var(--matcha-green-dark);
+}
+
+.welcome-text p {
+  font-size: 1.5rem;
+  line-height: 1.7;
+  color: var(--text-body);
+  margin-bottom: 24px;
+  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+}
+
+.welcome-btn {
+  padding: 12px 40px;
+  border-radius: 999px;
+  border: none;
+  background: var(--matcha-green);
+  color: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
+}
+
+.welcome-btn:hover {
+  background: var(--matcha-green-dark);
+}
+
+.welcome-image-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.welcome-image {
+  width: 650px;
+  height: auto;
+  transform: translateX(70px);
+}
+
+.m-w{
+    font-family: "Brasika Display Regular", serif;
+    font-size: 4rem;
+    color: #37664c;
+    font-weight: 700;
+    margin: 0 auto;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    padding-bottom: 5%;
+}
+
+.services-section {
+  padding: 60px 0 80px;
+}
+
+.workshop-inner {
+  max-width: none;
+  width: 80%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 80px;
+}
+
+.workshop-btn {
+  padding: 12px 40px;
+  border-radius: 999px;
+  border: none;
+  background: var(--matcha-green);
+  color: #ffffff;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
+}
+
+.workshop-btn:hover {
+  background: var(--matcha-green-dark);
+}
+
+.workshop-image-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.workshop-image {
+  width: 500px;
+  height: auto;
+  transform: translateX(-70px);
+}
+
+.workshop-text {
+  max-width: none;
+  width: 100%;    
+  text-align: right;
+}
+
+.workshop-text h2 {
+  font-family: "Brasika Display Regular", serif;
+  font-size: 4rem;
+  color: var(--matcha-green-dark);
+}
+
+.workshop-text p {
+  font-size: 1.5rem;
+  line-height: 1.7;
+  color: var(--text-body);
+  margin-bottom: 24px;
+  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+}
+
+#matcha {
+  font-family: "Brasika Display Regular", serif;
+  font-size: 90px;
+}
+
+#creations {
+  font-family: "Brasika Display Regular", serif;
+  font-size: 80px;
+  color: black;
+  padding: 0%;
+}
+
+.last-image{
+  width: 500px;
+  height: auto;
+  border: 4px solid #5f8c3c;
+  border-radius: 50%;
+  padding: 10px;
+}
+
+.black-text{
+  font-family: "Brasika Display Regular", serif;
+  color: black;
+}

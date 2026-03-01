@@ -1,0 +1,134 @@
+    :root{
+      --green:#1f6b2d;
+      --green-dark:#145020;
+      --yellow:#ffd95a;
+      --text:#1f3b26;
+    }
+
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+    }
+
+    /* ---------- TOP TEXT ---------- */
+    .book-section-text{
+      max-width:1200px;
+      margin:60px auto 40px;
+      text-align:center;
+      padding:0 20px;
+    }
+
+    .book-section-text > p:first-child{
+      font-size:1.5rem;
+      font-weight:700;
+      color:var(--green);
+      margin-bottom:30px;
+    }
+
+    /* ---------- IMAGE STRIP ---------- */
+    .event-image{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:16px;
+      margin-bottom:30px;
+    }
+
+    .event-image img{
+      width:100%;
+      height:260px;
+      object-fit:cover;
+      display:block;
+      border-radius:4px;
+    }
+
+    /* ---------- DESCRIPTION ---------- */
+    .event-text{
+      max-width:900px;
+      margin:0 auto;
+      font-size:1.15rem;
+      font-weight:700;
+      color:var(--green);
+      line-height:1.5;
+    }
+
+    /* ---------- DETAILS ---------- */
+    .details-section{
+      max-width:1000px;
+      margin:40px auto 80px;
+      padding:0 20px;
+    }
+
+    .details-section h1{
+      font-size:1.3rem;
+      font-weight:800;
+      color:var(--green);
+      margin-bottom:20px;
+    }
+
+    .details-section ul{
+      list-style:none;
+      padding-left:0;
+      margin-bottom:40px;
+    }
+
+    .details-section li{
+      position:relative;
+      padding-left:24px;
+      margin-bottom:10px;
+      font-size:1.15rem;
+      font-weight:700;
+      color:var(--green);
+    }
+
+    .details-section li::before{
+      content:"•";
+      position:absolute;
+      left:0;
+      top:0;
+      font-size:1.5rem;
+      line-height:1;
+      color:var(--green);
+    }
+
+    .details-section span{
+      font-weight:800;
+    }
+
+    /* ---------- BUTTON ---------- */
+    .book-button{
+      display:flex;
+      justify-content:flex-end;
+    }
+
+    .book-button button{
+      background:var(--yellow);
+      color:#1f3b26;
+      font-weight:800;
+      font-size:1rem;
+      padding:14px 44px;
+      border:none;
+      border-radius:999px;
+      cursor:pointer;
+      transition:transform .15s ease, box-shadow .15s ease;
+    }
+
+    .book-button button:hover{
+      transform:translateY(-2px);
+      box-shadow:0 8px 20px rgba(0,0,0,.15);
+    }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media(max-width:900px){
+      .event-image{
+        grid-template-columns:1fr;
+      }
+
+      .event-image img{
+        height:220px;
+      }
+
+      .book-button{
+        justify-content:center;
+      }
+    }

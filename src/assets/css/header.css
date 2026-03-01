@@ -1,0 +1,218 @@
+/* ============================= */
+/* RESET (Navbar Only Scope Safe) */
+/* ============================= */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #ffffff;
+  padding: 5px 60px;
+  display: flex;
+  align-items: center;
+}
+
+/* ============================= */
+/* LOGO */
+/* ============================= */
+
+.logo a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.logo img {
+  height: 60px;
+  display: block;
+}
+
+/* ============================= */
+/* NAVIGATION */
+/* ============================= */
+
+.nav-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+nav ul {
+  display: flex;
+  gap: 60px;
+  list-style: none;
+  align-items: center;
+}
+
+nav ul li {
+  position: relative;
+}
+
+nav ul li a,
+.dropbtn {
+  text-decoration: none;
+  font-size: 0.95rem;
+  color: #305b45;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: "Bricolage Grotesque", sans-serif;
+}
+
+nav ul li a:hover,
+.dropbtn:hover {
+  text-decoration: underline;
+}
+
+/* ============================= */
+/* DROPDOWN */
+/* ============================= */
+
+.dropdown {
+  position: relative;
+}
+
+.dropbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.caret {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #305b45;
+  transform: translateY(1px);
+}
+
+.dropdown-content {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 220px;
+  background: #ffffff;
+  border: 1px solid #d8dfda;
+  border-radius: 10px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12);
+  padding: 8px 0;
+  display: none;
+  z-index: 2000;
+}
+
+.dropdown-content a {
+  display: block;
+  padding: 10px 14px;
+  color: #305b45;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.dropdown-content a:hover {
+  background: #f6f7f6;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e6ece8;
+  margin: 6px 0;
+}
+
+.dropdown-header {
+  padding: 10px 14px 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #6b7a62;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* React state-controlled dropdown */
+.dropdown.open .dropdown-content {
+  display: block;
+}
+
+/* ============================= */
+/* ACTION BUTTONS */
+/* ============================= */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-book {
+  padding: 6px 22px;
+  border-radius: 999px;
+  border: 1px solid #305b45;
+  background: #ffffff;
+  color: #305b45;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.btn-book:hover {
+  background: #305b45;
+  color: #ffffff;
+}
+
+/* ============================= */
+/* AVATAR */
+/* ============================= */
+
+.avatar-link {
+  text-decoration: none;
+  display: flex;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #305b45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+  overflow: hidden;
+}
+
+.avatar:hover {
+  transform: scale(1.08);
+  opacity: 0.9;
+}
+
+.avatar svg {
+  width: 18px;
+  height: 18px;
+  fill: #ffffff;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ============================= */
+/* RESPONSIVE */
+/* ============================= */
+
+@media (max-width: 1100px) {
+  header {
+    padding: 8px 20px;
+  }
+
+  nav ul {
+    gap: 28px;
+  }
+}

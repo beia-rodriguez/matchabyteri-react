@@ -1,0 +1,221 @@
+.booking-page{
+  --green:#2f5a2b;
+  --green-2:#37664c;
+  --yellow:#ffd95a;
+  --ink:#1f3b26;
+  --muted:#6b7a62;
+  --field:#e9ece7;
+  --line:#d8dfda;
+  --white:#ffffff;
+
+  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+  background:#fff;
+  color: var(--ink);
+}
+
+/* ✅ Reset ONLY inside booking page */
+.booking-page *{ box-sizing:border-box; margin:0; padding:0; }
+
+.booking-page .wrap{
+  width: min(900px, 96%);
+  margin: 0 auto;
+  padding: 24px 0 60px;
+}
+
+.booking-page .top{
+  display:grid;
+  grid-template-columns: 56px 1fr 1fr;
+  align-items:center;
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+
+.booking-page .back{
+  width: 48px;
+  height: 48px;
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+}
+.booking-page .back img{ width: 22px; height: 22px; opacity:.7; }
+
+.booking-page .date-title{
+  font-weight: 900;
+  color: var(--green-2);
+  font-size: clamp(2.1rem, 4vw, 3.2rem);
+  justify-self:start;
+  line-height:1;
+}
+
+.booking-page .year-title{
+  font-weight: 900;
+  color: var(--green-2);
+  font-size: clamp(2.1rem, 4vw, 3.2rem);
+  justify-self:end;
+  line-height:1;
+}
+
+.booking-page .card{
+  width: 100%;
+  background: #f6f7f6;
+  border-radius: 18px;
+  padding: 28px 26px 26px;
+}
+
+.booking-page .title{
+  color: var(--green);
+  font-weight: 900;
+  font-size: 1.35rem;
+  margin-bottom: 18px;
+  text-align:center;
+}
+
+.booking-page .section-title{
+  color: var(--green);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing:.4px;
+  font-size: .78rem;
+  margin: 18px 0 10px;
+  text-align:center;
+}
+
+.booking-page .field{
+  width: min(520px, 100%);
+  margin: 8px auto;
+}
+
+.booking-page .label{
+  font-size: .75rem;
+  font-weight: 800;
+  color: var(--green-2);
+  text-transform: uppercase;
+  letter-spacing:.4px;
+  margin-bottom: 6px;
+  display:block;
+  text-align:left;
+}
+
+/* ✅ Inputs scoped */
+.booking-page input[type="text"],
+.booking-page input[type="email"],
+.booking-page input[type="time"],
+.booking-page select,
+.booking-page textarea{
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--field);
+  padding: 10px 12px;
+  border-radius: 10px;
+  outline: none;
+  font-size: .9rem;
+  color: var(--ink);
+}
+
+.booking-page input[readonly]{ opacity:.9; }
+
+.booking-page textarea{ resize: vertical; min-height: 42px; }
+
+.booking-page .two-col{
+  width: min(520px, 100%);
+  margin: 8px auto;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.booking-page .options{
+  width: min(520px, 100%);
+  margin: 8px auto 2px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+  align-items:center;
+  justify-content:center;
+}
+
+.booking-page .opt{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--green-2);
+  font-size: .88rem;
+}
+
+.booking-page input[type="radio"],
+.booking-page input[type="checkbox"]{
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green-2);
+}
+
+.booking-page .small-note{
+  width: min(520px, 100%);
+  margin: 0 auto;
+  text-align:left;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.booking-page .actions{
+  width: min(520px, 100%);
+  margin: 18px auto 0;
+  display:flex;
+  justify-content:flex-end;
+  gap: 12px;
+}
+
+.booking-page .btn{
+  border:none;
+  cursor:pointer;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-weight: 900;
+  letter-spacing:.3px;
+  font-size: .85rem;
+}
+
+.booking-page .btn-cancel,
+.booking-page .btn-edit{
+  background: transparent;
+  color: var(--green-2);
+  border: 2px solid var(--green-2);
+}
+
+.booking-page .btn-next,
+.booking-page .btn-confirm{
+  background: var(--yellow);
+  color: #1f3b26;
+}
+
+.booking-page .error{
+  width: min(520px, 100%);
+  margin: 0 auto 10px;
+  color: #b00020;
+  font-weight: 800;
+  font-size: .9rem;
+  text-align:center;
+}
+
+.booking-page .blocked{
+  width: min(520px, 100%);
+  margin: 0 auto 10px;
+  color: var(--green);
+  font-weight: 900;
+  text-align:center;
+}
+
+.booking-page .review input,
+.booking-page .review select,
+.booking-page .review textarea{ opacity: .95; }
+
+@media (max-width: 640px){
+  .booking-page .two-col,
+  .booking-page .options{ grid-template-columns: 1fr; }
+
+  .booking-page .actions{ justify-content: space-between; }
+}

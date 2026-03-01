@@ -1,0 +1,194 @@
+:root{
+  --green:#2f5a2b;
+  --green-2:#37664c;
+  --grid:#9fb3a7;
+  --ink:#1f3b26;
+  --muted:#6b7a62;
+  --bg:#ffffff;
+  --card:#ffffff;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{
+  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.cal-page{
+  width: min(1200px, 96%);
+  margin: 0 auto;
+  padding: 26px 0 50px;
+}
+
+.cal-top{
+  display:grid;
+  grid-template-columns: 72px 1fr 1fr 72px;
+  align-items:center;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.nav-btn{
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  width: 52px;
+  height: 52px;
+  display:grid;
+  place-items:center;
+  margin: 0 auto;
+}
+.nav-btn img{
+  width: 30px;
+  height: 30px;
+  display:block;
+  opacity:.85;
+  transition: .12s ease;
+}
+.nav-btn:hover img{ opacity:1; transform: translateY(-1px); }
+
+.month-title{
+  font-weight:900;
+  color: var(--green-2);
+  font-size: clamp(2.6rem, 5vw, 4.2rem);
+  justify-self:start;
+  padding-left: 6px;
+  line-height: 1;
+}
+.year-title{
+  font-weight:900;
+  color: var(--green-2);
+  font-size: clamp(2.6rem, 5vw, 4.2rem);
+  justify-self:end;
+  padding-right: 6px;
+  line-height: 1;
+}
+
+.cal-wrap{
+  display:flex;
+  justify-content:center;
+  margin-top: 10px;
+}
+
+.cal{
+  width: min(900px, 100%);
+  background: var(--card);
+}
+
+.dow{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 2px solid var(--grid);
+  border-bottom: none;
+  background: var(--green-2);
+  color:#fff;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  font-size: 0.95rem;
+}
+.dow div{
+  padding: 10px 0;
+  text-align:center;
+  border-right: 2px solid rgba(255,255,255,.25);
+}
+.dow div:last-child{ border-right:none; }
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 2px solid var(--grid);
+  border-top: none;
+}
+
+.cell{
+  position:relative;
+  min-height: 88px;
+  border-right: 1.5px solid var(--grid);
+  border-top: 1.5px solid var(--grid);
+  padding: 10px 10px 12px;
+  cursor:pointer;
+  background:#fff;
+  transition: background .12s ease, transform .12s ease;
+}
+.cell:nth-child(7n){ border-right:none; }
+
+.cell:hover{
+  background: #f3f6f2;
+  transform: translateY(-1px);
+}
+
+.cell.is-empty{
+  cursor:default;
+  background:#fff;
+}
+
+.num{
+  font-weight:900;
+  color: var(--green-2);
+  font-size: 0.95rem;
+}
+/* Disabled states */
+.cell.is-disabled,
+.cell.is-past{
+  opacity:.60;
+  cursor:not-allowed;
+  pointer-events:none;
+}
+
+/* Badge (NOT AVAILABLE / FULLY BOOKED) */
+.cell .badge{
+  position:absolute;
+  left:10px;
+  bottom:10px;
+  max-width: calc(100% - 20px);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: .72rem;
+  line-height: 1.1;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  background: #2f5a2b;
+  color: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  word-wrap: break-word;
+}
+
+/* Reason text above badge */
+.cell .reason{
+  position:absolute;
+  left:10px;
+  bottom: 34px;
+  max-width: calc(100% - 20px);
+  font-size: .72rem;
+  font-weight: 800;
+  color: #2f5a2b;
+  opacity: .9;
+  line-height: 1.15;
+}
+
+/* Simple text label (for PAST DATE) */
+.cell .plain-label{
+  position:absolute;
+  left:10px;
+  bottom:10px;
+  font-size:.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing:.3px;
+  color:#2f5a2b;
+}
+
+/* OPEN day booking count indicator */
+.cell .slots{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  font-size:.72rem;
+  font-weight: 900;
+  color:#2f5a2b;
+  opacity:.95;
+  white-space:nowrap;
+}
