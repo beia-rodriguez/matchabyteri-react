@@ -1,0 +1,195 @@
+.ws-signup-page{
+  --green:#2f5a2b;
+  --green-2:#37664c;
+  --yellow:#ffd95a;
+  --ink:#1f3b26;
+  --muted:#6b7a62;
+  --panel:#f6f7f6;
+  --line:#d8dfda;
+  --max:1600px;
+
+  min-height:100vh;
+  background:#fff;
+}
+
+.ws-signup-page *{
+  box-sizing:border-box;
+}
+
+.ws-signup-wrap{
+  width:min(var(--max), 96%);
+  margin:0 auto;
+  padding:26px 0 70px;
+}
+
+.ws-signup-heading{
+  color:var(--green-2);
+  font-weight:900;
+  font-size:clamp(1.95rem, 2.8vw, 3rem);
+  line-height:1.08;
+  margin:18px 0 14px;
+}
+
+.ws-signup-sub{
+  color:var(--muted);
+  font-weight:700;
+  margin-bottom:18px;
+  line-height:1.55;
+  max-width:900px;
+}
+
+.ws-signup-tabs{
+  display:flex;
+  gap:10px;
+  margin:6px 0 18px;
+  flex-wrap:wrap;
+}
+
+.ws-signup-tab{
+  appearance:none;
+  -webkit-appearance:none;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--green-2);
+  font-weight:900;
+  padding:10px 14px;
+  border-radius:999px;
+  cursor:pointer;
+  transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.ws-signup-tab:hover{
+  transform:translateY(-1px);
+}
+
+.ws-signup-tab.is-active{
+  border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(47,90,43,.12);
+}
+
+.ws-signup-section-title{
+  margin:18px 0 14px;
+  font-weight:900;
+  color:var(--green);
+  font-size:1.28rem;
+  line-height:1.2;
+}
+
+.ws-signup-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:20px;
+  align-items:start;
+}
+
+.ws-signup-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:22px;
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+  text-decoration:none;
+  color:inherit;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  align-self:start;
+}
+
+.ws-signup-card:hover{
+  transform:translateY(-3px);
+  box-shadow:0 20px 40px rgba(0,0,0,.08);
+  border-color:#bfd0c5;
+}
+
+.ws-signup-poster{
+  width:100%;
+  aspect-ratio:16 / 10;
+  object-fit:cover;
+  display:block;
+  background:#eef2ee;
+  border-bottom:1px solid rgba(0,0,0,.04);
+}
+
+.ws-signup-card-content{
+  padding:16px 16px 18px;
+}
+
+.ws-signup-pill-row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.ws-signup-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:6px 11px;
+  font-weight:900;
+  color:var(--green-2);
+  font-size:.78rem;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.ws-signup-pill.is-full{
+  color:#b00020;
+  border-color:#f0b7c2;
+  background:#fff0f2;
+}
+
+.ws-signup-pill.is-left{
+  color:#145020;
+  border-color:#b8d7c8;
+  background:#e8f3ee;
+}
+
+.ws-signup-card-title{
+  font-weight:900;
+  color:var(--green-2);
+  font-size:1.18rem;
+  line-height:1.2;
+  margin-bottom:10px;
+  letter-spacing:.01em;
+  text-transform:none;
+}
+
+.ws-signup-meta{
+  color:var(--muted);
+  font-weight:700;
+  font-size:.96rem;
+  line-height:1.55;
+  word-break:break-word;
+}
+
+@media (max-width: 1100px){
+  .ws-signup-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px){
+  .ws-signup-wrap{
+    width:min(96%, 680px);
+    padding:22px 0 56px;
+  }
+
+  .ws-signup-grid{
+    grid-template-columns:1fr;
+    gap:16px;
+  }
+
+  .ws-signup-card-title{
+    font-size:1.06rem;
+  }
+
+  .ws-signup-meta{
+    font-size:.92rem;
+  }
+}

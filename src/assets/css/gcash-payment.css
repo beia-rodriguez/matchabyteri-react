@@ -1,0 +1,154 @@
+:root {
+  --green: #2f5a2b;
+  --line: #d8dfda;
+  --gcash-panel: #ffffffcc;
+  --input: #eef1ec;
+  --yellow: #ffde59;
+  --text: #2e3a2b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+
+
+.wrap {
+  width: min(900px, 94%);
+  margin: 0 auto;
+  padding: 34px 0 90px;
+}
+
+.card {
+  background: var(--gcash-panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  backdrop-filter: blur(6px);
+}
+
+h1 {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 900;
+  color: var(--green);
+}
+
+.sub {
+  margin-top: 6px;
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+.alert {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-weight: 800;
+}
+
+.alert.bad {
+  color: #b00020;
+}
+
+.gcash-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.qr {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.qr img {
+  width: 100%;
+  display: block;
+}
+
+.biz {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 14px;
+  font-weight: 900;
+  color: var(--green);
+  line-height: 1.4;
+}
+
+form {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+label {
+  font-weight: 900;
+  color: var(--green);
+  margin-bottom: 6px;
+  display: block;
+}
+
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--input);
+  font-size: 1rem;
+  outline: none;
+}
+
+input[type="file"] {
+  width: 100%;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-weight: 800;
+}
+
+.btn {
+  margin-top: 4px;
+  background: var(--yellow);
+  color: var(--green);
+  font-weight: 900;
+  font-size: 1.05rem;
+  padding: 14px 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.note {
+  margin-top: 10px;
+  font-weight: 800;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.back {
+  display: inline-block;
+  margin-top: 14px;
+  text-decoration: none;
+  font-weight: 900;
+  color: var(--green);
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

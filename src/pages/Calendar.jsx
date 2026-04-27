@@ -34,7 +34,7 @@ export default function Calendar() {
   };
 
   useEffect(() => {
-    API.get("/calendar/calendar-status.php", {
+    API.get("/calendar/calendar_status.php", {
       params: {
         year: view.getFullYear(),
         month: view.getMonth() + 1,
@@ -93,7 +93,9 @@ export default function Calendar() {
 
         } catch (err) {
           // ❌ If not logged in → go to Login
-          navigate(`/login?redirect=/day?date=${key}&type=${bookingType}`);
+          navigate(
+  `/login?redirect=${encodeURIComponent(`/day?date=${key}&type=${bookingType}`)}`
+);
         }
       };
 

@@ -7,9 +7,11 @@ header {
   top: 0;
   z-index: 1000;
   background: #ffffff;
-  padding: 5px 60px;
+  padding: 8px 60px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 /* ============================= */
@@ -25,6 +27,11 @@ header {
 .logo img {
   height: 60px;
   display: block;
+  transition: transform 0.2s ease;
+}
+
+.logo img:hover {
+  transform: scale(1.03);
 }
 
 /* ============================= */
@@ -58,15 +65,16 @@ nav ul li a,
   border: none;
   cursor: pointer;
   font-family: "Bricolage Grotesque", sans-serif;
+  transition: color 0.2s ease;
 }
 
 nav ul li a:hover,
 .dropbtn:hover {
-  text-decoration: underline;
+  color: #1f3f2f;
 }
 
 /* ============================= */
-/* DROPDOWN */
+/* DROPDOWN (Smooth Premium) */
 /* ============================= */
 
 .dropdown {
@@ -77,9 +85,10 @@ nav ul li a:hover,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
+/* CARET */
 .caret {
   width: 10px;
   height: 10px;
@@ -87,55 +96,69 @@ nav ul li a:hover,
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
   border-top: 6px solid #305b45;
-  transform: translateY(1px);
+  transition: transform 0.25s ease;
 }
 
+.dropdown.open .caret {
+  transform: rotate(180deg);
+}
+
+/* DROPDOWN PANEL */
 .dropdown-content {
   position: absolute;
-  top: calc(100% + 10px);
+  top: 120%;
   left: 0;
-  min-width: 220px;
+  min-width: 230px;
   background: #ffffff;
-  border: 1px solid #d8dfda;
-  border-radius: 10px;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12);
-  padding: 8px 0;
-  display: none;
+  border: 1px solid #e4ebe6;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  padding: 10px 0;
   z-index: 2000;
+
+  /* Animation */
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  pointer-events: none;
+  transition: all 0.25s ease;
 }
 
+/* Open State */
+.dropdown.open .dropdown-content {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Dropdown Links */
 .dropdown-content a {
   display: block;
-  padding: 10px 14px;
+  padding: 10px 18px;
   color: #305b45;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.92rem;
-  white-space: nowrap;
+  transition: background 0.2s ease, padding-left 0.2s ease;
 }
 
 .dropdown-content a:hover {
-  background: #f6f7f6;
+  background: #f4f7f5;
+  padding-left: 22px;
 }
 
 .dropdown-divider {
   height: 1px;
   background: #e6ece8;
-  margin: 6px 0;
+  margin: 8px 0;
 }
 
 .dropdown-header {
-  padding: 10px 14px 6px;
-  font-size: 0.78rem;
+  padding: 8px 18px 6px;
+  font-size: 0.75rem;
   font-weight: 800;
-  color: #6b7a62;
+  color: #7b8a7c;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-/* React state-controlled dropdown */
-.dropdown.open .dropdown-content {
-  display: block;
+  letter-spacing: 0.5px;
 }
 
 /* ============================= */
@@ -149,19 +172,20 @@ nav ul li a:hover,
 }
 
 .btn-book {
-  padding: 6px 22px;
+  padding: 7px 24px;
   border-radius: 999px;
   border: 1px solid #305b45;
   background: #ffffff;
   color: #305b45;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .btn-book:hover {
   background: #305b45;
   color: #ffffff;
+  transform: translateY(-1px);
 }
 
 /* ============================= */
@@ -174,15 +198,15 @@ nav ul li a:hover,
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #305b45;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: all 0.2s ease;
   overflow: hidden;
 }
 

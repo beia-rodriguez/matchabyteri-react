@@ -1,0 +1,155 @@
+.admin-section-label {
+  margin-bottom: 6px;
+}
+
+.admin-panel-no-top-margin {
+  margin-top: 0;
+}
+
+.admin-heading-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-form-row-three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.admin-form-row-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.admin-edit-row-top {
+  grid-template-columns: 1.2fr 160px 190px 160px;
+}
+
+.admin-block-spacing {
+  margin: 10px 0 12px;
+}
+
+.admin-poster-upload-block {
+  margin: 10px 0 14px;
+}
+
+.admin-file-selected {
+  margin-top: 8px;
+}
+
+.admin-inline-file-selected {
+  margin-top: 6px;
+}
+
+.admin-save-workshop-btn {
+  padding: 15px 14px;
+}
+
+.admin-textarea-full {
+  width: 100%;
+  resize: vertical;
+}
+
+.admin-workshops-toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.admin-existing-workshops-title {
+  margin: 0;
+  font-size: 27.88px;
+}
+
+.admin-workshops-toolbar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-search-wrap {
+  position: relative;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.65;
+}
+
+.admin-search-input {
+  padding-left: 36px;
+  min-width: 220px;
+}
+
+.admin-workshop-table-cell {
+  padding: 0;
+}
+
+.admin-workshop-inner {
+  padding: 14px;
+}
+
+.admin-workshop-header {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.admin-workshop-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-icon-inline {
+  margin-right: 6px;
+}
+
+.admin-inline-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.admin-top-gap-sm {
+  margin-top: 10px;
+}
+
+.admin-pill-offset-left {
+  margin-left: 8px;
+}
+
+.admin-nowrap {
+  white-space: nowrap;
+}
+
+.admin-reg-action-btn {
+  padding: 7px 12px;
+}
+
+.admin-reg-action-btn-right {
+  margin-right: 8px;
+}
+
+.admin-registrations-header {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-table-scroll-wrap {
+  overflow: auto;
+  margin-top: 10px;
+}

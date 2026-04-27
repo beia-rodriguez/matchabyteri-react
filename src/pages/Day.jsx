@@ -16,7 +16,9 @@ export default function Day() {
     : "both";
 
   const [data, setData] = useState(null);
-  const [activeTab, setActiveTab] = useState("event");
+  const [activeTab, setActiveTab] = useState(
+    type === "both" ? "event" : type
+  );
 
   useEffect(() => {
     if (!date) {
@@ -25,7 +27,7 @@ export default function Day() {
     }
 
     API.get("/calendar/day-data.php", {
-      params: { date, type }
+      params: { date }
     })
       .then(res => {
         const safeData = {
@@ -41,18 +43,13 @@ export default function Day() {
         setData(safeData);
       })
       .catch(err => {
-        console.log("DAY API ERROR:", err);
-
         if (err.response?.status === 401) {
           navigate("/login");
         }
       });
+  }, [date, navigate]);
 
-  }, [date, type, navigate]);
-
-  if (!data) {
-    return null;
-  }
+  if (!data) return null;
 
   const handleBack = () => {
     navigate(`/calendar?type=${type}`);
@@ -61,6 +58,12 @@ export default function Day() {
   const goToReminder = (bookingType) => {
     navigate(`/reminder?date=${date}&type=${bookingType}`);
   };
+
+  const showEvent =
+    type === "event" || (type === "both" && activeTab === "event");
+
+  const showWorkshop =
+    type === "workshop" || (type === "both" && activeTab === "workshop");
 
   return (
     <>
@@ -79,116 +82,104 @@ export default function Day() {
         <div className="panel">
           <h2>{data.heading}</h2>
 
-          {data.blocked ? (
-            <>
-              <div className="note">
-                This day is marked as NOT AVAILABLE.
-              </div>
+          {type === "both" && (
+            <div className="toggle-row">
+              <button
+                className={`toggle-btn ${
+                  activeTab === "event" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("event")}
+              >
+                Events
+              </button>
 
-              {data.block_reason && (
-                <div className="reason">{data.block_reason}</div>
+              <button
+                className={`toggle-btn ${
+                  activeTab === "workshop" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("workshop")}
+              >
+                Workshops
+              </button>
+            </div>
+          )}
+
+          {/* ================= EVENTS ================= */}
+          {showEvent && (
+            <>
+              {!data.eventFullyBooked && (
+                <button
+                  className="add-pill"
+                  onClick={() => goToReminder("event")}
+                >
+                  ＋ Book Event
+                </button>
               )}
-            </>
-          ) : (
-            <>
-              {type === "both" && (
-                <div className="toggle-row">
-                  <button
-                    className={`toggle-btn ${
-                      activeTab === "event" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("event")}
-                  >
-                    Events
-                  </button>
 
-                  <button
-                    className={`toggle-btn ${
-                      activeTab === "workshop" ? "active" : ""
-                    }`}
-                    onClick={() => setActiveTab("workshop")}
-                  >
-                    Workshops
-                  </button>
+              {data.bookings_event.length > 0 ? (
+                data.bookings_event.map((b, i) => (
+                  <div key={i} className="booking-pill">
+                    <div className="name">
+                      Event • {data.monthDay}, {data.year}
+                    </div>
+
+                    {b.start_time && (
+                      <div className="time">
+                        {b.start_time} - {b.end_time}
+                      </div>
+                    )}
+
+                    {b.status && (
+                      <div className={`status ${b.status}`}>
+                        {b.status}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="note">
+                  No events yet for this day.
                 </div>
               )}
+            </>
+          )}
 
-              {(type === "event" || activeTab === "event") && (
-                <>
-                  {!data.fullyBooked && (
-                    <button
-                      className="add-pill"
-                      onClick={() => goToReminder("event")}
-                    >
-                      ＋ Book Event
-                    </button>
-                  )}
-
-                  {data.bookings_event.length > 0 ? (
-                    data.bookings_event.map((b, i) => (
-                      <div key={i} className="booking-pill">
-                        <div className="name">
-                          Event • {data.monthDay}, {data.year}
-                        </div>
-
-                        {b.start_time && (
-                          <div className="time">
-                            {b.start_time} - {b.end_time}
-                          </div>
-                        )}
-
-                        {b.status && (
-                          <div className={`status ${b.status}`}>
-                            {b.status}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="note">
-                      No events yet for this day.
-                    </div>
-                  )}
-                </>
+          {/* ================= WORKSHOPS ================= */}
+          {showWorkshop && (
+            <>
+              {!data.workshopFullyBooked && (
+                <button
+                  className="add-pill"
+                  onClick={() => goToReminder("workshop")}
+                >
+                  ＋ Book Workshop
+                </button>
               )}
 
-              {(type === "workshop" || activeTab === "workshop") && (
-                <>
-                  {!data.fullyBooked && (
-                    <button
-                      className="add-pill"
-                      onClick={() => goToReminder("workshop")}
-                    >
-                      ＋ Book Workshop
-                    </button>
-                  )}
-
-                  {data.bookings_workshop.length > 0 ? (
-                    data.bookings_workshop.map((b, i) => (
-                      <div key={i} className="booking-pill">
-                        <div className="name">
-                          Workshop • {data.monthDay}, {data.year}
-                        </div>
-
-                        {b.start_time && (
-                          <div className="time">
-                            {b.start_time} - {b.end_time}
-                          </div>
-                        )}
-
-                        {b.status && (
-                          <div className={`status ${b.status}`}>
-                            {b.status}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="note">
-                      No workshops yet for this day.
+              {data.bookings_workshop.length > 0 ? (
+                data.bookings_workshop.map((b, i) => (
+                  <div key={i} className="booking-pill">
+                    <div className="name">
+                      Workshop • {data.monthDay}, {data.year}
                     </div>
-                  )}
-                </>
+
+                    {b.start_time && (
+                      <div className="time">
+                        {b.start_time} - {b.end_time}
+                      </div>
+                    )}
+
+                    {b.status && (
+                      <div className={`status ${b.status}`}>
+                        {b.status}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="note">
+                  No workshops yet for this day.
+                </div>
               )}
             </>
           )}

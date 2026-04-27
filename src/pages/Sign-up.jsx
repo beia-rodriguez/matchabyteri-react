@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
-import "../assets/css/sign-up.css";
+import "../assets/css/signup.css";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -101,7 +101,7 @@ export default function SignUp() {
           <img className="brand-logo" src="/images/MBT_white 1.png" alt="Matcha By Teri" />
         </div>
 
-        <div className="card">
+        <div className="signup-card">
           <h1>Sign Up</h1>
 
           {error && <div className="alert">{error}</div>}
@@ -191,7 +191,7 @@ export default function SignUp() {
             </button>
           </form>
 
-          <div className="footer">
+          <div className="signup-footer">
             Already a user? <a href="/login">LOG IN</a>
           </div>
         </div>

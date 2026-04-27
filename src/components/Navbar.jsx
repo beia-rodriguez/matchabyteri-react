@@ -1,15 +1,28 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import "../assets/css/header.css"; // your navbar css
+import "../assets/css/header.css";
 
 function Navbar() {
   const [open, setOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLinkClick = () => setOpen(false);
 
   return (
     <header>
       <div className="logo">
         <Link to="/">
-          {/* ✅ Use public path instead of import */}
           <img src="/images/MBT_green 1.png" alt="Logo" />
         </Link>
       </div>
@@ -21,26 +34,24 @@ function Navbar() {
             <li><Link to="/about">About us</Link></li>
             <li><Link to="/event">Event</Link></li>
 
-            <li
-              className={`dropdown ${open ? "open" : ""}`}
-              onMouseLeave={() => setOpen(false)}
-            >
-              <button
-                className="dropbtn"
-                onClick={() => setOpen(!open)}
-              >
+            <li className={`dropdown ${open ? "open" : ""}`} ref={dropdownRef}>
+              <button className="dropbtn" onClick={() => setOpen(prev => !prev)}>
                 Workshop <span className="caret"></span>
               </button>
 
               <div className="dropdown-content">
-                <Link to="/public-workshop">Public Workshop</Link>
-                <Link to="/private-workshop">Private Workshop</Link>
+                {/* ✅ PUBLIC workshop list page (WorkshopSignup.jsx) */}
+                <Link to="/public-workshops" onClick={handleLinkClick}>
+                  Public Workshop
+                </Link>
+
+                {/* ✅ PRIVATE workshop page (PrivateWorkshop.jsx) */}
+                <Link to="/private-workshop" onClick={handleLinkClick}>
+                  Private Workshop
+                </Link>
 
                 <div className="dropdown-divider"></div>
                 <div className="dropdown-header">More</div>
-
-                <Link to="/gallery">Gallery</Link>
-                <Link to="/faq">FAQ</Link>
               </div>
             </li>
           </ul>
@@ -55,9 +66,7 @@ function Navbar() {
         <Link to="/profile" className="avatar-link">
           <div className="avatar">
             <svg viewBox="0 0 24 24">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 
-                       1.79-4 4 1.79 4 4 4zm0 2c-3.33 0-6 2.01-6 
-                       4.5V20h12v-1.5c0-2.49-2.67-4.5-6-4.5z"/>
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4 1.79 4 4 4zm0 2c-3.33 0-6 2.01-6 4.5V20h12v-1.5c0-2.49-2.67-4.5-6-4.5z" />
             </svg>
           </div>
         </Link>

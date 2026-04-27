@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/add-booking.css";
-import { useEffect } from "react";
-
 
 export default function AddEventBooking() {
   const [searchParams] = useSearchParams();
@@ -14,10 +12,10 @@ export default function AddEventBooking() {
   const type = "event";
 
   useEffect(() => {
-  if (!date) {
-    navigate("/calendar");
-  }
-}, [date, navigate]);
+    if (!date) {
+      navigate("/calendar");
+    }
+  }, [date, navigate]);
 
   const [step, setStep] = useState("form");
   const [error, setError] = useState("");
@@ -47,6 +45,7 @@ export default function AddEventBooking() {
 
   const handleCheckbox = (e, field) => {
     const value = e.target.value;
+
     if (e.target.checked) {
       setForm({ ...form, [field]: [...form[field], value] });
     } else {
@@ -57,50 +56,89 @@ export default function AddEventBooking() {
     }
   };
 
-  const handleReview = async () => {
-    setError("");
+  const handleStartTime = (e) => {
+    const start = e.target.value;
 
-    try {
-      const res = await API.post(
-        "/bookings/event/validate-event-booking.php",
-        {
-          date,
-          start_time: form.start_time,
-          end_time: form.end_time,
-        }
-      );
-
-      if (res.data.success) {
-        setStep("review");
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || "Validation failed.");
-    }
+    setForm({
+      ...form,
+      start_time: start,
+      end_time: addHours(start, 4),
+    });
   };
 
-  const handleConfirm = async () => {
-    setError("");
+  const pad = (n) => String(n).padStart(2, "0");
 
-    try {
-      const res = await API.post(
-        "/bookings/event/create-event-booking.php",
-        {
-          date,
-          start_time: form.start_time,
-          end_time: form.end_time,
-          draft: form,
-        }
-      );
+  const addHours = (timeStr, hoursToAdd) => {
+    if (!timeStr) return "";
+    const [h, m] = timeStr.split(":").map(Number);
 
-      if (res.data.success) {
-        navigate(
-          `/gcash-payment?purpose=event_booking&booking_id=${res.data.booking_id}`
-        );
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || "Booking failed.");
-    }
+    const d = new Date(2000, 0, 1, h, m, 0);
+    d.setHours(d.getHours() + hoursToAdd);
+
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
+
+ const handleReview = () => {
+  setError("");
+
+  // Optional: basic validation
+  if (!form.full_name || !form.email || !form.start_time) {
+    setError("Please fill out required fields: name, email, start time.");
+    return;
+  }
+
+  // No API call here — just move to review step
+  setStep("review");
+};
+
+const handleConfirm = async () => {
+  setError("");
+  try {
+    const res = await API.post(
+      "/bookings/event/create-event-booking.php",
+      {
+        date,
+        start_time: form.start_time,
+        end_time: form.end_time,
+        draft: form, // sends all form fields
+      }
+    );
+
+    console.log("API Response:", res); // DEBUG: log full response
+
+    if (res.data.success) {
+      const newId = res.data.booking_id;
+      navigate(`/gcash-payment?purpose=event_booking&booking_id=${newId}`);
+    } else {
+      console.log("Booking error data:", res.data); // DEBUG: log error payload
+      setError(res.data.error || "Booking failed.");
+    }
+  } catch (err) {
+    console.error("Confirm error:", err); // DEBUG: log entire error object
+
+    if (err.response) {
+      // Server responded with status code != 2xx
+      console.log("Error response data:", err.response.data);
+      console.log("Error response status:", err.response.status);
+      console.log("Error response headers:", err.response.headers);
+
+      if (err.response.status === 401) {
+        setError("Please log in to confirm your booking.");
+        navigate("/login");
+      } else {
+        setError(err.response.data?.error || "Connection error. Please try again.");
+      }
+    } else if (err.request) {
+      // Request made but no response
+      console.log("No response received:", err.request);
+      setError("No response from server. Check backend or network.");
+    } else {
+      // Something else caused the error
+      console.log("Error message:", err.message);
+      setError(err.message || "Something went wrong. Try again.");
+    }
+  }
+};
 
   return (
     <>
@@ -118,6 +156,7 @@ export default function AddEventBooking() {
             >
               ← Back
             </button>
+
             <div className="date-title">{date}</div>
           </div>
 
@@ -125,110 +164,326 @@ export default function AddEventBooking() {
 
           {step === "form" && (
             <>
-              <h2>Book your event now!</h2>
+              <div className="title">Book your event now!</div>
+
+              <div className="section-title">CONTACT INFORMATION</div>
 
               <div className="field">
-                <label>Full Name</label>
-                <input name="full_name" onChange={handleChange} />
+                <label className="label">Full Name</label>
+                <input
+                  name="full_name"
+                  value={form.full_name}
+                  onChange={handleChange}
+                />
               </div>
 
               <div className="field">
-                <label>Phone Number</label>
-                <input name="phone_number" onChange={handleChange} />
+                <label className="label">Phone Number</label>
+                <input
+                  name="phone_number"
+                  value={form.phone_number}
+                  onChange={handleChange}
+                />
               </div>
 
               <div className="field">
-                <label>Email</label>
-                <input name="email" onChange={handleChange} />
+                <label className="label">Email Address</label>
+                <input
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                />
               </div>
 
               <div className="field">
-                <label>Event Type</label>
-                <select name="event_type" onChange={handleChange}>
+                <label className="label">
+                  Are you available to contact in the following:
+                </label>
+
+                <div className="options">
+                  {["Text", "Call", "Viber", "Whatsapp"].map((m) => (
+                    <label className="opt" key={m}>
+                      <input
+                        type="checkbox"
+                        value={m}
+                        checked={form.contact_methods.includes(m)}
+                        onChange={(e) =>
+                          handleCheckbox(e, "contact_methods")
+                        }
+                      />
+                      {m}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="section-title">EVENT INFORMATION</div>
+
+              <div className="field">
+                <label className="label">Type of Event</label>
+
+                <select
+                  name="event_type"
+                  value={form.event_type}
+                  onChange={handleChange}
+                >
                   <option value=""></option>
-                  <option>Birthday Party</option>
-                  <option>Corporate Event</option>
-                  <option>Product Launch</option>
-                  <option>Bridal Shower</option>
-                  <option>Baby Shower</option>
-                  <option>Other</option>
+
+                  {[
+                    "Birthday Party",
+                    "Corporate Event",
+                    "Product Launch",
+                    "Bridal Shower",
+                    "Baby Shower",
+                    "Other",
+                  ].map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
                 </select>
               </div>
 
               <div className="field">
-                <label>Event Name</label>
-                <input name="event_name" onChange={handleChange} />
+                <label className="label">Event Name</label>
+                <input
+                  name="event_name"
+                  value={form.event_name}
+                  onChange={handleChange}
+                />
               </div>
 
               <div className="field">
-                <label>Location</label>
-                <input name="location" onChange={handleChange} />
+                <label className="label">Location</label>
+                <input
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                />
               </div>
 
               <div className="field">
-                <label>Guests</label>
-                <select name="guests" onChange={handleChange}>
+                <label className="label">Estimate Number of Guest</label>
+
+                <select
+                  name="guests"
+                  value={form.guests}
+                  onChange={handleChange}
+                >
                   <option value=""></option>
-                  <option>10 - 20</option>
-                  <option>21 - 30</option>
-                  <option>31 - 40</option>
-                  <option>41 - 50</option>
-                  <option>50+</option>
+
+                  {[
+                    "10 - 20",
+                    "21 - 30",
+                    "31 - 40",
+                    "41 - 50",
+                    "50+",
+                  ].map((g) => (
+                    <option key={g}>{g}</option>
+                  ))}
                 </select>
               </div>
 
               <div className="two-col">
-                <input
-                  type="time"
-                  name="start_time"
-                  onChange={handleChange}
-                />
-                <input
-                  type="time"
-                  name="end_time"
-                  onChange={handleChange}
-                />
+                <div className="field">
+                  <label className="label">Work Hours</label>
+
+                  <input
+                    type="time"
+                    name="start_time"
+                    value={form.start_time}
+                    onChange={handleStartTime}
+                  />
+                </div>
+
+                <div className="field">
+                  <label className="label">&nbsp;</label>
+
+                  <input
+                    type="time"
+                    name="end_time"
+                    value={form.end_time}
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              <div className="small-note">
+                Up to 4 hours operation
               </div>
 
               <div className="field">
-                <label>Cup Package</label>
+                <label className="label">Other Request (Optional)</label>
+
                 <input
-                  type="radio"
-                  name="cup_package"
-                  value="50 cups = 13,000"
+                  name="other_request"
+                  value={form.other_request}
                   onChange={handleChange}
-                /> 50 cups = 13,000
+                />
               </div>
 
-              <button className="btn-next" onClick={handleReview}>
-                NEXT
-              </button>
+              <div className="section-title">MODIFICATIONS</div>
+
+              <div className="field">
+                <label className="label">Cup Packages</label>
+
+                <div className="options">
+                  {[
+                    "50 cups = 13,000",
+                    "75 cups = 21,000",
+                    "100 cups = 26,000",
+                    "150 cups = 34,500",
+                    "200 cups = 40,000",
+                  ].map((c) => (
+                    <label className="opt" key={c}>
+                      <input
+                        type="radio"
+                        name="cup_package"
+                        value={c}
+                        checked={form.cup_package === c}
+                        onChange={handleChange}
+                      />
+                      {c}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="label">Menu</label>
+
+                <div className="options">
+                  {[
+                    "4 menu items (as is price as cup packages)",
+                    "6 menu items (+1,500)",
+                    "8 menu items (+3,000)",
+                    "Customized cups logo (+12/cup)",
+                  ].map((m) => (
+                    <label className="opt" key={m}>
+                      <input
+                        type="radio"
+                        name="menu_option"
+                        value={m}
+                        checked={form.menu_option === m}
+                        onChange={handleChange}
+                      />
+                      {m}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="label">Milk Options</label>
+
+                <div className="small-note">
+                  we offer Oatmilk as default
+                </div>
+
+                <div className="options">
+                  {[
+                    "Dairy Milk (+1,500)",
+                    "Non-fat Milk (+1,500)",
+                  ].map((m) => (
+                    <label className="opt" key={m}>
+                      <input
+                        type="radio"
+                        name="milk_option"
+                        value={m}
+                        checked={form.milk_option === m}
+                        onChange={handleChange}
+                      />
+                      {m}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="label">Add-ons</label>
+
+                <div className="options">
+                  {[
+                    "Extra staff (+800/staff)",
+                    "Sintra board sign",
+                  ].map((a) => (
+                    <label className="opt" key={a}>
+                      <input
+                        type="checkbox"
+                        value={a}
+                        checked={form.addons.includes(a)}
+                        onChange={(e) => handleCheckbox(e, "addons")}
+                      />
+                      {a}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="actions">
+                <button
+                  className="btn btn-cancel"
+                  onClick={() =>
+                    navigate(`/day?date=${date}&type=event`)
+                  }
+                >
+                  CANCEL
+                </button>
+
+                <button
+                  className="btn btn-next"
+                  onClick={handleReview}
+                >
+                  NEXT
+                </button>
+              </div>
             </>
           )}
 
           {step === "review" && (
-            <>
-              <h2>Review Your Booking</h2>
+  <>
+    <div className="title">
+      Please review your details carefully, before confirmation.
+    </div>
 
-              <pre style={{ background: "#f5f5f5", padding: 15 }}>
-                {JSON.stringify(form, null, 2)}
-              </pre>
+    {/* Booking Review Card */}
+    <div className="booking-summary animate-fade-in">
+      {Object.entries(form).map(([key, value]) => {
+        // Skip empty fields
+        if (value === "" || (Array.isArray(value) && value.length === 0)) return null;
 
-              <button
-                className="btn-edit"
-                onClick={() => setStep("form")}
-              >
-                EDIT
-              </button>
+        // Format key nicely
+        const label = key
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
 
-              <button
-                className="btn-confirm"
-                onClick={handleConfirm}
-              >
-                CONFIRM
-              </button>
-            </>
-          )}
+        // Format arrays as comma-separated
+        const displayValue = Array.isArray(value) ? value.join(", ") : value;
+
+        return (
+          <div className="booking-row" key={key}>
+            <span className="booking-label">{label}</span>
+            <span className="booking-value">{displayValue}</span>
+          </div>
+        );
+      })}
+    </div>
+
+    <div className="actions">
+      <button
+        className="btn btn-edit"
+        onClick={() => setStep("form")}
+      >
+        EDIT
+      </button>
+
+      <button
+        className="btn btn-confirm"
+        onClick={handleConfirm}
+      >
+        CONFIRM
+      </button>
+    </div>
+  </>
+)}
         </div>
       </div>
     </>

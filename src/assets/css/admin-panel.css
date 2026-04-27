@@ -1,0 +1,577 @@
+/* admin-panel.css */
+
+.admin-shell-react{
+  --green:#2f5a2b;
+  --green-2:#37664c;
+  --yellow:#ffd95a;
+  --ink:#1f3b26;
+  --muted:#6b7a62;
+  --panel:#f6f7f6;
+  --line:#d8dfda;
+
+  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+  color: var(--ink);
+}
+
+.admin-shell-react *{ box-sizing:border-box; }
+.admin-shell-react a,
+.admin-shell-react button{ transition:.12s ease; }
+
+/* Layout */
+
+.admin-layout-react{
+  width:min(1860px,98%);
+  margin:0 auto;
+  padding:clamp(14px,1.2vw,22px) 0 60px;
+  display:grid;
+  grid-template-columns:280px 1fr;
+  gap:clamp(12px,1.2vw,18px);
+  align-items:start;
+}
+
+/* Sidebar */
+
+.admin-sidebar-react{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  height:fit-content;
+  position:sticky;
+  top:92px;
+}
+
+.admin-brand-react{
+  font-weight:900;
+  color:var(--green-2);
+  font-size:1.25rem;
+  margin-bottom:10px;
+  letter-spacing:.2px;
+}
+
+
+.admin-nav-react{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:10px;
+}
+
+.admin-link-react{
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+  color:var(--green-2);
+  background:#fff;
+  border:2px solid rgba(55,102,76,.20);
+  border-radius:14px;
+  padding:11px 12px;
+  will-change:transform;
+}
+
+.admin-link-react:hover{
+  transform:translateY(-1px);
+  border-color:rgba(55,102,76,.35);
+}
+
+.admin-link-react.active{
+  background:var(--green-2);
+  color:#fff;
+  border-color:transparent;
+}
+
+.admin-main-react{ min-width:0; }
+
+/* Top bar */
+
+.admin-topbar-react{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.admin-title-react{
+  font-size:clamp(1.6rem,2vw,2.2rem);
+  font-weight:900;
+  color:var(--green-2);
+}
+
+/* Pills */
+
+.admin-pill-react{
+  border-radius:999px;
+  padding:10px 16px;
+  font-weight:900;
+  cursor:pointer;
+  border:2px solid rgba(55,102,76,.25);
+  background:#fff;
+  color:var(--green-2);
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+
+.admin-pill-react:hover{ transform:translateY(-1px); }
+.admin-pill-react:active{ transform:translateY(0px); }
+
+/* Panels */
+
+.admin-panel-react{
+  background:var(--panel);
+  border-radius:18px;
+  padding:clamp(14px,1.2vw,18px);
+  border:1px solid var(--line);
+  margin-bottom:16px;
+}
+
+.admin-panel-react h3{
+  margin:0 0 12px;
+  font-weight:900;
+  color:var(--green);
+  font-size:1.05rem;
+}
+
+/* Notice */
+
+.admin-notice-react{
+  margin:0 0 14px;
+  font-weight:800;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#fff;
+  border:1px solid var(--line);
+}
+
+.admin-notice-react.ok{ color:#145020; }
+.admin-notice-react.bad{ color:#b00020; }
+
+/* Cards */
+
+.admin-cards-hero-react{
+  margin-bottom:18px;
+}
+
+.admin-card-feature-react{
+  background:linear-gradient(180deg,#f8faf8 0%, #f2f5f2 100%);
+  box-shadow:0 10px 24px rgba(31,59,38,.06);
+}
+
+.admin-card-label-react{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid var(--line);
+  color:var(--green-2);
+  font-weight:900;
+  font-size:.75rem;
+  margin-bottom:10px;
+}
+
+.admin-grid-2-react{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin-bottom:16px;
+}
+
+.admin-grid-3-react{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+}
+
+.admin-stat-list-react{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.admin-stat-item-react{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid var(--line);
+  font-weight:800;
+}
+
+.admin-stat-item-react span{
+  color:var(--muted);
+}
+
+.admin-stat-item-react strong{
+  color:var(--green-2);
+  font-weight:900;
+}
+
+@media (max-width:1100px){
+  .admin-grid-3-react{
+    grid-template-columns:1fr;
+  }
+
+  .admin-grid-2-react{
+    grid-template-columns:1fr;
+  }
+}
+
+.admin-link-react svg,
+.admin-pill-react svg,
+.admin-card-label-react svg{
+  flex:0 0 auto;
+}
+
+.admin-link-react span,
+.admin-pill-react span{
+  line-height:1;
+}
+
+.admin-link-react{
+  box-shadow:0 2px 10px rgba(31,59,38,.03);
+}
+
+.admin-link-react.active{
+  box-shadow:0 8px 20px rgba(55,102,76,.18);
+}
+
+.admin-brand-react{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.admin-card-label-react{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+
+.admin-logout-react{
+  width:100%;
+}
+
+.admin-toolbar-react{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:12px;
+}
+
+.admin-toolbar-actions-react{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.admin-search-wrap-react{
+  position:relative;
+}
+
+.admin-search-wrap-react input{
+  padding-left:36px;
+}
+
+.admin-collapse-card-react{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+}
+
+@media (max-width:980px){
+  .admin-toolbar-react,
+  .admin-toolbar-actions-react{
+    align-items:stretch;
+  }
+}
+
+.admin-card-title-react{
+  margin:0 0 8px;
+  font-weight:900;
+  color:var(--green);
+  font-size:.92rem;
+}
+
+.admin-cards-react{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:clamp(10px,1vw,14px);
+  margin-bottom:16px;
+}
+
+.admin-card-react{
+  background:var(--panel);
+  border-radius:18px;
+  padding:clamp(14px,1.1vw,18px);
+  border:1px solid var(--line);
+}
+
+.admin-card-react h4{
+  margin:0 0 8px;
+  font-weight:900;
+  color:var(--green);
+  font-size:.92rem;
+}
+
+.admin-big-react{
+  font-weight:900;
+  font-size:clamp(1.55rem,1.5vw,1.9rem);
+  color:var(--green-2);
+}
+
+.admin-muted-react{
+  color:var(--muted);
+  font-weight:700;
+  font-size:.85rem;
+  margin-top:6px;
+}
+
+/* Tables */
+
+.admin-table-react{
+  width:100%;
+  border-collapse:collapse;
+  overflow:hidden;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid var(--line);
+}
+
+.admin-table-react th,
+.admin-table-react td{
+  padding:10px;
+  text-align:left;
+  border-bottom:1px solid var(--line);
+  font-size:.9rem;
+  vertical-align:top;
+}
+
+.admin-table-react th{
+  background:#f0f3f0;
+  color:var(--green-2);
+  font-weight:900;
+  font-size:.82rem;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+}
+
+/* Buttons */
+
+.admin-row-actions-react{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.admin-btn-react{
+  border:none;
+  cursor:pointer;
+  border-radius:999px;
+  padding:8px 12px;
+  font-weight:900;
+  font-size:.8rem;
+}
+
+.admin-btn-approve-react{ background:var(--yellow); color:#1f3b26; }
+
+.admin-btn-cancel-react{
+  background:transparent;
+  border:2px solid var(--green-2);
+  color:var(--green-2);
+}
+
+/* Forms */
+
+.admin-form-row-react{
+  display:grid;
+  grid-template-columns:1fr 1.5fr auto;
+  gap:10px;
+  align-items:end;
+  margin-bottom:12px;
+}
+
+.admin-input-react{
+  width:100%;
+  border:1px solid var(--line);
+  background:#fff;
+  padding:10px 12px;
+  border-radius:12px;
+  outline:none;
+  font-size:.9rem;
+}
+
+.admin-input-react:focus{
+  border-color:rgba(55,102,76,.55);
+  box-shadow:0 0 0 4px rgba(55,102,76,.10);
+}
+
+/* Tabs */
+
+.admin-tabs-react{
+  display:flex;
+  gap:10px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+
+.admin-tab-react{
+  border:none;
+  cursor:pointer;
+  border-radius:999px;
+  padding:8px 14px;
+  font-weight:900;
+  background:#fff;
+  color:var(--green-2);
+  border:2px solid rgba(55,102,76,.25);
+}
+
+.admin-tab-react:hover{ transform:translateY(-1px); }
+
+.admin-tab-react.active{
+  background:var(--green-2);
+  color:#fff;
+  border-color:transparent;
+}
+
+.admin-section-react{ display:none; }
+.admin-section-react.show{ display:block; }
+
+.admin-panel-react canvas{
+  width:100% !important;
+  max-width:100%;
+}
+
+.pill-mini-react{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  font-weight:900;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  background:#fff;
+  color:var(--green-2);
+  cursor:pointer;
+  font-size:.82rem;
+  line-height:1;
+  appearance:none;
+  -webkit-appearance:none;
+  box-shadow:none;
+}
+
+.pill-mini-react:hover{
+  transform:translateY(-1px);
+  border-color:rgba(55,102,76,.35);
+}
+
+.pill-mini-react:active{
+  transform:translateY(0);
+}
+
+.pill-mini-react.bad{
+  border-color:#f0b7c2;
+  background:#fff0f2;
+  color:#b00020;
+}
+
+.pill-mini-react svg{
+  flex:0 0 auto;
+}
+.workshop-card-react{
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+}
+
+.workshop-poster-react img{
+  width:160px;
+  height:160px;
+  object-fit:cover;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#fff;
+}
+
+.poster-placeholder-react{
+  width:160px;
+  height:160px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+}
+
+.workshop-info-react{
+  flex:1;
+}
+
+.workshop-title-react{
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:6px;
+}
+
+.workshop-meta-react{
+  color:var(--muted);
+  margin-bottom:4px;
+}
+
+.workshop-actions-react{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+/* Responsive */
+
+@media (max-width:1366px){
+  .admin-layout-react{
+    width:min(1320px,96%);
+    grid-template-columns:260px 1fr;
+  }
+
+  .admin-cards-react{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+
+@media (max-width:1100px){
+  .admin-layout-react{ grid-template-columns:240px 1fr; }
+
+  .admin-cards-react{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:980px){
+  .admin-layout-react{ grid-template-columns:1fr; }
+  .admin-sidebar-react{ position:static; }
+  .admin-cards-react{ grid-template-columns:1fr; }
+  .admin-form-row-react{ grid-template-columns:1fr; }
+}
+
+@media (max-width:520px){
+  .admin-link-react{ padding:10px 10px; }
+  .admin-panel-react{ padding:14px; }
+  .admin-card-react{ padding:14px; }
+}
