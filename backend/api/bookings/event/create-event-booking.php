@@ -1,118 +1,156 @@
 <?php
 session_start();
-require_once "../../../config/db.php"; // $conn = mysqli connection
+require_once __DIR__ . "/../../../config/db.php";
 
 header("Content-Type: application/json");
 
 if (!isset($_SESSION["user_id"])) {
-    http_response_code(401);
-    echo json_encode(["error" => "Unauthorized"]);
-    exit();
+  http_response_code(401);
+  echo json_encode(["error" => "Unauthorized"]);
+  exit();
 }
 
 $user_id = (int)$_SESSION["user_id"];
 $data = json_decode(file_get_contents("php://input"), true);
 
-// Log incoming request for debugging
-file_put_contents('debug.log', "Incoming request: " . json_encode($data, JSON_PRETTY_PRINT) . PHP_EOL, FILE_APPEND);
-
-$date       = $data["date"] ?? "";
-$start_time = $data["start_time"] ?? "";
-$end_time   = $data["end_time"] ?? "";
-$draft      = $data["draft"] ?? [];
-
-if (!$date || !$start_time || !$end_time) {
-    $msg = "Missing required data";
-    file_put_contents('debug.log', "Error: $msg" . PHP_EOL, FILE_APPEND);
-    echo json_encode(["error" => $msg]);
-    exit();
+if (!is_array($data)) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid request"]);
+  exit();
 }
 
-// Normalize time
+$date = $data["date"] ?? "";
+$start_time = $data["start_time"] ?? "";
+$end_time = $data["end_time"] ?? "";
+$draft = $data["draft"] ?? [];
+$form_id = isset($data["form_id"]) ? (int)$data["form_id"] : null;
+$total_amount = isset($data["total_amount"]) ? (float)$data["total_amount"] : 0;
+$form_snapshot = $data["form_snapshot"] ?? null;
+
+if (!$date || !$start_time || !$end_time || !is_array($draft)) {
+  http_response_code(400);
+  echo json_encode(["error" => "Missing required data"]);
+  exit();
+}
+
+if ($total_amount <= 0) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid total amount"]);
+  exit();
+}
+
 if (strlen($start_time) === 5) $start_time .= ":00";
 if (strlen($end_time) === 5) $end_time .= ":00";
 
 $startTs = strtotime("$date $start_time");
-$endTs   = strtotime("$date $end_time");
+$endTs = strtotime("$date $end_time");
 
-if ($endTs <= $startTs) {
-    $msg = "End time must be after start time";
-    file_put_contents('debug.log', "Error: $msg" . PHP_EOL, FILE_APPEND);
-    echo json_encode(["error" => $msg]);
-    exit();
+if (!$startTs || !$endTs || $endTs <= $startTs) {
+  http_response_code(400);
+  echo json_encode(["error" => "End time must be after start time"]);
+  exit();
 }
 
 if (($endTs - $startTs) > (4 * 60 * 60)) {
-    $msg = "Work hours must be up to 4 hours only";
-    file_put_contents('debug.log', "Error: $msg" . PHP_EOL, FILE_APPEND);
-    echo json_encode(["error" => $msg]);
-    exit();
+  http_response_code(400);
+  echo json_encode(["error" => "Work hours must be up to 4 hours only"]);
+  exit();
 }
 
-// Encode notes
 $notesJson = json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 if ($notesJson === false) $notesJson = "{}";
+
+$snapshotJson = json_encode($form_snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($snapshotJson === false) $snapshotJson = "{}";
 
 $conn->begin_transaction();
 
 try {
-    // Check overlapping bookings
-    $stmt = $conn->prepare("
-        SELECT id
-        FROM bookings
-        WHERE booking_date = ?
-          AND status IN ('pending','approved')
-          AND (start_time < ? AND end_time > ?)
-        LIMIT 1
-    ");
-    $stmt->bind_param("sss", $date, $end_time, $start_time);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $stmt->close();
+  $blockedStmt = $conn->prepare("
+    SELECT id
+    FROM blocked_dates
+    WHERE block_date = ?
+    LIMIT 1
+  ");
+  $blockedStmt->bind_param("s", $date);
+  $blockedStmt->execute();
+  $blockedResult = $blockedStmt->get_result();
+  $blockedStmt->close();
 
-    if ($result->num_rows > 0) {
-        $conn->rollback();
-        $msg = "That time slot is already booked. Please choose another time.";
-        file_put_contents('debug.log', "Error: $msg" . PHP_EOL, FILE_APPEND);
-        echo json_encode(["error" => $msg]);
-        exit();
-    }
+  if ($blockedResult->num_rows > 0) {
+    throw new Exception("This date is not available.");
+  }
 
-    // Insert booking
-    $insert = $conn->prepare("
+  $stmt = $conn->prepare("
+    SELECT id
+    FROM bookings
+    WHERE booking_date = ?
+      AND status IN ('pending','approved')
+      AND (start_time < ? AND end_time > ?)
+    LIMIT 1
+  ");
+  $stmt->bind_param("sss", $date, $end_time, $start_time);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $stmt->close();
+
+  if ($result->num_rows > 0) {
+    throw new Exception("That time slot is already booked. Please choose another time.");
+  }
+
+  $insert = $conn->prepare("
     INSERT INTO bookings
-    (user_id, booking_date, start_time, end_time, booking_type, status, notes)
-    VALUES (?, ?, ?, ?, 'event', 'pending', ?)
-");
-    $insert->bind_param("issss", $user_id, $date, $start_time, $end_time, $notesJson);
+      (
+        user_id,
+        booking_date,
+        start_time,
+        end_time,
+        booking_type,
+        status,
+        notes,
+        total_amount,
+        payment_status,
+        form_id,
+        form_snapshot
+      )
+    VALUES
+      (?, ?, ?, ?, 'event', 'pending', ?, ?, 'unpaid', ?, ?)
+  ");
 
-    if (!$insert->execute()) {
-        throw new Exception("Insert failed: " . $insert->error);
-    }
+  $insert->bind_param(
+    "issssdis",
+    $user_id,
+    $date,
+    $start_time,
+    $end_time,
+    $notesJson,
+    $total_amount,
+    $form_id,
+    $snapshotJson
+  );
 
-    $bookingId = $conn->insert_id;
-    $insert->close();
+  if (!$insert->execute()) {
+    throw new Exception("Insert failed: " . $insert->error);
+  }
 
-    $conn->commit();
+  $bookingId = $conn->insert_id;
+  $insert->close();
 
-    // Return success + booking_id + draft for debugging in React
-    echo json_encode([
-        "success" => true,
-        "booking_id" => $bookingId,
-        "draft" => $draft
-    ]);
+  $conn->commit();
+
+  echo json_encode([
+    "success" => true,
+    "booking_id" => $bookingId,
+    "total_amount" => $total_amount
+  ]);
+  exit();
 
 } catch (Exception $e) {
-    $conn->rollback();
+  $conn->rollback();
 
-    // Log detailed error including the draft JSON for debugging
-    $errorLog = [
-        "error_message" => $e->getMessage(),
-        "request_data" => $data
-    ];
-    file_put_contents('debug.log', "Exception: " . json_encode($errorLog, JSON_PRETTY_PRINT) . PHP_EOL, FILE_APPEND);
-
-    echo json_encode([
-        "error" => "Something went wrong. Check debug.log for details."
-    ]);
+  http_response_code(400);
+  echo json_encode([
+    "error" => $e->getMessage()
+  ]);
+  exit();
 }

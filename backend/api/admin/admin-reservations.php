@@ -24,6 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     $approved_by = (int)($_SESSION["user_id"] ?? 0);
+
     $stmt = $conn->prepare("
       UPDATE bookings
       SET status = ?, approved_by = ?, updated_at = NOW()
@@ -38,12 +39,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       error_log("admin-reservations update error: " . $stmt->error);
       echo json_encode(["error" => "Failed to update booking."]);
     }
+
     $stmt->close();
     exit();
   }
 }
 
 $pending = [];
+
 $stmt = $conn->prepare("
   SELECT
     b.id,
@@ -51,7 +54,11 @@ $stmt = $conn->prepare("
     b.start_time,
     b.end_time,
     b.booking_type,
+    b.status,
+    b.payment_status,
+    b.total_amount,
     b.notes,
+    b.form_snapshot,
     u.name AS user_name,
     u.email AS user_email
   FROM bookings b
@@ -60,12 +67,23 @@ $stmt = $conn->prepare("
   ORDER BY b.booking_date DESC, b.start_time ASC
   LIMIT 80
 ");
+
 $stmt->execute();
 $res = $stmt->get_result();
+
 while ($r = $res->fetch_assoc()) {
-  $r["notes_decoded"] = safe_json($r["notes"] ?? "");
+  $notes = safe_json($r["notes"] ?? "");
+  $snapshot = safe_json($r["form_snapshot"] ?? "");
+
+  $r["notes_decoded"] = $notes;
+  $r["form_snapshot_decoded"] = $snapshot;
+
+  $r["dynamic_answers"] = $notes["dynamic_answers"] ?? [];
+  $r["selected_items"] = $notes["selected_items"] ?? [];
+
   $pending[] = $r;
 }
+
 $stmt->close();
 
 echo json_encode([

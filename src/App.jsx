@@ -27,6 +27,7 @@ import AdminWorkshopEdit from "./admin/AdminWorkshopEdit";
 import AdminWorkshops from "./admin/AdminWorkshops";
 import PublicWorkshopPremium from "./pages/PublicWorkshopPremium";
 import PublicWorkshopStandard from "./pages/PublicWorkshopStandard";
+import AdminForms from "./admin/AdminForms";
 
 
 
@@ -62,6 +63,7 @@ function App() {
       <Route path="/admin/workshops" element={<AdminWorkshops />} />
       <Route path="/public-workshops/:id/standard" element={<PublicWorkshopStandard />} />
       <Route path="/public-workshops/:id/premium" element={<PublicWorkshopPremium />} />
+      <Route path="/admin/forms" element={<AdminForms />} />
     </Routes>
   );
 }

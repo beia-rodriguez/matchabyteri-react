@@ -41,7 +41,9 @@ export default function AdminPayments() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+useEffect(() => {
+  loadData("pending", q);
+}, []);
 
   const applyFilters = async (e) => {
     e.preventDefault();
@@ -105,13 +107,35 @@ export default function AdminPayments() {
       <div className="admin-panel-react">
         <h3>Payments</h3>
 
-        {!payments.length ? (
-          <div className="admin-muted-react">No payments found.</div>
-        ) : (
+       {!payments.length ? (
+            <>
+              <div className="admin-muted-react">
+                {status === "pending"
+                  ? "No pending payments."
+                  : "No payments found."}
+              </div>
+
+              {status === "pending" && (
+                <button
+                  className="admin-pill-react"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setStatus("all");
+                    loadData("all", q);
+                  }}
+                >
+                  View All Transactions
+                </button>
+              )}
+            </>
+          ) : (
           payments.map((p) => {
             const st = String(p.status || "pending").toLowerCase();
             const badgeClass = st === "paid" ? "paid" : st === "rejected" ? "rejected" : "pending";
             const ctx = p.decoded_context || {};
+            const paymentChoice = ctx.payment_choice || "";
+            const totalAmount = Number(ctx.total_amount || p.total_amount || 0);
+            const expectedAmount = Number(ctx.expected_payment_amount || p.amount || 0);
             const paidAt = ctx._paid_at || "";
             const adminCtx = ctx._admin || null;
 
@@ -135,6 +159,10 @@ export default function AdminPayments() {
                     <div className="p-meta-react">
                       Customer: {p.user_name || "Unknown"} ({p.user_email || ""})<br />
                       Payer Name: {p.payer_name || ""}<br />
+                      Payment Option: {paymentChoice ? paymentChoice.toUpperCase() : "N/A"}<br />
+                      Booking Total: ₱{totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<br />
+                      Expected Amount: ₱{expectedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<br />
+                      Booking Payment Status: {p.payment_status || "N/A"}<br />
                       {bookingInfo ? <>{`Schedule: ${bookingInfo}`}<br /></> : null}
                       Reference: {p.reference_no || ""}<br />
                       Token: {p.short_payment_token || ""}<br />
@@ -151,7 +179,13 @@ export default function AdminPayments() {
                   <label>Proof</label>
                   <div>
                     {p.proof_path ? (
-                      <a href={p.proof_path} target="_blank" rel="noopener noreferrer">View Proof Image</a>
+                      <a
+                        href={`/api/${p.proof_path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View Proof Image
+                      </a>
                     ) : (
                       <span className="admin-muted-react">No proof uploaded.</span>
                     )}

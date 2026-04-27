@@ -35,6 +35,36 @@ function money(value) {
   })}`;
 }
 
+function getFieldAnswer(row, labelIncludes) {
+  const snapshot = row.form_snapshot_decoded || {};
+  const answers = row.dynamic_answers || {};
+  const search = String(labelIncludes || "").toLowerCase();
+
+  for (const section of snapshot.sections || []) {
+    for (const field of section.fields || []) {
+      const label = String(field.label || "").toLowerCase();
+      if (!label.includes(search)) continue;
+
+      const rawValue = answers[field.field_name];
+      const options = field.options || [];
+
+      if (Array.isArray(rawValue)) {
+        return rawValue
+          .map((v) => {
+            const opt = options.find((o) => String(o.id) === String(v));
+            return opt?.label || v;
+          })
+          .join(", ");
+      }
+
+      const opt = options.find((o) => String(o.id) === String(rawValue));
+      return opt?.label || rawValue || "—";
+    }
+  }
+
+  return "—";
+}
+
 export default function AdminReports() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -225,6 +255,8 @@ export default function AdminReports() {
                   <th>Customer</th>
                   <th>Email</th>
                   <th>Time</th>
+                  <th>Total</th>
+                  <th>Payment</th>
                   <th>Paid Amount</th>
                 </tr>
               </thead>
@@ -236,13 +268,15 @@ export default function AdminReports() {
                   return (
                     <tr key={r.id}>
                       <td>{r.booking_date || ""}</td>
-                      <td>{notes.workshop_type || "Workshop"}</td>
-                      <td>{notes.location || "-"}</td>
-                      <td>{notes.attendees || "-"}</td>
+                      <td>{getFieldAnswer(r, "type") || "Workshop"}</td>
+                      <td>{getFieldAnswer(r, "location")}</td>
+                      <td>{getFieldAnswer(r, "attendees")}</td>
                       <td>{r.status || ""}</td>
                       <td>{notes.full_name || r.user_name || "Guest"}</td>
                       <td>{notes.email || r.user_email || ""}</td>
                       <td>{time}</td>
+                      <td>{money(r.total_amount)}</td>
+                      <td>{r.payment_status || "unpaid"}</td>
                       <td>{money(r.paid_amount)}</td>
                     </tr>
                   );
@@ -269,6 +303,8 @@ export default function AdminReports() {
                   <th>Email</th>
                   <th>Time</th>
                   <th>Ref #</th>
+                  <th>Total</th>
+                  <th>Payment</th>
                   <th>Paid Amount</th>
                 </tr>
               </thead>
@@ -281,15 +317,17 @@ export default function AdminReports() {
                   return (
                     <tr key={r.id}>
                       <td>{r.booking_date || ""}</td>
-                      <td>{notes.event_name || "—"}</td>
-                      <td>{notes.event_type || "—"}</td>
-                      <td>{notes.location || "—"}</td>
-                      <td>{notes.guests || "—"}</td>
+                      <td>{getFieldAnswer(r, "event name")}</td>
+                      <td>{getFieldAnswer(r, "type")}</td>
+                      <td>{getFieldAnswer(r, "location")}</td>
+                      <td>{getFieldAnswer(r, "guest")}</td>
                       <td>{r.status || ""}</td>
                       <td>{notes.full_name || r.user_name || "Guest"}</td>
                       <td>{notes.email || r.user_email || ""}</td>
                       <td>{time}</td>
                       <td>{ref}</td>
+                      <td>{money(r.total_amount)}</td>
+                      <td>{r.payment_status || "unpaid"}</td>
                       <td>{money(r.paid_amount)}</td>
                     </tr>
                   );

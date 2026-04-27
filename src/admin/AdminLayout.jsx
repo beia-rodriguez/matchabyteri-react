@@ -10,10 +10,12 @@ import {
   LogOut,
 } from "lucide-react";
 import "@/assets/css/admin-panel.css";
+import { FilePenLine } from "lucide-react";
 
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/reservations", label: "Reservations", icon: ClipboardList },
+  { to: "/admin/forms", label: "Forms", icon: FilePenLine },
   { to: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/workshops", label: "Workshops", icon: GraduationCap },
