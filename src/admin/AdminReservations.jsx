@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 
@@ -27,20 +27,44 @@ function getAnswerLabel(field, value) {
   return opt?.label || value;
 }
 
+function paymentBadgeClass(status) {
+  const s = String(status || "unpaid").toLowerCase();
+
+  if (s === "paid") return "paid";
+  if (s === "partial") return "paid";
+  if (s === "pending") return "pending";
+  if (s === "rejected") return "rejected";
+
+  return "pending";
+}
+
+function canApproveBooking(paymentStatus) {
+  const s = String(paymentStatus || "unpaid").toLowerCase();
+  return s === "partial" || s === "paid";
+}
+
 export default function AdminReservations() {
   const [csrf, setCsrf] = useState("");
   const [pending, setPending] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState(null);
 
   const loadData = async () => {
+    setLoading(true);
+    setErr("");
+
     try {
       const { data } = await adminApi.get("/admin/admin-reservations.php");
+
       setCsrf(data.csrf || "");
       setPending(data.pending || []);
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to load reservations.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,15 +72,30 @@ export default function AdminReservations() {
     loadData();
   }, []);
 
-  const handleStatus = async (bookingId, newStatus) => {
-    if (newStatus === "cancelled" && !window.confirm("Cancel this booking?")) return;
-    if (newStatus === "approved" && !window.confirm("Approve this booking?")) return;
+  const handleStatus = async (booking, newStatus) => {
+    setMsg("");
+    setErr("");
+
+    if (newStatus === "approved" && !canApproveBooking(booking.payment_status)) {
+      setErr("This booking cannot be approved until payment is partial or paid.");
+      return;
+    }
+
+    if (newStatus === "cancelled" && !window.confirm("Cancel this booking?")) {
+      return;
+    }
+
+    if (newStatus === "approved" && !window.confirm("Approve this booking?")) {
+      return;
+    }
+
+    setSavingId(booking.id);
 
     try {
       const { data } = await adminApi.post("/admin/admin-reservations.php", {
         action: "set_status",
         csrf_token: csrf,
-        booking_id: bookingId,
+        booking_id: booking.id,
         new_status: newStatus,
       });
 
@@ -64,10 +103,13 @@ export default function AdminReservations() {
         setErr(data.error);
       } else {
         setMsg(data.message || "Booking updated.");
+        setExpandedId(null);
         loadData();
       }
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to update booking.");
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -119,6 +161,62 @@ export default function AdminReservations() {
     );
   };
 
+  const renderPaymentSummary = (booking) => {
+    const paymentStatus = String(booking.payment_status || "unpaid").toLowerCase();
+    const total = Number(booking.total_amount || 0);
+
+    let downpaymentAmount = 0;
+    let remainingAmount = 0;
+
+    const snapshot = booking.form_snapshot_decoded || {};
+    const downpaymentPercentage = Number(snapshot.downpayment_percentage || 50);
+
+    if (total > 0) {
+      downpaymentAmount = total * (downpaymentPercentage / 100);
+      remainingAmount = total - downpaymentAmount;
+    }
+
+    return (
+      <div className="admin-grid-3-react">
+        <div className="admin-stat-item-react">
+          <span>Total Amount</span>
+          <strong>₱{money(total)}</strong>
+        </div>
+
+        <div className="admin-stat-item-react">
+          <span>Downpayment</span>
+          <strong>
+            ₱{money(downpaymentAmount)} ({money(downpaymentPercentage)}%)
+          </strong>
+        </div>
+
+        <div className="admin-stat-item-react">
+          <span>Remaining Balance</span>
+          <strong>₱{money(remainingAmount)}</strong>
+        </div>
+
+        <div className="admin-stat-item-react">
+          <span>Booking Status</span>
+          <strong>{booking.status}</strong>
+        </div>
+
+        <div className="admin-stat-item-react">
+          <span>Payment Status</span>
+          <strong>{paymentStatus.toUpperCase()}</strong>
+        </div>
+
+        <div className="admin-stat-item-react">
+          <span>Approval Eligibility</span>
+          <strong>
+            {canApproveBooking(paymentStatus)
+              ? "Ready for approval"
+              : "Payment required first"}
+          </strong>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <AdminLayout title="Reservations">
       {msg ? <div className="admin-notice-react ok">{msg}</div> : null}
@@ -127,7 +225,9 @@ export default function AdminReservations() {
       <div className="admin-panel-react">
         <h3>Pending Reservations</h3>
 
-        {pending.length === 0 ? (
+        {loading ? (
+          <div className="admin-muted-react">Loading reservations...</div>
+        ) : pending.length === 0 ? (
           <div className="admin-muted-react">No pending bookings.</div>
         ) : (
           <table className="admin-table-react">
@@ -149,21 +249,30 @@ export default function AdminReservations() {
             <tbody>
               {pending.map((p) => {
                 const time =
-                  p.start_time && p.end_time ? `${p.start_time} - ${p.end_time}` : "";
+                  p.start_time && p.end_time
+                    ? `${p.start_time} - ${p.end_time}`
+                    : "";
 
                 const isExpanded = expandedId === p.id;
+                const paymentStatus = String(p.payment_status || "unpaid").toLowerCase();
+                const canApprove = canApproveBooking(paymentStatus);
+                const isSaving = savingId === p.id;
 
                 return (
-                  <>
-                    <tr key={p.id}>
+                  <Fragment key={p.id}>
+                    <tr>
                       <td>#{Number(p.id)}</td>
                       <td>{p.booking_date}</td>
-                      <td>{p.booking_type}</td>
+                      <td>{String(p.booking_type || "").toUpperCase()}</td>
                       <td>{p.user_name || "Guest"}</td>
                       <td>{p.user_email || ""}</td>
                       <td>{time}</td>
                       <td>₱{money(p.total_amount)}</td>
-                      <td>{p.payment_status || "unpaid"}</td>
+                      <td>
+                        <span className={`p-badge-react ${paymentBadgeClass(paymentStatus)}`}>
+                          {paymentStatus.toUpperCase()}
+                        </span>
+                      </td>
                       <td>
                         <button
                           className="admin-pill-react"
@@ -178,17 +287,24 @@ export default function AdminReservations() {
                           <button
                             className="admin-btn-react admin-btn-approve-react"
                             type="button"
-                            onClick={() => handleStatus(p.id, "approved")}
+                            onClick={() => handleStatus(p, "approved")}
+                            disabled={!canApprove || isSaving}
+                            title={
+                              canApprove
+                                ? "Approve booking"
+                                : "Payment must be partial or paid before approval"
+                            }
                           >
-                            APPROVE
+                            {isSaving ? "SAVING..." : "APPROVE"}
                           </button>
 
                           <button
                             className="admin-btn-react admin-btn-cancel-react"
                             type="button"
-                            onClick={() => handleStatus(p.id, "cancelled")}
+                            onClick={() => handleStatus(p, "cancelled")}
+                            disabled={isSaving}
                           >
-                            CANCEL
+                            {isSaving ? "SAVING..." : "CANCEL"}
                           </button>
                         </div>
                       </td>
@@ -200,22 +316,7 @@ export default function AdminReservations() {
                           <div className="admin-panel-react" style={{ margin: 0 }}>
                             <h3>Booking Details</h3>
 
-                            <div className="admin-grid-3-react">
-                              <div className="admin-stat-item-react">
-                                <span>Total Amount</span>
-                                <strong>₱{money(p.total_amount)}</strong>
-                              </div>
-
-                              <div className="admin-stat-item-react">
-                                <span>Booking Status</span>
-                                <strong>{p.status}</strong>
-                              </div>
-
-                              <div className="admin-stat-item-react">
-                                <span>Payment Status</span>
-                                <strong>{p.payment_status || "unpaid"}</strong>
-                              </div>
-                            </div>
+                            {renderPaymentSummary(p)}
 
                             <h3 style={{ marginTop: 18 }}>Selected Priced Items</h3>
                             {renderSelectedItems(p)}
@@ -226,7 +327,7 @@ export default function AdminReservations() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

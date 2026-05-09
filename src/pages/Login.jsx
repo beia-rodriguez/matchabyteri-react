@@ -1,49 +1,75 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import API from "../services/api";
+import { useAuth } from "../context/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 import "../assets/css/login.css";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
+
   const redirect = new URLSearchParams(location.search).get("redirect");
+
+  const safeRedirect =
+    redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+      ? redirect
+      : "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const [notice, setNotice] = useState(location.state?.message || "");
   const [error, setError] = useState("");
+
   const [showPw, setShowPw] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setNotice(location.state.message);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
+    setNotice("");
+
+    if (!email.trim() || !password) {
+      setError("Please fill in all fields.");
+      return;
+    }
 
     try {
-      const res = await API.post("/auth/login.php", {
-        email,
+      setSubmitting(true);
+
+      const res = await login({
+        email: email.trim().toLowerCase(),
         password,
       });
 
-      if (res.data.status === "success") {
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-
-        if (res.data.user.role === "admin") {
-          navigate("/admin/dashboard");
+      if (res.status === "success") {
+        if (res.user.role === "admin") {
+          navigate("/admin/dashboard", { replace: true });
         } else {
-          navigate(redirect || "/");
+          navigate(safeRedirect, { replace: true });
         }
       } else {
-        setError(res.data.message);
+        setError(res.message || "Login failed.");
       }
     } catch {
-      setError("Server error.");
+      setError("Server error. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="page">
       <div className="shell">
-
-        {/* LEFT: LOGO */}
         <div className="brand">
           <img
             className="brand-logo"
@@ -52,20 +78,27 @@ export default function Login() {
           />
         </div>
 
-        {/* RIGHT: LOGIN CARD */}
         <div className="login-card">
           <h1>Login</h1>
 
+          {notice && (
+            <div className="success" role="status" aria-live="polite">
+              {notice}
+            </div>
+          )}
+
           {error && (
-            <div className="alert">{error}</div>
+            <div className="alert" role="alert" aria-live="assertive">
+              {error}
+            </div>
           )}
 
           <form onSubmit={handleSubmit}>
-
             <div className="field">
               <label className="label" htmlFor="email">
                 Email
               </label>
+
               <input
                 className="input"
                 id="email"
@@ -96,26 +129,15 @@ export default function Login() {
                 <button
                   type="button"
                   className="toggle"
-                  onClick={() => setShowPw(!showPw)}
+                  onClick={() => setShowPw((prev) => !prev)}
                   aria-label={showPw ? "Hide password" : "Show password"}
+                  aria-pressed={showPw}
                 >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <path
-                      d="M2 12C4.5 7 8 4.5 12 4.5C16 4.5 19.5 7 22 12C19.5 17 16 19.5 12 19.5C8 19.5 4.5 17 2 12Z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path
-                      d="M12 15.5C13.933 15.5 15.5 13.933 15.5 12C15.5 10.067 13.933 8.5 12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 13.933 10.067 15.5 12 15.5Z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                  </svg>
+                  {showPw ? (
+                    <EyeOff size={18} aria-hidden="true" />
+                  ) : (
+                    <Eye size={18} aria-hidden="true" />
+                  )}
                 </button>
               </div>
             </div>
@@ -124,17 +146,15 @@ export default function Login() {
               <Link to="/forgot-password">Forgot Password?</Link>
             </div>
 
-            <button className="btn" type="submit">
-              LOG IN
+            <button className="btn" type="submit" disabled={submitting}>
+              {submitting ? "LOGGING IN..." : "LOG IN"}
             </button>
           </form>
 
           <div className="login-footer">
-            Need an account?{" "}
-            <Link to="/sign-up">SIGN UP</Link>
+            Need an account? <Link to="/sign-up">SIGN UP</Link>
           </div>
         </div>
-
       </div>
     </div>
   );

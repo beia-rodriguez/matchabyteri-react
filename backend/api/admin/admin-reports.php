@@ -40,7 +40,12 @@ function bind_date_params($stmt, $from, $to) {
 ---------------------------- */
 $publicWorkshopRows = [];
 
-$wherePublic = add_date_filter("WHERE 1=1", $from, $to, "wp.workshop_date");
+$wherePublic = add_date_filter(
+  "WHERE 1=1",
+  $from,
+  $to,
+  "wp.workshop_date"
+);
 
 $sql = "
   SELECT
@@ -59,11 +64,29 @@ $sql = "
     wp.start_time,
     wp.end_time,
     wp.standard_price,
-    wp.premium_price
+    wp.premium_price,
+
+    COALESCE(pay.paid_amount, 0) AS paid_amount,
+    COALESCE(pay.paid_reference_no, '') AS paid_reference_no
 
   FROM workshop_registrations wr
-  INNER JOIN workshops_public wp ON wr.workshop_id = wp.id
+
+  INNER JOIN workshops_public wp
+    ON wr.workshop_id = wp.id
+
+  LEFT JOIN (
+    SELECT
+      registration_id,
+      SUM(amount) AS paid_amount,
+      MAX(reference_no) AS paid_reference_no
+    FROM payments
+    WHERE status = 'paid'
+    GROUP BY registration_id
+  ) pay
+    ON pay.registration_id = wr.id
+
   {$wherePublic}
+
   ORDER BY wp.workshop_date DESC, wr.created_at DESC
   LIMIT 120
 ";

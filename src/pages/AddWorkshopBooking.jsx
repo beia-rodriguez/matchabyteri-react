@@ -41,7 +41,7 @@ export default function AddWorkshopBooking() {
     ? dateParam
     : new Date().toISOString().split("T")[0];
 
-  const dt = new Date(date);
+  const dt = new Date(`${date}T00:00:00`);
   const monthDay = dt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -82,28 +82,31 @@ export default function AddWorkshopBooking() {
   }, []);
 
   useEffect(() => {
-  API.get("/user/current-user.php")
-    .then(({ data }) => {
-      if (data.success && data.user) {
-        setFixedInfo((prev) => ({
-          ...prev,
-          full_name: data.user.name || prev.full_name,
-          email: data.user.email || prev.email,
-          phone_number: data.user.phone_number || prev.phone_number,
-        }));
-      }
-    })
-    .catch(() => {});
-}, []);
+    API.get("/user/current-user.php")
+      .then(({ data }) => {
+        if (data.success && data.user) {
+          setFixedInfo((prev) => ({
+            ...prev,
+            full_name: data.user.name || prev.full_name,
+            email: data.user.email || prev.email,
+            phone_number: data.user.phone_number || prev.phone_number,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    API.get("/bookings/private-workshop/check-blocked.php", {
-      params: { date },
+    API.post("/bookings/private-workshop/check-blocked.php", {
+      date,
     })
       .then((res) => {
         if (res.data.blocked) {
           setBlocked(true);
           setBlockReason(res.data.reason || "");
+        } else if (res.data.day_full) {
+          setBlocked(true);
+          setBlockReason("This day is fully booked.");
         } else {
           setBlocked(false);
           setBlockReason("");
@@ -145,7 +148,6 @@ export default function AddWorkshopBooking() {
   const selectedCupCount = useMemo(() => {
     for (const field of allFields) {
       const selected = answers[field.field_name];
-
       if (!selected) continue;
 
       const selectedValues = Array.isArray(selected) ? selected : [selected];
@@ -154,6 +156,7 @@ export default function AddWorkshopBooking() {
         const option = (field.options || []).find(
           (opt) => String(opt.id) === String(value)
         );
+
         const cups = parseCupCount(option?.label || "");
         if (cups > 0) return cups;
       }
@@ -180,22 +183,18 @@ export default function AddWorkshopBooking() {
         if (!option) continue;
 
         const optionKey = `${field.id}_${option.id}`;
-        const qty = Number(field.allow_quantity) === 1
-          ? Math.max(1, Number(quantities[optionKey] || 1))
-          : 1;
+        const qty =
+          Number(field.allow_quantity) === 1
+            ? Math.max(1, Number(quantities[optionKey] || 1))
+            : 1;
 
         const price = Number(option.price || 0);
         const priceType = option.price_type || "fixed";
 
         let lineTotal = price;
 
-        if (priceType === "per_quantity") {
-          lineTotal = price * qty;
-        }
-
-        if (priceType === "per_cup") {
-          lineTotal = price * selectedCupCount;
-        }
+        if (priceType === "per_quantity") lineTotal = price * qty;
+        if (priceType === "per_cup") lineTotal = price * selectedCupCount;
 
         items.push({
           field_id: field.id,
@@ -286,6 +285,7 @@ export default function AddWorkshopBooking() {
   };
 
   const validateForm = () => {
+    if (blocked) return blockReason || "This date is not available.";
     if (!fixedInfo.full_name.trim()) return "Full name is required.";
     if (!fixedInfo.phone_number.trim()) return "Phone number is required.";
     if (!fixedInfo.email.trim()) return "Email is required.";
@@ -348,13 +348,23 @@ export default function AddWorkshopBooking() {
       });
 
       if (res.data.blocked) {
-        setError("That time slot is not available. Please choose another time.");
+        setError(res.data.reason || "This date is not available.");
+        return;
+      }
+
+      if (res.data.day_full) {
+        setError("This day is fully booked.");
+        return;
+      }
+
+      if (res.data.conflict) {
+        setError("That time slot is already booked.");
         return;
       }
 
       setStep("review");
-    } catch {
-      setError("Failed to validate booking.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to validate booking.");
     }
   };
 
@@ -482,7 +492,6 @@ export default function AddWorkshopBooking() {
                     }
                     placeholder="Quantity"
                     className="workshop-booking-custom-location-input"
-                    style={{ marginTop: 6 }}
                   />
                 )}
               </div>
@@ -705,11 +714,7 @@ export default function AddWorkshopBooking() {
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Email Address</label>
-                    <input
-                      name="email"
-                      value={fixedInfo.email}
-                      readOnly
-                    />
+                    <input name="email" value={fixedInfo.email} readOnly />
                   </div>
 
                   <div className="workshop-booking-field">

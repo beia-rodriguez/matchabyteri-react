@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -8,9 +8,10 @@ import {
   Users,
   CreditCard,
   LogOut,
+  FilePenLine,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 import "@/assets/css/admin-panel.css";
-import { FilePenLine } from "lucide-react";
 
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,13 +25,24 @@ const navItems = [
 ];
 
 export default function AdminLayout({ title, children }) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", {
+      replace: true,
+      state: { message: "You have been logged out." },
+    });
+  };
+
   return (
     <div className="admin-shell-react">
       <div className="admin-layout-react">
         <aside className="admin-sidebar-react">
           <div className="admin-brand-react">Admin Panel</div>
 
-          <nav className="admin-nav-react">
+          <nav className="admin-nav-react" aria-label="Admin navigation">
             {navItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -39,7 +51,7 @@ export default function AdminLayout({ title, children }) {
                   `admin-link-react ${isActive ? "active" : ""}`
                 }
               >
-                <Icon size={18} strokeWidth={2.2} />
+                <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
                 <span>{label}</span>
               </NavLink>
             ))}
@@ -47,10 +59,14 @@ export default function AdminLayout({ title, children }) {
 
           <div style={{ height: 10 }} />
 
-          <a className="admin-pill-react admin-logout-react" href="/logout.php">
-            <LogOut size={16} strokeWidth={2.2} />
+          <button
+            type="button"
+            className="admin-pill-react admin-logout-react"
+            onClick={handleLogout}
+          >
+            <LogOut size={16} strokeWidth={2.2} aria-hidden="true" />
             <span>Logout</span>
-          </a>
+          </button>
         </aside>
 
         <main className="admin-main-react">

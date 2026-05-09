@@ -1,12 +1,12 @@
 <?php
+
 session_start();
+
 require_once __DIR__ . "/../../config/db.php";
 
 header("Content-Type: application/json");
 
-function h($s) {
-  return htmlspecialchars((string)$s, ENT_QUOTES, "UTF-8");
-}
+date_default_timezone_set("Asia/Manila");
 
 if (!isset($_SESSION["user_id"])) {
   http_response_code(401);
@@ -17,91 +17,247 @@ if (!isset($_SESSION["user_id"])) {
 $userId = (int)$_SESSION["user_id"];
 
 $GCASH_NUMBER = "+639771277498";
-$GCASH_NAME   = "J*A*T";
-$GCASH_QR     = "images/gcash-qr.jpg";
+$GCASH_NAME = "J*A*T";
+$GCASH_QR = "images/gcash-qr.jpg";
+
+$allowedPurposes = ["event_booking", "workshop_booking", "workshop_public"];
 
 $purpose = strtolower(trim($_GET["purpose"] ?? ""));
 $bookingId = (int)($_GET["booking_id"] ?? 0);
+$registrationId = (int)($_GET["registration_id"] ?? 0);
 
-if (!in_array($purpose, ["event_booking", "workshop_booking", "workshop_public"], true) || $bookingId <= 0) {
+$isPublicWorkshop = $purpose === "workshop_public";
+
+if (!in_array($purpose, $allowedPurposes, true)) {
   http_response_code(400);
-  echo json_encode(["error" => "Invalid booking or purpose"]);
+  echo json_encode(["error" => "Invalid payment purpose"]);
   exit();
 }
 
-$stmt = $conn->prepare("
-  SELECT
-    id,
-    user_id,
-    booking_date,
-    start_time,
-    end_time,
-    booking_type,
-    notes,
-    payment_status,
-    total_amount,
-    form_snapshot
-  FROM bookings
-  WHERE id = ?
-  LIMIT 1
-");
-$stmt->bind_param("i", $bookingId);
-$stmt->execute();
-$booking = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if (!$booking || (int)$booking["user_id"] !== $userId) {
-  http_response_code(403);
-  echo json_encode(["error" => "Booking not found or access denied"]);
+if ($isPublicWorkshop && $registrationId <= 0) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid registration"]);
   exit();
 }
 
-$totalAmount = (float)($booking["total_amount"] ?? 0);
+if (!$isPublicWorkshop && $bookingId <= 0) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid booking"]);
+  exit();
+}
 
-if ($totalAmount <= 0 && !empty($booking["notes"])) {
-  $notesDecoded = json_decode((string)$booking["notes"], true);
-  if (is_array($notesDecoded) && isset($notesDecoded["total_amount"])) {
-    $totalAmount = (float)$notesDecoded["total_amount"];
+$totalAmount = 0;
+$paymentStatus = "unpaid";
+$paymentEntity = null;
+$contextBase = [];
+
+if ($isPublicWorkshop) {
+  $stmt = $conn->prepare("
+    SELECT
+      r.id,
+      r.user_id,
+      r.workshop_id,
+      r.package,
+      r.full_name,
+      r.email,
+      r.phone_number,
+      r.status,
+      r.payment_status,
+      r.total_amount,
+      w.title,
+      w.workshop_date,
+      w.start_time,
+      w.end_time,
+      w.location
+    FROM workshop_registrations r
+    JOIN workshops_public w ON w.id = r.workshop_id
+    WHERE r.id = ?
+    LIMIT 1
+  ");
+
+  if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(["error" => "Database error"]);
+    exit();
+  }
+
+  $stmt->bind_param("i", $registrationId);
+  $stmt->execute();
+  $registration = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  if (!$registration || (int)$registration["user_id"] !== $userId) {
+    http_response_code(403);
+    echo json_encode(["error" => "Registration not found or access denied"]);
+    exit();
+  }
+
+  $paymentEntity = $registration;
+  $paymentStatus = strtolower((string)($registration["payment_status"] ?? "unpaid"));
+  $totalAmount = (float)($registration["total_amount"] ?? 0);
+
+  $contextBase = [
+    "purpose" => $purpose,
+    "registration_id" => $registrationId,
+    "workshop_id" => (int)$registration["workshop_id"],
+    "workshop_title" => $registration["title"],
+    "package" => $registration["package"],
+    "full_name" => $registration["full_name"],
+    "email" => $registration["email"],
+    "phone_number" => $registration["phone_number"],
+    "workshop_date" => $registration["workshop_date"],
+    "start_time" => $registration["start_time"],
+    "end_time" => $registration["end_time"],
+    "location" => $registration["location"],
+  ];
+} else {
+  $stmt = $conn->prepare("
+    SELECT
+      id,
+      user_id,
+      booking_date,
+      start_time,
+      end_time,
+      booking_type,
+      notes,
+      payment_status,
+      total_amount,
+      form_snapshot
+    FROM bookings
+    WHERE id = ?
+    LIMIT 1
+  ");
+
+  if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(["error" => "Database error"]);
+    exit();
+  }
+
+  $stmt->bind_param("i", $bookingId);
+  $stmt->execute();
+  $booking = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+
+  if (!$booking || (int)$booking["user_id"] !== $userId) {
+    http_response_code(403);
+    echo json_encode(["error" => "Booking not found or access denied"]);
+    exit();
+  }
+
+  if ($purpose === "event_booking" && $booking["booking_type"] !== "event") {
+    http_response_code(400);
+    echo json_encode(["error" => "Invalid payment purpose for this booking"]);
+    exit();
+  }
+
+  if ($purpose === "workshop_booking" && $booking["booking_type"] !== "workshop") {
+    http_response_code(400);
+    echo json_encode(["error" => "Invalid payment purpose for this booking"]);
+    exit();
+  }
+
+  $paymentEntity = $booking;
+  $paymentStatus = strtolower((string)($booking["payment_status"] ?? "unpaid"));
+  $totalAmount = (float)($booking["total_amount"] ?? 0);
+
+  if ($totalAmount <= 0 && !empty($booking["notes"])) {
+    $notesDecoded = json_decode((string)$booking["notes"], true);
+
+    if (is_array($notesDecoded) && isset($notesDecoded["total_amount"])) {
+      $totalAmount = (float)$notesDecoded["total_amount"];
+    }
+  }
+
+  $contextBase = [
+    "purpose" => $purpose,
+    "booking_id" => $bookingId,
+    "booking_type" => $booking["booking_type"],
+    "booking_date" => $booking["booking_date"],
+    "start_time" => $booking["start_time"],
+    "end_time" => $booking["end_time"],
+  ];
+}
+
+if ($totalAmount <= 0) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid payment amount"]);
+  exit();
+}
+
+$downpaymentPercentage = 50.0;
+
+if (!$isPublicWorkshop && !empty($paymentEntity["form_snapshot"])) {
+  $snapshot = json_decode((string)$paymentEntity["form_snapshot"], true);
+
+  if (is_array($snapshot) && isset($snapshot["downpayment_percentage"])) {
+    $downpaymentPercentage = (float)$snapshot["downpayment_percentage"];
   }
 }
 
-$stmt = $conn->prepare("
-  SELECT id, status
-  FROM payments
-  WHERE booking_id = ?
-  ORDER BY id DESC
-  LIMIT 1
-");
-$stmt->bind_param("i", $bookingId);
-$stmt->execute();
-$lastPay = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if ($lastPay && in_array($lastPay["status"], ["pending", "paid"], true)) {
-  http_response_code(409);
-  echo json_encode([
-    "error" => "A payment for this booking is already submitted (" . h($lastPay["status"]) . ")."
-  ]);
-  exit();
+if ($isPublicWorkshop) {
+  $downpaymentPercentage = 100.0;
 }
 
+if ($downpaymentPercentage <= 0 || $downpaymentPercentage > 100) {
+  $downpaymentPercentage = 50.0;
+}
+
+$downpaymentAmount = round($totalAmount * ($downpaymentPercentage / 100), 2);
+$remainingAmount = round($totalAmount - $downpaymentAmount, 2);
+
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
+  if ($isPublicWorkshop) {
+    $pendingStmt = $conn->prepare("
+      SELECT id
+      FROM payments
+      WHERE registration_id = ?
+        AND purpose = ?
+        AND status = 'pending'
+      LIMIT 1
+    ");
+    $pendingStmt->bind_param("is", $registrationId, $purpose);
+  } else {
+    $pendingStmt = $conn->prepare("
+      SELECT id
+      FROM payments
+      WHERE booking_id = ?
+        AND purpose = ?
+        AND status = 'pending'
+      LIMIT 1
+    ");
+    $pendingStmt->bind_param("is", $bookingId, $purpose);
+  }
+
+  $pendingStmt->execute();
+  $hasPending = $pendingStmt->get_result()->num_rows > 0;
+  $pendingStmt->close();
+
+  if ($hasPending) {
+    http_response_code(409);
+    echo json_encode(["error" => "A payment is already pending admin verification."]);
+    exit();
+  }
+
+  if ($paymentStatus === "paid") {
+    http_response_code(409);
+    echo json_encode(["error" => "This is already fully paid."]);
+    exit();
+  }
+
+  $common = [
+    "payment_status" => $paymentStatus,
+    "total_amount" => $totalAmount,
+    "downpayment_amount" => $downpaymentAmount,
+    "remaining_amount" => $remainingAmount,
+  ];
+
   echo json_encode([
     "success" => true,
     "gcash_number" => $GCASH_NUMBER,
-    "gcash_name"   => $GCASH_NAME,
-    "gcash_qr"     => $GCASH_QR,
-    "booking"      => [
-      "id" => $booking["id"],
-      "booking_date" => $booking["booking_date"],
-      "start_time" => $booking["start_time"],
-      "end_time" => $booking["end_time"],
-      "booking_type" => $booking["booking_type"],
-      "payment_status" => $booking["payment_status"],
-      "total_amount" => $totalAmount,
-      "form_snapshot" => $booking["form_snapshot"],
-      "notes" => $booking["notes"]
-    ]
+    "gcash_name" => $GCASH_NAME,
+    "gcash_qr" => $GCASH_QR,
+    $isPublicWorkshop ? "registration" : "booking" => array_merge($paymentEntity, $common)
   ]);
   exit();
 }
@@ -115,11 +271,35 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 $referenceNo = trim($_POST["reference_no"] ?? "");
 $payerName = trim($_POST["payer_name"] ?? "");
 $amountRaw = trim($_POST["amount"] ?? "");
-$paymentChoice = strtolower(trim($_POST["payment_choice"] ?? "downpayment"));
+$paymentChoice = strtolower(trim($_POST["payment_choice"] ?? ""));
 
-if (!in_array($paymentChoice, ["downpayment", "full"], true)) {
+$allowedChoices = $isPublicWorkshop
+  ? ["full"]
+  : ["downpayment", "remaining", "full"];
+
+if (!in_array($paymentChoice, $allowedChoices, true)) {
   http_response_code(400);
   echo json_encode(["error" => "Invalid payment option"]);
+  exit();
+}
+
+if (!$isPublicWorkshop) {
+  if ($paymentStatus === "unpaid" && !in_array($paymentChoice, ["downpayment", "full"], true)) {
+    http_response_code(400);
+    echo json_encode(["error" => "Invalid payment option for unpaid booking"]);
+    exit();
+  }
+
+  if ($paymentStatus === "partial" && $paymentChoice !== "remaining") {
+    http_response_code(400);
+    echo json_encode(["error" => "Only remaining balance payment is allowed."]);
+    exit();
+  }
+}
+
+if ($paymentStatus === "paid") {
+  http_response_code(400);
+  echo json_encode(["error" => "This is already fully paid."]);
   exit();
 }
 
@@ -129,26 +309,21 @@ if ($referenceNo === "" || $payerName === "" || $amountRaw === "") {
   exit();
 }
 
-$amount = (float)$amountRaw;
-
-if ($amount <= 0) {
+if (!preg_match("/^\d+(\.\d{1,2})?$/", $amountRaw)) {
   http_response_code(400);
-  echo json_encode(["error" => "Amount must be greater than 0."]);
+  echo json_encode(["error" => "Invalid amount format"]);
   exit();
 }
 
-$downpaymentPercentage = 50.0;
+$amount = (float)$amountRaw;
 
-if (!empty($booking["form_snapshot"])) {
-  $snapshot = json_decode((string)$booking["form_snapshot"], true);
-  if (is_array($snapshot) && isset($snapshot["downpayment_percentage"])) {
-    $downpaymentPercentage = (float)$snapshot["downpayment_percentage"];
-  }
+if ($paymentChoice === "full") {
+  $expectedAmount = round($totalAmount, 2);
+} elseif ($paymentChoice === "remaining") {
+  $expectedAmount = round($remainingAmount, 2);
+} else {
+  $expectedAmount = round($downpaymentAmount, 2);
 }
-
-$expectedAmount = $paymentChoice === "full"
-  ? $totalAmount
-  : ($totalAmount * ($downpaymentPercentage / 100));
 
 if (abs($amount - $expectedAmount) > 0.01) {
   http_response_code(400);
@@ -158,7 +333,13 @@ if (abs($amount - $expectedAmount) > 0.01) {
 
 if (!isset($_FILES["proof"]) || $_FILES["proof"]["error"] !== UPLOAD_ERR_OK) {
   http_response_code(400);
-  echo json_encode(["error" => "Please upload your payment proof (screenshot)."]);
+  echo json_encode(["error" => "Please upload your payment proof screenshot."]);
+  exit();
+}
+
+if ($_FILES["proof"]["size"] > 5 * 1024 * 1024) {
+  http_response_code(400);
+  echo json_encode(["error" => "File must be 5MB or smaller."]);
   exit();
 }
 
@@ -172,10 +353,22 @@ if (!in_array($ext, ["jpg", "jpeg", "png", "webp"], true)) {
   exit();
 }
 
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$mime = finfo_file($finfo, $tmp);
+finfo_close($finfo);
+
+if (!in_array($mime, ["image/jpeg", "image/png", "image/webp"], true)) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid image file."]);
+  exit();
+}
+
 $uploadDir = __DIR__ . "/../uploads/payments";
 
-if (!is_dir($uploadDir)) {
-  @mkdir($uploadDir, 0777, true);
+if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+  http_response_code(500);
+  echo json_encode(["error" => "Failed to prepare upload folder."]);
+  exit();
 }
 
 $paymentToken = bin2hex(random_bytes(16));
@@ -189,45 +382,65 @@ if (!move_uploaded_file($tmp, $destAbs)) {
   exit();
 }
 
-$context = [
-  "purpose" => $purpose,
-  "booking_id" => $bookingId,
-  "booking_type" => $booking["booking_type"],
-  "booking_date" => $booking["booking_date"],
-  "start_time" => $booking["start_time"],
-  "end_time" => $booking["end_time"],
+$context = array_merge($contextBase, [
   "payment_choice" => $paymentChoice,
   "total_amount" => $totalAmount,
   "downpayment_percentage" => $downpaymentPercentage,
+  "downpayment_amount" => $downpaymentAmount,
+  "remaining_amount" => $remainingAmount,
   "expected_payment_amount" => $expectedAmount
-];
+]);
 
-$notesDecoded = json_decode((string)($booking["notes"] ?? ""), true);
-if (is_array($notesDecoded)) {
-  if (isset($notesDecoded["selected_items"])) {
+if (!$isPublicWorkshop) {
+  $notesDecoded = json_decode((string)($paymentEntity["notes"] ?? ""), true);
+
+  if (is_array($notesDecoded) && isset($notesDecoded["selected_items"])) {
     $context["selected_items"] = $notesDecoded["selected_items"];
-  }
-
-  foreach (["workshop_id", "workshop_title", "package"] as $k) {
-    if (isset($notesDecoded[$k])) {
-      $context[$k] = $notesDecoded[$k];
-    }
   }
 }
 
 $contextJson = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-if ($contextJson === false) {
-  $contextJson = "{}";
-}
+if ($contextJson === false) $contextJson = "{}";
 
 $conn->begin_transaction();
 
 try {
+  if ($isPublicWorkshop) {
+    $pendingStmt = $conn->prepare("
+      SELECT id
+      FROM payments
+      WHERE registration_id = ?
+        AND purpose = ?
+        AND status = 'pending'
+      LIMIT 1
+    ");
+    $pendingStmt->bind_param("is", $registrationId, $purpose);
+  } else {
+    $pendingStmt = $conn->prepare("
+      SELECT id
+      FROM payments
+      WHERE booking_id = ?
+        AND purpose = ?
+        AND status = 'pending'
+      LIMIT 1
+    ");
+    $pendingStmt->bind_param("is", $bookingId, $purpose);
+  }
+
+  $pendingStmt->execute();
+  $hasPending = $pendingStmt->get_result()->num_rows > 0;
+  $pendingStmt->close();
+
+  if ($hasPending) {
+    throw new Exception("A payment is already pending admin verification.");
+  }
+
   $stmt = $conn->prepare("
     INSERT INTO payments
       (
         user_id,
         booking_id,
+        registration_id,
         purpose,
         payment_token,
         reference_no,
@@ -238,13 +451,17 @@ try {
         context_json
       )
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
   ");
 
+  $bookingIdForInsert = $isPublicWorkshop ? null : $bookingId;
+  $registrationIdForInsert = $isPublicWorkshop ? $registrationId : null;
+
   $stmt->bind_param(
-    "iissssdss",
+    "iiissssdss",
     $userId,
-    $bookingId,
+    $bookingIdForInsert,
+    $registrationIdForInsert,
     $purpose,
     $paymentToken,
     $referenceNo,
@@ -260,13 +477,28 @@ try {
 
   $stmt->close();
 
-  $up = $conn->prepare("
-    UPDATE bookings
-    SET payment_status = 'pending'
-    WHERE id = ? AND user_id = ?
-  ");
-  $up->bind_param("ii", $bookingId, $userId);
-  $up->execute();
+  if ($isPublicWorkshop) {
+    $up = $conn->prepare("
+      UPDATE workshop_registrations
+      SET payment_status = 'pending'
+      WHERE id = ?
+        AND user_id = ?
+    ");
+    $up->bind_param("ii", $registrationId, $userId);
+  } else {
+    $up = $conn->prepare("
+      UPDATE bookings
+      SET payment_status = 'pending'
+      WHERE id = ?
+        AND user_id = ?
+    ");
+    $up->bind_param("ii", $bookingId, $userId);
+  }
+
+  if (!$up->execute()) {
+    throw new Exception("Failed to update payment status.");
+  }
+
   $up->close();
 
   $conn->commit();
@@ -286,9 +518,7 @@ try {
     @unlink($destAbs);
   }
 
-  http_response_code(500);
-  echo json_encode([
-    "error" => "Failed to save payment. Please try again."
-  ]);
+  http_response_code(400);
+  echo json_encode(["error" => $e->getMessage()]);
   exit();
 }

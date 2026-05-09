@@ -58,19 +58,12 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (loading) return;
-    if (!countCanvasRef.current || !revenueCanvasRef.current) return;
+    if (loading || error) return;
     if (!stats.labels.length) return;
+    if (!countCanvasRef.current || !revenueCanvasRef.current) return;
 
-    if (countChartRef.current) {
-      countChartRef.current.destroy();
-      countChartRef.current = null;
-    }
-
-    if (revenueChartRef.current) {
-      revenueChartRef.current.destroy();
-      revenueChartRef.current = null;
-    }
+    countChartRef.current?.destroy();
+    revenueChartRef.current?.destroy();
 
     const frame = requestAnimationFrame(() => {
       const countCtx = countCanvasRef.current?.getContext("2d");
@@ -84,12 +77,12 @@ export default function AdminDashboard() {
           labels: stats.labels,
           datasets: [
             {
-              label: "Workshops (Approved/Complete)",
+              label: "Workshops",
               data: stats.workshopCounts,
               borderRadius: 8,
             },
             {
-              label: "Events (Approved/Complete)",
+              label: "Events",
               data: stats.eventCounts,
               borderRadius: 8,
             },
@@ -100,9 +93,15 @@ export default function AdminDashboard() {
           maintainAspectRatio: true,
           plugins: {
             legend: { position: "bottom" },
+            tooltip: { enabled: true },
           },
           scales: {
-            y: { beginAtZero: true },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0,
+              },
+            },
           },
         },
       });
@@ -113,7 +112,7 @@ export default function AdminDashboard() {
           labels: stats.labels,
           datasets: [
             {
-              label: "Revenue (Paid GCash Payments)",
+              label: "Revenue",
               data: stats.revenue,
               tension: 0.35,
               fill: false,
@@ -125,12 +124,25 @@ export default function AdminDashboard() {
           maintainAspectRatio: true,
           plugins: {
             legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: (context) =>
+                  `Revenue: ₱${Number(context.raw || 0).toLocaleString(
+                    undefined,
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    }
+                  )}`,
+              },
+            },
           },
           scales: {
             y: {
               beginAtZero: true,
               ticks: {
-                callback: (value) => "₱" + value,
+                callback: (value) =>
+                  `₱${Number(value).toLocaleString()}`,
               },
             },
           },
@@ -140,30 +152,30 @@ export default function AdminDashboard() {
 
     return () => {
       cancelAnimationFrame(frame);
-
-      if (countChartRef.current) {
-        countChartRef.current.destroy();
-        countChartRef.current = null;
-      }
-
-      if (revenueChartRef.current) {
-        revenueChartRef.current.destroy();
-        revenueChartRef.current = null;
-      }
+      countChartRef.current?.destroy();
+      revenueChartRef.current?.destroy();
+      countChartRef.current = null;
+      revenueChartRef.current = null;
     };
-  }, [stats, loading]);
+  }, [loading, error, stats]);
 
-  const avgRevenuePerEvent =
-    stats.totalEvent > 0 ? stats.totalRevenue / stats.totalEvent : 0;
+  const totalBookings = stats.totalWorkshop + stats.totalEvent;
+
+  const avgRevenuePerBooking =
+    totalBookings > 0 ? stats.totalRevenue / totalBookings : 0;
 
   return (
     <AdminLayout title="Dashboard">
-      {error && <div className="admin-notice-react bad">{error}</div>}
+      {error && (
+        <div className="admin-notice-react bad" role="alert" aria-live="assertive">
+          {error}
+        </div>
+      )}
 
       <div className="admin-cards-react admin-cards-hero-react">
         <div className="admin-card-react admin-card-feature-react">
           <div className="admin-card-label-react">
-            <Package size={14} />
+            <Package size={14} aria-hidden="true" />
             <span>Workshops</span>
           </div>
           <h4>Total Workshops</h4>
@@ -173,7 +185,7 @@ export default function AdminDashboard() {
 
         <div className="admin-card-react admin-card-feature-react">
           <div className="admin-card-label-react">
-            <PartyPopper size={14} />
+            <PartyPopper size={14} aria-hidden="true" />
             <span>Events</span>
           </div>
           <h4>Total Private Events</h4>
@@ -183,7 +195,7 @@ export default function AdminDashboard() {
 
         <div className="admin-card-react admin-card-feature-react">
           <div className="admin-card-label-react">
-            <PhilippinePeso size={14} />
+            <PhilippinePeso size={14} aria-hidden="true" />
             <span>Revenue</span>
           </div>
           <h4>Total Revenue</h4>
@@ -201,19 +213,43 @@ export default function AdminDashboard() {
       <div className="admin-grid-2-react">
         <div className="admin-panel-react">
           <h3>Booking Trends</h3>
+
           {loading ? (
-            <div className="admin-muted-react">Loading chart...</div>
+            <div className="admin-muted-react" role="status" aria-live="polite">
+              Loading chart...
+            </div>
+          ) : stats.labels.length === 0 ? (
+            <div className="admin-muted-react">No booking trend data yet.</div>
           ) : (
-            <canvas ref={countCanvasRef} height="120" />
+            <canvas
+              ref={countCanvasRef}
+              height="120"
+              role="img"
+              aria-label="Bar chart showing workshop and event booking trends."
+            >
+              Booking trends chart.
+            </canvas>
           )}
         </div>
 
         <div className="admin-panel-react">
           <h3>Revenue Trends</h3>
+
           {loading ? (
-            <div className="admin-muted-react">Loading chart...</div>
+            <div className="admin-muted-react" role="status" aria-live="polite">
+              Loading chart...
+            </div>
+          ) : stats.labels.length === 0 ? (
+            <div className="admin-muted-react">No revenue trend data yet.</div>
           ) : (
-            <canvas ref={revenueCanvasRef} height="120" />
+            <canvas
+              ref={revenueCanvasRef}
+              height="120"
+              role="img"
+              aria-label="Line chart showing paid GCash revenue trends."
+            >
+              Revenue trends chart.
+            </canvas>
           )}
         </div>
       </div>
@@ -223,10 +259,10 @@ export default function AdminDashboard() {
           <h3>Quick Insights</h3>
           <div className="admin-stat-list-react">
             <div className="admin-stat-item-react">
-              <span>Avg revenue per event</span>
+              <span>Avg revenue per booking</span>
               <strong>
                 ₱
-                {avgRevenuePerEvent.toLocaleString(undefined, {
+                {avgRevenuePerBooking.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}

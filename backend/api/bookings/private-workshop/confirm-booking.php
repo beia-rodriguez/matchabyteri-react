@@ -1,8 +1,18 @@
 <?php
+
 session_start();
+
 require_once __DIR__ . "/../../../config/db.php";
 
 header("Content-Type: application/json");
+
+date_default_timezone_set("Asia/Manila");
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+  http_response_code(405);
+  echo json_encode(["error" => "Method not allowed"]);
+  exit();
+}
 
 if (!isset($_SESSION["user_id"])) {
   http_response_code(401);
@@ -10,7 +20,14 @@ if (!isset($_SESSION["user_id"])) {
   exit();
 }
 
+if (isset($_SESSION["role"]) && $_SESSION["role"] === "admin") {
+  http_response_code(403);
+  echo json_encode(["error" => "Admins cannot book workshops"]);
+  exit();
+}
+
 $user_id = (int)$_SESSION["user_id"];
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (!is_array($data)) {
@@ -31,9 +48,21 @@ if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
   exit();
 }
 
+if ($date < date("Y-m-d")) {
+  http_response_code(400);
+  echo json_encode(["error" => "Past dates are not allowed"]);
+  exit();
+}
+
 if (!is_array($draft)) {
   http_response_code(400);
   echo json_encode(["error" => "Invalid booking data"]);
+  exit();
+}
+
+if (!$form_id) {
+  http_response_code(400);
+  echo json_encode(["error" => "Missing booking form"]);
   exit();
 }
 
@@ -49,6 +78,18 @@ $end_time = trim($draft["end_time"] ?? "");
 if ($start_time === "" || $end_time === "") {
   http_response_code(400);
   echo json_encode(["error" => "Missing start or end time"]);
+  exit();
+}
+
+if (!preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $start_time)) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid start time"]);
+  exit();
+}
+
+if (!preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $end_time)) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid end time"]);
   exit();
 }
 
@@ -92,6 +133,11 @@ try {
     WHERE block_date = ?
     LIMIT 1
   ");
+
+  if (!$blockedStmt) {
+    throw new Exception("Failed to prepare blocked date query.");
+  }
+
   $blockedStmt->bind_param("s", $date);
   $blockedStmt->execute();
   $blocked = $blockedStmt->get_result()->fetch_assoc();
@@ -101,18 +147,47 @@ try {
     throw new Exception("This date is not available.");
   }
 
-  $stmt = $conn->prepare("
+  $MAX_PER_DAY = 2;
+
+  $countStmt = $conn->prepare("
+    SELECT COUNT(*) AS c
+    FROM bookings
+    WHERE booking_date = ?
+      AND booking_type = 'workshop'
+      AND status IN ('pending','approved')
+  ");
+
+  if (!$countStmt) {
+    throw new Exception("Failed to prepare count query.");
+  }
+
+  $countStmt->bind_param("s", $date);
+  $countStmt->execute();
+  $count = (int)($countStmt->get_result()->fetch_assoc()["c"] ?? 0);
+  $countStmt->close();
+
+  if ($count >= $MAX_PER_DAY) {
+    throw new Exception("This day is fully booked.");
+  }
+
+  $conflictStmt = $conn->prepare("
     SELECT id
     FROM bookings
     WHERE booking_date = ?
+      AND booking_type = 'workshop'
       AND status IN ('pending','approved')
       AND (start_time < ? AND end_time > ?)
     LIMIT 1
   ");
-  $stmt->bind_param("sss", $date, $end_time, $start_time);
-  $stmt->execute();
-  $conflict = $stmt->get_result()->num_rows > 0;
-  $stmt->close();
+
+  if (!$conflictStmt) {
+    throw new Exception("Failed to prepare conflict query.");
+  }
+
+  $conflictStmt->bind_param("sss", $date, $end_time, $start_time);
+  $conflictStmt->execute();
+  $conflict = $conflictStmt->get_result()->num_rows > 0;
+  $conflictStmt->close();
 
   if ($conflict) {
     throw new Exception("That time slot is already booked.");

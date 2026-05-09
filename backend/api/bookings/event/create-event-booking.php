@@ -1,8 +1,18 @@
 <?php
+
 session_start();
+
 require_once __DIR__ . "/../../../config/db.php";
 
 header("Content-Type: application/json");
+
+date_default_timezone_set("Asia/Manila");
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+  http_response_code(405);
+  echo json_encode(["error" => "Method not allowed"]);
+  exit();
+}
 
 if (!isset($_SESSION["user_id"])) {
   http_response_code(401);
@@ -10,7 +20,14 @@ if (!isset($_SESSION["user_id"])) {
   exit();
 }
 
+if (isset($_SESSION["role"]) && $_SESSION["role"] === "admin") {
+  http_response_code(403);
+  echo json_encode(["error" => "Admins cannot book events"]);
+  exit();
+}
+
 $user_id = (int)$_SESSION["user_id"];
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (!is_array($data)) {
@@ -19,23 +36,50 @@ if (!is_array($data)) {
   exit();
 }
 
-$date = $data["date"] ?? "";
-$start_time = $data["start_time"] ?? "";
-$end_time = $data["end_time"] ?? "";
+$date = trim($data["date"] ?? "");
+$start_time = trim($data["start_time"] ?? "");
+$end_time = trim($data["end_time"] ?? "");
 $draft = $data["draft"] ?? [];
 $form_id = isset($data["form_id"]) ? (int)$data["form_id"] : null;
 $total_amount = isset($data["total_amount"]) ? (float)$data["total_amount"] : 0;
 $form_snapshot = $data["form_snapshot"] ?? null;
 
-if (!$date || !$start_time || !$end_time || !is_array($draft)) {
+if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
   http_response_code(400);
-  echo json_encode(["error" => "Missing required data"]);
+  echo json_encode(["error" => "Invalid date"]);
+  exit();
+}
+
+if ($date < date("Y-m-d")) {
+  http_response_code(400);
+  echo json_encode(["error" => "Past dates are not allowed"]);
+  exit();
+}
+
+if (!is_array($draft)) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid booking data"]);
+  exit();
+}
+
+if (!$form_id) {
+  http_response_code(400);
+  echo json_encode(["error" => "Missing booking form"]);
   exit();
 }
 
 if ($total_amount <= 0) {
   http_response_code(400);
   echo json_encode(["error" => "Invalid total amount"]);
+  exit();
+}
+
+if (
+  !preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $start_time) ||
+  !preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $end_time)
+) {
+  http_response_code(400);
+  echo json_encode(["error" => "Invalid time format"]);
   exit();
 }
 
@@ -57,44 +101,85 @@ if (($endTs - $startTs) > (4 * 60 * 60)) {
   exit();
 }
 
+$draft["start_time"] = $start_time;
+$draft["end_time"] = $end_time;
+
 $notesJson = json_encode($draft, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-if ($notesJson === false) $notesJson = "{}";
+if ($notesJson === false || $notesJson === "") {
+  $notesJson = "{}";
+}
 
 $snapshotJson = json_encode($form_snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-if ($snapshotJson === false) $snapshotJson = "{}";
+if ($snapshotJson === false || $snapshotJson === "") {
+  $snapshotJson = "{}";
+}
 
 $conn->begin_transaction();
 
 try {
   $blockedStmt = $conn->prepare("
-    SELECT id
+    SELECT reason
     FROM blocked_dates
     WHERE block_date = ?
     LIMIT 1
   ");
+
+  if (!$blockedStmt) {
+    throw new Exception("Failed to check blocked date.");
+  }
+
   $blockedStmt->bind_param("s", $date);
   $blockedStmt->execute();
-  $blockedResult = $blockedStmt->get_result();
+  $blocked = $blockedStmt->get_result()->fetch_assoc();
   $blockedStmt->close();
 
-  if ($blockedResult->num_rows > 0) {
+  if ($blocked) {
     throw new Exception("This date is not available.");
   }
 
-  $stmt = $conn->prepare("
+  $MAX_EVENT_PER_DAY = 3;
+
+  $countStmt = $conn->prepare("
+    SELECT COUNT(*) AS c
+    FROM bookings
+    WHERE booking_date = ?
+      AND booking_type = 'event'
+      AND status IN ('pending','approved')
+  ");
+
+  if (!$countStmt) {
+    throw new Exception("Failed to check booking count.");
+  }
+
+  $countStmt->bind_param("s", $date);
+  $countStmt->execute();
+  $count = (int)($countStmt->get_result()->fetch_assoc()["c"] ?? 0);
+  $countStmt->close();
+
+  if ($count >= $MAX_EVENT_PER_DAY) {
+    throw new Exception("This day is fully booked.");
+  }
+
+  $conflictStmt = $conn->prepare("
     SELECT id
     FROM bookings
     WHERE booking_date = ?
+      AND booking_type = 'event'
       AND status IN ('pending','approved')
       AND (start_time < ? AND end_time > ?)
     LIMIT 1
   ");
-  $stmt->bind_param("sss", $date, $end_time, $start_time);
-  $stmt->execute();
-  $result = $stmt->get_result();
-  $stmt->close();
 
-  if ($result->num_rows > 0) {
+  if (!$conflictStmt) {
+    throw new Exception("Failed to check time conflict.");
+  }
+
+  $conflictStmt->bind_param("sss", $date, $end_time, $start_time);
+  $conflictStmt->execute();
+  $conflict = $conflictStmt->get_result()->num_rows > 0;
+  $conflictStmt->close();
+
+  if ($conflict) {
     throw new Exception("That time slot is already booked. Please choose another time.");
   }
 
@@ -116,6 +201,10 @@ try {
     VALUES
       (?, ?, ?, ?, 'event', 'pending', ?, ?, 'unpaid', ?, ?)
   ");
+
+  if (!$insert) {
+    throw new Exception("Failed to prepare booking.");
+  }
 
   $insert->bind_param(
     "issssdis",

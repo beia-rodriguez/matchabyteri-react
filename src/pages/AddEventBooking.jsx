@@ -39,7 +39,6 @@ export default function AddEventBooking() {
   const [step, setStep] = useState("form");
   const [error, setError] = useState("");
   const [loadingForm, setLoadingForm] = useState(true);
-
   const [formSchema, setFormSchema] = useState(null);
 
   const [fixedInfo, setFixedInfo] = useState({
@@ -56,7 +55,7 @@ export default function AddEventBooking() {
   const [quantities, setQuantities] = useState({});
 
   useEffect(() => {
-    if (!date) {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       navigate("/calendar");
     }
   }, [date, navigate]);
@@ -66,19 +65,19 @@ export default function AddEventBooking() {
   }, []);
 
   useEffect(() => {
-  API.get("/user/current-user.php")
-    .then(({ data }) => {
-      if (data.success && data.user) {
-        setFixedInfo((prev) => ({
-          ...prev,
-          full_name: data.user.name || prev.full_name,
-          email: data.user.email || prev.email,
-          phone_number: data.user.phone_number || prev.phone_number,
-        }));
-      }
-    })
-    .catch(() => {});
-}, []);
+    API.get("/user/current-user.php")
+      .then(({ data }) => {
+        if (data.success && data.user) {
+          setFixedInfo((prev) => ({
+            ...prev,
+            full_name: data.user.name || prev.full_name,
+            email: data.user.email || prev.email,
+            phone_number: data.user.phone_number || prev.phone_number,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const loadActiveForm = async () => {
     setLoadingForm(true);
@@ -111,13 +110,15 @@ export default function AddEventBooking() {
   const selectedCupCount = useMemo(() => {
     for (const field of allFields) {
       const selected = answers[field.field_name];
-
       if (!selected) continue;
 
       const selectedValues = Array.isArray(selected) ? selected : [selected];
 
       for (const value of selectedValues) {
-        const option = (field.options || []).find((opt) => String(opt.id) === String(value));
+        const option = (field.options || []).find(
+          (opt) => String(opt.id) === String(value)
+        );
+
         const cups = parseCupCount(option?.label || "");
         if (cups > 0) return cups;
       }
@@ -131,7 +132,6 @@ export default function AddEventBooking() {
 
     for (const field of allFields) {
       const value = answers[field.field_name];
-
       if (value === undefined || value === "" || value === null) continue;
 
       const selectedValues = Array.isArray(value) ? value : [value];
@@ -144,19 +144,18 @@ export default function AddEventBooking() {
         if (!option) continue;
 
         const optionKey = `${field.id}_${option.id}`;
-        const qty = field.allow_quantity ? Math.max(1, Number(quantities[optionKey] || 1)) : 1;
+        const qty =
+          Number(field.allow_quantity) === 1
+            ? Math.max(1, Number(quantities[optionKey] || 1))
+            : 1;
+
         const price = Number(option.price || 0);
         const priceType = option.price_type || "fixed";
 
         let lineTotal = price;
 
-        if (priceType === "per_quantity") {
-          lineTotal = price * qty;
-        }
-
-        if (priceType === "per_cup") {
-          lineTotal = price * selectedCupCount;
-        }
+        if (priceType === "per_quantity") lineTotal = price * qty;
+        if (priceType === "per_cup") lineTotal = price * selectedCupCount;
 
         items.push({
           field_id: field.id,
@@ -211,7 +210,9 @@ export default function AddEventBooking() {
 
     setAnswers((prev) => {
       if (field.field_type === "checkbox") {
-        const current = Array.isArray(prev[field.field_name]) ? prev[field.field_name] : [];
+        const current = Array.isArray(prev[field.field_name])
+          ? prev[field.field_name]
+          : [];
 
         return {
           ...prev,
@@ -264,14 +265,12 @@ export default function AddEventBooking() {
       }
     }
 
-    if (totalAmount <= 0) {
-      return "Please select at least one priced option.";
-    }
+    if (totalAmount <= 0) return "Please select at least one priced option.";
 
     return "";
   };
 
-  const handleReview = () => {
+  const handleReview = async () => {
     setError("");
 
     const validationError = validateForm();
@@ -281,7 +280,21 @@ export default function AddEventBooking() {
       return;
     }
 
-    setStep("review");
+    try {
+      const res = await API.post("/bookings/event/validate-event-booking.php", {
+        date,
+        start_time: fixedInfo.start_time,
+        end_time: fixedInfo.end_time,
+      });
+
+      if (res.data.success) {
+        setStep("review");
+      } else {
+        setError(res.data.error || "Booking is not available.");
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to validate booking.");
+    }
   };
 
   const buildDraft = () => ({
@@ -313,8 +326,6 @@ export default function AddEventBooking() {
         setError(res.data.error || "Booking failed.");
       }
     } catch (err) {
-      console.error(err);
-
       if (err.response?.status === 401) {
         setError("Please log in to confirm your booking.");
         navigate("/login");
@@ -395,7 +406,6 @@ export default function AddEventBooking() {
                       handleQuantityChange(field.id, option.id, e.target.value)
                     }
                     placeholder="Quantity"
-                    style={{ marginTop: 6 }}
                   />
                 )}
               </div>
@@ -429,198 +439,205 @@ export default function AddEventBooking() {
             <div className="date-title">{date}</div>
           </div>
 
-          {error && <div className="error">{error}</div>}
+          <div className="card">
+            {error && <div className="error">{error}</div>}
 
-          {loadingForm ? (
-            <div className="title">Loading booking form...</div>
-          ) : (
-            <>
-              {step === "form" && (
-                <>
-                  <div className="title">{formSchema?.title || "Book your event now!"}</div>
-
-                  <div className="section-title">CONTACT INFORMATION</div>
-
-                  <div className="field">
-                    <label className="label">Full Name</label>
-                    <input
-                      name="full_name"
-                      value={fixedInfo.full_name}
-                      onChange={handleFixedChange}
-                    />
-                  </div>
-
-                  <div className="field">
-                    <label className="label">Phone Number</label>
-                    <input
-                      name="phone_number"
-                      value={fixedInfo.phone_number}
-                      onChange={handleFixedChange}
-                    />
-                  </div>
-
-                  <div className="field">
-                    <label className="label">Email Address</label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      value={fixedInfo.email}
-                      readOnly
-                    />
-                  </div>
-
-                  <div className="field">
-                    <label className="label">
-                      Are you available to contact in the following:
-                    </label>
-
-                    <div className="options">
-                      {CONTACT_METHODS.map((method) => (
-                        <label className="opt" key={method}>
-                          <input
-                            type="checkbox"
-                            value={method}
-                            checked={fixedInfo.contact_methods.includes(method)}
-                            onChange={handleContactMethod}
-                          />
-                          {method}
-                        </label>
-                      ))}
+            {loadingForm ? (
+              <div className="title">Loading booking form...</div>
+            ) : (
+              <>
+                {step === "form" && (
+                  <>
+                    <div className="title">
+                      {formSchema?.title || "Book your event now!"}
                     </div>
-                  </div>
 
-                  <div className="two-col">
+                    <div className="section-title">CONTACT INFORMATION</div>
+
                     <div className="field">
-                      <label className="label">Work Hours</label>
+                      <label className="label">Full Name</label>
                       <input
-                        type="time"
-                        name="start_time"
-                        value={fixedInfo.start_time}
+                        type="text"
+                        name="full_name"
+                        value={fixedInfo.full_name}
                         onChange={handleFixedChange}
                       />
                     </div>
 
                     <div className="field">
-                      <label className="label">&nbsp;</label>
+                      <label className="label">Phone Number</label>
                       <input
-                        type="time"
-                        name="end_time"
-                        value={fixedInfo.end_time}
+                        type="text"
+                        name="phone_number"
+                        value={fixedInfo.phone_number}
+                        onChange={handleFixedChange}
+                      />
+                    </div>
+
+                    <div className="field">
+                      <label className="label">Email Address</label>
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        value={fixedInfo.email}
                         readOnly
                       />
                     </div>
-                  </div>
 
-                  <div className="small-note">Up to 4 hours operation</div>
+                    <div className="field">
+                      <label className="label">
+                        Are you available to contact in the following:
+                      </label>
 
-                  {(formSchema?.sections || []).map((section) => (
-                    <div key={section.id}>
-                      <div className="section-title">{section.title}</div>
-
-                      {(section.fields || []).map((field) => (
-                        <div className="field" key={field.id}>
-                          <label className="label">
-                            {field.label}
-                            {Number(field.is_required) === 1 ? " *" : ""}
+                      <div className="options">
+                        {CONTACT_METHODS.map((method) => (
+                          <label className="opt" key={method}>
+                            <input
+                              type="checkbox"
+                              value={method}
+                              checked={fixedInfo.contact_methods.includes(method)}
+                              onChange={handleContactMethod}
+                            />
+                            {method}
                           </label>
-
-                          {renderDynamicField(field)}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  ))}
 
-                  <div className="field">
-                    <label className="label">Other Request (Optional)</label>
-                    <input
-                      name="other_request"
-                      value={fixedInfo.other_request}
-                      onChange={handleFixedChange}
-                    />
-                  </div>
+                    <div className="two-col">
+                      <div className="field">
+                        <label className="label">Work Hours</label>
+                        <input
+                          type="time"
+                          name="start_time"
+                          value={fixedInfo.start_time}
+                          onChange={handleFixedChange}
+                        />
+                      </div>
 
-                  <div className="booking-summary">
-                    <div className="booking-row">
-                      <span className="booking-label">Total</span>
-                      <span className="booking-value">₱{money(totalAmount)}</span>
+                      <div className="field">
+                        <label className="label">&nbsp;</label>
+                        <input
+                          type="time"
+                          name="end_time"
+                          value={fixedInfo.end_time}
+                          readOnly
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="actions">
-                    <button
-                      className="btn btn-cancel"
-                      onClick={() => navigate(`/day?date=${date}&type=event`)}
-                    >
-                      CANCEL
-                    </button>
+                    <div className="small-note">Up to 4 hours operation</div>
 
-                    <button className="btn btn-next" onClick={handleReview}>
-                      NEXT
-                    </button>
-                  </div>
-                </>
-              )}
+                    {(formSchema?.sections || []).map((section) => (
+                      <div key={section.id}>
+                        <div className="section-title">{section.title}</div>
 
-              {step === "review" && (
-                <>
-                  <div className="title">
-                    Please review your details carefully, before confirmation.
-                  </div>
+                        {(section.fields || []).map((field) => (
+                          <div className="field" key={field.id}>
+                            <label className="label">
+                              {field.label}
+                              {Number(field.is_required) === 1 ? " *" : ""}
+                            </label>
 
-                  <div className="booking-summary animate-fade-in">
-                    {Object.entries(fixedInfo).map(([key, value]) => {
-                      if (
-                        value === "" ||
-                        (Array.isArray(value) && value.length === 0)
-                      ) {
-                        return null;
-                      }
-
-                      const label = key
-                        .replace(/_/g, " ")
-                        .replace(/\b\w/g, (c) => c.toUpperCase());
-
-                      return (
-                        <div className="booking-row" key={key}>
-                          <span className="booking-label">{label}</span>
-                          <span className="booking-value">
-                            {Array.isArray(value) ? value.join(", ") : value}
-                          </span>
-                        </div>
-                      );
-                    })}
-
-                    {selectedItems.map((item) => (
-                      <div className="booking-row" key={`${item.field_id}_${item.option_id}`}>
-                        <span className="booking-label">
-                          {item.field_label}: {item.option_label}
-                        </span>
-                        <span className="booking-value">
-                          ₱{money(item.line_total)}
-                        </span>
+                            {renderDynamicField(field)}
+                          </div>
+                        ))}
                       </div>
                     ))}
 
-                    <div className="booking-row">
-                      <span className="booking-label">Total Amount</span>
-                      <span className="booking-value">₱{money(totalAmount)}</span>
+                    <div className="field">
+                      <label className="label">Other Request (Optional)</label>
+                      <input
+                        type="text"
+                        name="other_request"
+                        value={fixedInfo.other_request}
+                        onChange={handleFixedChange}
+                      />
                     </div>
-                  </div>
 
-                  <div className="actions">
-                    <button className="btn btn-edit" onClick={() => setStep("form")}>
-                      EDIT
-                    </button>
+                    <div className="booking-summary">
+                      <div className="booking-row">
+                        <span className="booking-label">Total</span>
+                        <span className="booking-value">₱{money(totalAmount)}</span>
+                      </div>
+                    </div>
 
-                    <button className="btn btn-confirm" onClick={handleConfirm}>
-                      CONFIRM
-                    </button>
-                  </div>
-                </>
-              )}
-            </>
-          )}
+                    <div className="actions">
+                      <button
+                        className="btn btn-cancel"
+                        onClick={() => navigate(`/day?date=${date}&type=event`)}
+                      >
+                        CANCEL
+                      </button>
+
+                      <button className="btn btn-next" onClick={handleReview}>
+                        NEXT
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {step === "review" && (
+                  <>
+                    <div className="title">
+                      Please review your details carefully, before confirmation.
+                    </div>
+
+                    <div className="booking-summary animate-fade-in">
+                      {Object.entries(fixedInfo).map(([key, value]) => {
+                        if (value === "" || (Array.isArray(value) && value.length === 0)) {
+                          return null;
+                        }
+
+                        const label = key
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (c) => c.toUpperCase());
+
+                        return (
+                          <div className="booking-row" key={key}>
+                            <span className="booking-label">{label}</span>
+                            <span className="booking-value">
+                              {Array.isArray(value) ? value.join(", ") : value}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {selectedItems.map((item) => (
+                        <div
+                          className="booking-row"
+                          key={`${item.field_id}_${item.option_id}`}
+                        >
+                          <span className="booking-label">
+                            {item.field_label}: {item.option_label}
+                          </span>
+                          <span className="booking-value">
+                            ₱{money(item.line_total)}
+                          </span>
+                        </div>
+                      ))}
+
+                      <div className="booking-row">
+                        <span className="booking-label">Total Amount</span>
+                        <span className="booking-value">₱{money(totalAmount)}</span>
+                      </div>
+                    </div>
+
+                    <div className="actions">
+                      <button className="btn btn-edit" onClick={() => setStep("form")}>
+                        EDIT
+                      </button>
+
+                      <button className="btn btn-confirm" onClick={handleConfirm}>
+                        CONFIRM
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </>
