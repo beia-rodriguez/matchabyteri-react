@@ -8,6 +8,7 @@ export default function UserProfile() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const [preview, setPreview] = useState(null);
   const [unreadReplies, setUnreadReplies] = useState(0);
 
@@ -19,15 +20,21 @@ export default function UserProfile() {
   });
 
   useEffect(() => {
-    API.get("/user/get-profile.php")
-      .then(res => {
-        setUser(res.data);
-        setUnreadReplies(res.data.unreadReplies || 0);
+    // Fetch profile and bookings simultaneously 
+    Promise.all([
+      API.get("/user/get-profile.php"),
+      API.get("/user/get-bookings.php")
+    ])
+      .then(([profileRes, bookingRes]) => {
+        const userData = profileRes.data;
+        setUser(userData);
+        setUnreadReplies(userData.unreadReplies || 0);
+        setBookings(bookingRes.data.privateBookings || []);
 
         setForm({
-          name: res.data.name || "",
-          phone_number: res.data.phone_number || "",
-          birthdate: res.data.birthdate || "",
+          name: userData.name || "",
+          phone_number: userData.phone_number || "",
+          birthdate: userData.birthdate || "",
           profile_picture: null
         });
       })
@@ -38,43 +45,63 @@ export default function UserProfile() {
       });
   }, [navigate]);
 
-  const handleChange = e => {
-    const { name, value, files } = e.target;
+const handleChange = e => {
+  const { name, value, files } = e.target;
 
-    if (name === "profile_picture") {
-      const file = files[0];
-      setForm(prev => ({ ...prev, profile_picture: file }));
-
-      if (file) {
-        setPreview(URL.createObjectURL(file));
-      }
-    } else {
-      setForm(prev => ({ ...prev, [name]: value }));
+  if (name === "profile_picture") {
+    const file = files[0];
+    setForm(prev => ({ ...prev, profile_picture: file }));
+    if (file) {
+      setPreview(URL.createObjectURL(file));
     }
-  };
+  } else {
+    // Ensure this is firing for the 'name' input
+    setForm(prev => ({ ...prev, [name]: value }));
+  }
+};
 
-  const handleSubmit = async e => {
-    e.preventDefault();
+const handleSubmit = async e => {
+  e.preventDefault();
 
-    const formData = new FormData();
-    formData.append("name", form.name);
-    formData.append("phone_number", form.phone_number);
-    formData.append("birthdate", form.birthdate);
+  // Validate locally before sending to prevent the alert you see
+  if (!form.name.trim()) {
+    alert("Please enter your name.");
+    return;
+  }
 
-    if (form.profile_picture) {
-      formData.append("profile_picture", form.profile_picture);
-    }
+  const formData = new FormData();
+  // Ensure these strings match exactly what PHP expects in $_POST
+  formData.append("name", form.name); 
+  formData.append("phone_number", form.phone_number);
+  formData.append("birthdate", form.birthdate);
 
-    const res = await API.post("/user/update-profile.php", formData);
+  if (form.profile_picture) {
+    formData.append("profile_picture", form.profile_picture);
+  }
+
+  try {
+    // Important: Do not set Content-Type header manually here
+    const res = await API.post("/user/update-profile.php", formData, {
+  headers: { "Content-Type": "multipart/form-data" }
+});
 
     if (res.data.success) {
       setUser(prev => ({
         ...prev,
-        profile_picture: res.data.profile_picture
+        profile_picture: res.data.profile_picture,
+        name: form.name // Update the header name immediately
       }));
+      setPreview(null); 
       alert("Profile updated successfully");
+    } else {
+      // This is where "Name is required" from PHP is caught
+      alert(res.data.error || "Update failed");
     }
-  };
+  } catch (err) {
+    console.error("Upload error:", err);
+    alert("Error updating profile. Please try again.");
+  }
+};
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -99,20 +126,20 @@ export default function UserProfile() {
 
         <div className="profile-card">
 
-          {/* TOP ROW */}
+          {/* PROFILE HEADER SECTION */}
           <div className="top-row">
             <div className="who">
               <img
-                className="profile-pic"
-                src={
-                  preview
-                    ? preview
-                    : user.profile_picture
-                    ? `/api/${user.profile_picture}`
-                    : "/pics/default-avatar.png"
-                }
-                alt="Profile"
-              />
+  className="profile-pic"
+  src={
+    preview 
+      ? preview 
+      : (user.profile_picture && user.profile_picture.trim() !== ""
+          ? `/api/${user.profile_picture}` 
+          : "/pics/default-avatar.png")
+  }
+  alt="Profile"
+/>
 
               <div className="meta">
                 <div className="name">{user.name}</div>
@@ -123,14 +150,17 @@ export default function UserProfile() {
             {isAdmin && (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <div className="admin-badge">You are an Admin</div>
-                <a href="/admin/dashboard" className="btn-admin">
+                <button 
+                  onClick={() => navigate("/admin/dashboard")} 
+                  className="btn-admin"
+                >
                   Admin Dashboard
-                </a>
+                </button>
               </div>
             )}
           </div>
 
-          {/* QUICK ACTIONS */}
+          {/* QUICK ACTIONS FOR USERS */}
           {!isAdmin && (
             <div className="quick-actions">
               <button
@@ -154,8 +184,10 @@ export default function UserProfile() {
             </div>
           )}
 
-          {/* FORM */}
-          <form onSubmit={handleSubmit}>
+          <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "25px 0" }} />
+
+          {/* PROFILE UPDATE FORM */}
+          <form onSubmit={handleSubmit} className="profile-form">
             <div className="field">
               <label>Name</label>
               <input
@@ -170,9 +202,7 @@ export default function UserProfile() {
             <div className="field">
               <label>Email (cannot change)</label>
               <input type="text" value={user.email} disabled />
-              <div className="hint">
-                Email cannot be changed from this page.
-              </div>
+              <div className="hint">Email cannot be changed from this page. [cite: 580]</div>
             </div>
 
             <div className="field">
@@ -183,9 +213,6 @@ export default function UserProfile() {
                 value={form.birthdate || ""}
                 onChange={handleChange}
               />
-              <div className="hint">
-                Used for your account information.
-              </div>
             </div>
 
             <div className="field">
@@ -195,6 +222,7 @@ export default function UserProfile() {
                 name="phone_number"
                 value={form.phone_number}
                 onChange={handleChange}
+                placeholder="09XXXXXXXXX"
               />
             </div>
 
@@ -206,10 +234,50 @@ export default function UserProfile() {
                 accept="image/*"
                 onChange={handleChange}
               />
-              <div className="hint">
-                JPG/PNG/GIF only. Max 2MB.
-              </div>
+              <div className="hint">JPG/PNG/GIF only. Max 2MB.</div>
             </div>
+
+            {/* BOOKINGS HISTORY SECTION */}
+            {!isAdmin && (
+              <div className="field full" style={{ marginTop: '20px', marginBottom: '10px' }}>
+                <label style={{ marginBottom: '10px', display: 'block' }}>My Bookings</label>
+                {bookings.length > 0 ? (
+                  <div className="table-responsive" style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--line)', overflow: 'hidden' }}>
+                    <table className="bookings-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                      <thead style={{ background: '#e9ece7' }}>
+                        <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left' }}>
+                          <th style={{ padding: '10px' }}>Date</th>
+                          <th style={{ padding: '10px' }}>Time</th>
+                          <th style={{ padding: '10px' }}>Type</th>
+                          <th style={{ padding: '10px' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bookings.map(b => (
+                          <tr key={b.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                            <td style={{ padding: '10px', fontWeight: '700' }}>{b.booking_date}</td>
+                            <td style={{ padding: '10px' }}>{b.start_time?.slice(0, 5)} - {b.end_time?.slice(0, 5)}</td>
+                            <td style={{ padding: '10px', textTransform: 'capitalize' }}>{b.booking_type}</td>
+                            <td style={{ padding: '10px' }}>
+                              <span style={{ 
+                                fontWeight: '900', 
+                                textTransform: 'uppercase', 
+                                fontSize: '0.7rem',
+                                color: b.status === 'approved' ? 'var(--green-2)' : 'var(--muted)'
+                              }}>
+                                {b.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="hint">You haven't made any bookings yet.</p>
+                )}
+              </div>
+            )}
 
             <div className="actions full">
               <button
@@ -229,6 +297,7 @@ export default function UserProfile() {
             </div>
           </form>
 
+          {/* ORIGINAL LOGOUT SECTION */}
           <div className="logout">
             <a href="#" onClick={handleLogout}>
               Logout

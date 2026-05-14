@@ -9,6 +9,7 @@ import {
   CreditCard,
   LogOut,
   FilePenLine,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "@/assets/css/admin-panel.css";
@@ -21,6 +22,7 @@ const navItems = [
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/workshops", label: "Workshops", icon: GraduationCap },
   { to: "/admin/contacts", label: "Contacts", icon: Users },
+  { to: "/admin/concerns", label: "Concerns", icon: MessageSquare },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
 ];
 

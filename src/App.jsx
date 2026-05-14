@@ -30,6 +30,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminCalendar from "./admin/AdminCalendar";
 import AdminContacts from "./admin/AdminContacts";
+import AdminConcerns from "./admin/AdminConcerns";
 import AdminPayments from "./admin/AdminPayments";
 import AdminReports from "./admin/AdminReports";
 import AdminReservations from "./admin/AdminReservations";
@@ -128,6 +129,13 @@ function App() {
       <Route path="/admin/contacts" element={
           <AdminRoute>
             <AdminContacts />
+          </AdminRoute>
+        }
+      />
+
+      <Route path="/admin/concerns" element={
+          <AdminRoute>
+            <AdminConcerns />
           </AdminRoute>
         }
       />
