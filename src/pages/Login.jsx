@@ -18,10 +18,8 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [notice, setNotice] = useState(location.state?.message || "");
   const [error, setError] = useState("");
-
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,7 +32,6 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setError("");
     setNotice("");
 
@@ -45,7 +42,6 @@ export default function Login() {
 
     try {
       setSubmitting(true);
-
       const res = await login({
         email: email.trim().toLowerCase(),
         password,
@@ -95,13 +91,10 @@ export default function Login() {
 
           <form onSubmit={handleSubmit}>
             <div className="field">
-              <label className="label" htmlFor="email">
-                Email
-              </label>
-
+              <label className="label" htmlFor="email">Email</label>
               <input
                 className="input"
-                id="email"
+                id="email" /* Crucial for Voice Assistant */
                 type="email"
                 required
                 value={email}
@@ -111,21 +104,17 @@ export default function Login() {
             </div>
 
             <div className="field">
-              <label className="label" htmlFor="password">
-                Password
-              </label>
-
+              <label className="label" htmlFor="password">Password</label>
               <div className="input-wrap">
                 <input
                   className="input"
-                  id="password"
+                  id="password" /* Crucial for Voice Assistant */
                   type={showPw ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                 />
-
                 <button
                   type="button"
                   className="toggle"
@@ -133,11 +122,7 @@ export default function Login() {
                   aria-label={showPw ? "Hide password" : "Show password"}
                   aria-pressed={showPw}
                 >
-                  {showPw ? (
-                    <EyeOff size={18} aria-hidden="true" />
-                  ) : (
-                    <Eye size={18} aria-hidden="true" />
-                  )}
+                  {showPw ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                 </button>
               </div>
             </div>

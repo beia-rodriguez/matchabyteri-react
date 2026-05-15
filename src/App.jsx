@@ -1,5 +1,8 @@
 import { Routes, Route } from "react-router-dom";
 
+// --- ADD THIS IMPORT ---
+import VoiceControl from "./components/VoiceControl";
+
 import Login from "./pages/Login";
 import SignUp from "./pages/Sign-up";
 import Home from "./pages/Home";
@@ -30,158 +33,167 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminCalendar from "./admin/AdminCalendar";
 import AdminContacts from "./admin/AdminContacts";
-import AdminConcerns from "./admin/AdminConcerns";
 import AdminPayments from "./admin/AdminPayments";
 import AdminReports from "./admin/AdminReports";
 import AdminReservations from "./admin/AdminReservations";
 import AdminWorkshopEdit from "./admin/AdminWorkshopEdit";
 import AdminWorkshops from "./admin/AdminWorkshops";
 import AdminForms from "./admin/AdminForms";
+import AdminConcern from "./admin/AdminConcerns";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
 function App() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Home />} />
-      <Route path="/about" element={<About />} />
-      <Route path="/event" element={<Event />} />
-      <Route path="/calendar" element={<Calendar />} />
-      <Route path="/day" element={<Day />} />
-      <Route path="/reminder" element={<Reminder />} />
-      <Route path="/private-workshop" element={<PrivateWorkshop />} />
-      <Route path="/public-workshops" element={<WorkshopSignup />} />
-      <Route path="/public-workshops/:id" element={<WorkshopView />} />
-      <Route path="/public-workshops/:id/register" element={<WorkshopRegister />} />
-      <Route path="/public-workshops/:id/standard" element={<PublicWorkshopStandard />} />
-      <Route path="/public-workshops/:id/premium" element={<PublicWorkshopPremium />} />
-      <Route path="/registration" element={<PublicWorkshopRegistration />} />
+    <>
+      {/* 
+        ✅ THIS IS THE NEW ADDITION ✅
+        By putting VoiceControl outside the Routes, it acts as a global floating 
+        widget that stays on the screen no matter what page the user navigates to!
+      */}
+      <VoiceControl />
 
-      {/* Auth routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/sign-up" element={<SignUp />} />
-      <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/verification-success" element={<VerificationSuccess />} />
-      <Route path="/verification-invalid" element={<VerificationInvalid />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/event" element={<Event />} />
+        <Route path="/calendar" element={<Calendar />} />
+        <Route path="/day" element={<Day />} />
+        <Route path="/reminder" element={<Reminder />} />
+        <Route path="/private-workshop" element={<PrivateWorkshop />} />
+        <Route path="/public-workshops" element={<WorkshopSignup />} />
+        <Route path="/public-workshops/:id" element={<WorkshopView />} />
+        <Route path="/public-workshops/:id/register" element={<WorkshopRegister />} />
+        <Route path="/public-workshops/:id/standard" element={<PublicWorkshopStandard />} />
+        <Route path="/public-workshops/:id/premium" element={<PublicWorkshopPremium />} />
+        <Route path="/registration" element={<PublicWorkshopRegistration />} />
 
-      {/* Protected user routes */}
-      <Route path="/add-booking" element={
-          <ProtectedRoute>
-            <AddEventBooking />
-          </ProtectedRoute>
-        }
-      />
+        {/* Auth routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/sign-up" element={<SignUp />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/verification-success" element={<VerificationSuccess />} />
+        <Route path="/verification-invalid" element={<VerificationInvalid />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-      <Route path="/profile" element={
-          <ProtectedRoute>
-            <UserProfile />
-          </ProtectedRoute>
-        }
-      />
+        {/* Protected user routes */}
+        <Route path="/add-booking" element={
+            <ProtectedRoute>
+              <AddEventBooking />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/my-concerns" element={
-          <ProtectedRoute>
-            <MyConcerns />
-          </ProtectedRoute>
-        }
-      />
+        <Route path="/profile" element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/report-concerns" element={
-          <ProtectedRoute>
-            <ReportConcerns />
-          </ProtectedRoute>
-        }
-      />
+        <Route path="/my-concerns" element={
+            <ProtectedRoute>
+              <MyConcerns />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/add-workshop-booking" element={
-          <ProtectedRoute>
-            <AddWorkshopBooking />
-          </ProtectedRoute>
-        }
-      />
+        <Route path="/report-concerns" element={
+            <ProtectedRoute>
+              <ReportConcerns />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/gcash-payment" element={
-          <ProtectedRoute>
-            <GcashPayment />
-          </ProtectedRoute>
-        }
-      />
+        <Route path="/add-workshop-booking" element={
+            <ProtectedRoute>
+              <AddWorkshopBooking />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Admin routes */}
-      <Route path="/admin/dashboard" element={
-          <AdminRoute>
-            <AdminDashboard />
-          </AdminRoute>
-        }
-      />
+        <Route path="/gcash-payment" element={
+            <ProtectedRoute>
+              <GcashPayment />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="/admin/calendar" element={
-          <AdminRoute>
-            <AdminCalendar />
-          </AdminRoute>
-        }
-      />
+        {/* Admin routes */}
+        <Route path="/admin/dashboard" element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/contacts" element={
-          <AdminRoute>
-            <AdminContacts />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/calendar" element={
+            <AdminRoute>
+              <AdminCalendar />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/concerns" element={
-          <AdminRoute>
-            <AdminConcerns />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/contacts" element={
+            <AdminRoute>
+              <AdminContacts />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/payments" element={
-          <AdminRoute>
-            <AdminPayments />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/payments" element={
+            <AdminRoute>
+              <AdminPayments />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/reports" element={
-          <AdminRoute>
-            <AdminReports />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/reports" element={
+            <AdminRoute>
+              <AdminReports />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/reservations" element={
-          <AdminRoute>
-            <AdminReservations />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/reservations" element={
+            <AdminRoute>
+              <AdminReservations />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/workshops/edit/:id" element={
-          <AdminRoute>
-            <AdminWorkshopEdit />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/workshops/edit/:id" element={
+            <AdminRoute>
+              <AdminWorkshopEdit />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/workshops" element={
-          <AdminRoute>
-            <AdminWorkshops />
-          </AdminRoute>
-        }
-      />
+        <Route path="/admin/workshops" element={
+            <AdminRoute>
+              <AdminWorkshops />
+            </AdminRoute>
+          }
+        />
 
-      <Route path="/admin/forms" element={
-          <AdminRoute>
-            <AdminForms />
-          </AdminRoute>
-        }
-      />
-    </Routes>
+        <Route path="/admin/forms" element={
+            <AdminRoute>
+              <AdminForms />
+            </AdminRoute>
+          }
+        />
+
+        <Route path="/admin/concerns" element={
+            <AdminRoute>
+              <AdminConcern />
+            </AdminRoute>
+          }
+        />
+      </Routes>
+    </>
   );
 }
 

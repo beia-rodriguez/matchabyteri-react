@@ -1,4 +1,3 @@
-/* RESET EVERYTHING FROM VITE TEMPLATE */
 
 * {
   margin: 0;
@@ -16,4 +15,12 @@ body {
   color:var(--text);
   font-size: var(--base);
   color: var(--ink);
+}
+
+@font-face {
+  font-family: "Brasika Display Regular";
+  src: url("BrasikaDisplay-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }

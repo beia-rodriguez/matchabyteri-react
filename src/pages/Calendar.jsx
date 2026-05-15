@@ -87,15 +87,11 @@ export default function Calendar() {
 
         try {
           await API.get("/auth/check-auth.php");
-
-          // ✅ If logged in → go to Day page
           navigate(`/day?date=${key}&type=${bookingType}`);
-
         } catch (err) {
-          // ❌ If not logged in → go to Login
           navigate(
-  `/login?redirect=${encodeURIComponent(`/day?date=${key}&type=${bookingType}`)}`
-);
+            `/login?redirect=${encodeURIComponent(`/day?date=${key}&type=${bookingType}`)}`
+          );
         }
       };
 
