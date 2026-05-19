@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+// ADDED: Import the icons to prevent 'undefined' crash
+import { Eye, EyeOff } from "lucide-react"; 
 import API from "../services/api";
 import "../assets/css/forgot-password.css";
 
@@ -135,19 +137,20 @@ export default function ResetPassword() {
                   aria-describedby="password-rules"
                 />
 
+                {/* FIXED: Changed showPw to showPassword */}
                 <button
-                    type="button"
-                    className="toggle"
-                    onClick={() => setShowPw((prev) => !prev)}
-                    aria-label={showPw ? "Hide password" : "Show password"}
-                    aria-pressed={showPw}
-                    >
-                    {showPw ? (
-                        <EyeOff size={18} aria-hidden="true" />
-                    ) : (
-                        <Eye size={18} aria-hidden="true" />
-                    )}
-                    </button>
+                  type="button"
+                  className="toggle"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} aria-hidden="true" />
+                  ) : (
+                    <Eye size={18} aria-hidden="true" />
+                  )}
+                </button>
               </div>
 
               <ul id="password-rules" className="rules">
@@ -194,19 +197,20 @@ export default function ResetPassword() {
                   aria-describedby="password-match-message"
                 />
 
+                {/* FIXED: Changed showPw to showConfirmPassword */}
                 <button
-                    type="button"
-                    className="toggle"
-                    onClick={() => setShowPw((prev) => !prev)}
-                    aria-label={showPw ? "Hide password" : "Show password"}
-                    aria-pressed={showPw}
-                    >
-                    {showPw ? (
-                        <EyeOff size={18} aria-hidden="true" />
-                    ) : (
-                        <Eye size={18} aria-hidden="true" />
-                    )}
-                    </button>
+                  type="button"
+                  className="toggle"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showConfirmPassword}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={18} aria-hidden="true" />
+                  ) : (
+                    <Eye size={18} aria-hidden="true" />
+                  )}
+                </button>
               </div>
 
               <p

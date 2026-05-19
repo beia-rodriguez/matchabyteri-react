@@ -46,7 +46,16 @@
 
 .admin-textarea-full {
   width: 100%;
-  resize: vertical;
+  min-width: 100%; /* Forces expansion */
+  box-sizing: border-box;
+}
+
+/* Ensure form containers stretch */
+.admin-form-row-react {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  width: 100%;
 }
 
 .admin-workshops-toolbar {

@@ -6,6 +6,8 @@ const VoiceControl = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Microphone is off.');
+  const [pageCommands, setPageCommands] = useState([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   
   const recognitionRef = useRef(null);
   const activeFieldRef = useRef(null); 
@@ -13,6 +15,32 @@ const VoiceControl = () => {
   
   const navigate = useNavigate();
   const location = useLocation(); 
+
+  // --- DARK MODE THEME TOGGLE ---
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [isDarkMode]);
+
+  // --- SET CONTEXTUAL COMMANDS BASED ON PAGE ---
+  useEffect(() => {
+    const path = location.pathname.toLowerCase();
+    let commands = ["'Read content'", "'Stop reading'", "'Turn off microphone'"];
+
+    if (path.includes("/day")) {
+      commands.push("'Book event'", "'Book workshop'", "'Events tab'", "'Workshops tab'");
+    } else if (path.includes("/calendar")) {
+      commands.push("'Say a date (e.g. May 20)'");
+    } else if (path.includes("book")) {
+      commands.push("Dictate fields (e.g. 'Full Name', 'Phone')", "'Select [Option]'", "'Next'");
+    } else {
+      commands.push("'Calendar'", "'Login'", "'About'");
+    }
+    setPageCommands(commands);
+  }, [location.pathname]);
 
   // --- SMART SPEAK FUNCTION ---
   const speak = (text) => {
@@ -91,11 +119,9 @@ const VoiceControl = () => {
           const inputName = (inputElement.name || "").toLowerCase();
           const inputPlaceholder = (inputElement.placeholder || "").toLowerCase();
           
-          // SMART VALIDATION: FULL NAME (Must be 2 words)
           if (inputName === "full_name" || inputName === "fullname" || inputPlaceholder.includes("full name")) {
             const words = transcript.trim().split(/\s+/);
             if (words.length >= 2) {
-              // Capitalize first letters automatically
               const formattedName = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
               inputElement.value = formattedName;
               inputElement.dispatchEvent(new Event('input', { bubbles: true }));
@@ -108,9 +134,8 @@ const VoiceControl = () => {
             return;
           }
 
-          // SMART VALIDATION: PHONE NUMBER (Must be 11 digits)
           else if (inputName.includes("phone") || inputPlaceholder.includes("phone") || inputElement.type === "tel") {
-            const digitsOnly = transcript.replace(/\D/g, ''); // Removes anything that isn't a number
+            const digitsOnly = transcript.replace(/\D/g, ''); 
             if (digitsOnly.length === 11) {
               inputElement.value = digitsOnly;
               inputElement.dispatchEvent(new Event('input', { bubbles: true }));
@@ -123,7 +148,6 @@ const VoiceControl = () => {
             return;
           }
 
-          // Handle Emails
           else if (activeFieldRef.current === "email" || inputElement.type === "email" || inputName.includes("email")) {
             inputElement.value = transcript.replace(/\s/g, '').toLowerCase();
             inputElement.dispatchEvent(new Event('input', { bubbles: true }));
@@ -133,7 +157,6 @@ const VoiceControl = () => {
             return;
           } 
           
-          // Handle Work Hours / Time
           else if (inputElement.type === "time" || activeFieldRef.current.includes("start_time")) {
             const timeVal = parseTime(lowerTranscript);
             if (timeVal) {
@@ -146,7 +169,6 @@ const VoiceControl = () => {
             return;
           }
           
-          // Handle Normal Text (Appends so you can take breaths)
           else {
             const currentVal = inputElement.value;
             inputElement.value = currentVal ? currentVal + " " + transcript : transcript;
@@ -350,8 +372,15 @@ const VoiceControl = () => {
         if (content) { speak("Reading page content."); setTimeout(() => speak(content.innerText), 1500); } 
       }
 
-      // --- 8. MANUAL MIC STOP ---
+      // --- 8. STOP READING / SILENCE ---
+      else if (lowerTranscript.includes("stop reading") || lowerTranscript.includes("stop talking") || lowerTranscript === "quiet") {
+        window.speechSynthesis.cancel();
+        setStatusMessage("Speech stopped.");
+      }
+
+      // --- 9. MANUAL MIC STOP ---
       else if (lowerTranscript.includes("stop listening") || lowerTranscript.includes("turn off microphone")) {
+        window.speechSynthesis.cancel();
         speak("Microphone turned off.");
         recognitionRef.current.stop();
         setIsListening(false);
@@ -373,28 +402,74 @@ const VoiceControl = () => {
   const toggleMicrophone = () => {
     if (isListening) {
       recognitionRef.current.stop();
+      window.speechSynthesis.cancel(); 
       setIsListening(false);
       setStatusMessage("Microphone is off.");
     } else {
+      speak("Microphone is open. You can dictate fields by saying their names, say 'read content' to listen, or say 'stop reading' to silence me.");
       recognitionRef.current.start();
     }
   };
 
   return (
-    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-      <div style={{ backgroundColor: '#fff', border: '2px solid #1a4f35', borderRadius: '12px', padding: '20px', marginBottom: '15px', width: '280px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: isOpen ? 'block' : 'none' }}>
+    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+      
+      {/* Voice Assistant Panel */}
+      <div 
+        style={{ backgroundColor: '#fff', border: '2px solid #1a4f35', borderRadius: '12px', padding: '20px', width: '280px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: isOpen ? 'block' : 'none' }}
+      >
         <h3 style={{ margin: '0 0 10px 0', color: '#1a4f35' }}>Matcha Assistant</h3>
         <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>Say "Clear field" to delete mistakes.</p>
-        <button onClick={toggleMicrophone} style={{ width: '100%', padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: isListening ? '#d9534f' : '#1a4f35', color: 'white', fontWeight: 'bold' }}>
+        <button 
+          onClick={toggleMicrophone} 
+          style={{ width: '100%', padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: isListening ? '#d9534f' : '#1a4f35', color: 'white', fontWeight: 'bold' }}
+        >
           {isListening ? "Listening continuously... (Speak now)" : "🎤 Push to Speak"}
         </button>
-        <p style={{ marginTop: '10px', fontSize: '13px', background: '#f4f4f4', padding: '8px', color: statusMessage.includes("AI is speaking") ? "#1a4f35" : "#333", fontWeight: statusMessage.includes("AI is speaking") ? "bold" : "normal" }}>
-          {statusMessage}
-        </p>
+        
+        <div style={{ marginTop: '10px', fontSize: '13px', background: '#f4f4f4', padding: '8px', borderRadius: '6px' }}>
+          <p style={{ margin: 0, color: statusMessage.includes("AI is speaking") ? "#1a4f35" : "#333", fontWeight: statusMessage.includes("AI is speaking") ? "bold" : "normal" }}>
+            {statusMessage}
+          </p>
+          
+          {statusMessage.includes("AI is speaking") && (
+            <div style={{ marginTop: '8px', borderTop: '1px solid #ccc', paddingTop: '8px' }}>
+              <strong style={{ fontSize: '11px', color: '#1a4f35' }}>Try Saying:</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: '16px', fontSize: '11px', color: '#555' }}>
+                {pageCommands.map((cmd, idx) => (
+                  <li key={idx} style={{ marginBottom: '2px' }}>{cmd}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
-      <button style={{ backgroundColor: '#1a4f35', color: 'white', border: 'none', borderRadius: '50px', padding: '15px 25px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setIsOpen(!isOpen)}>
+      
+      {/* Voice Access Toggle Button */}
+      <button 
+        style={{ backgroundColor: '#1a4f35', color: 'white', border: 'none', borderRadius: '50px', padding: '15px 25px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }} 
+        onClick={() => setIsOpen(!isOpen)}
+      >
         {isOpen ? "✖ Close" : "♿ Voice Access"}
       </button>
+
+      {/* Theme Toggle Button */}
+      <button 
+        style={{ 
+          backgroundColor: isDarkMode ? '#333' : '#f0f0f0', 
+          color: isDarkMode ? '#fff' : '#333', 
+          border: '1px solid #ccc', 
+          borderRadius: '50px', 
+          padding: '10px 20px', 
+          cursor: 'pointer', 
+          fontWeight: 'bold', 
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)' 
+        }} 
+        onClick={() => setIsDarkMode(!isDarkMode)}
+      >
+        {isDarkMode ? "🌙 Night Mode" : "☀️ Light Mode"}
+      </button>
+
     </div>
   );
 };

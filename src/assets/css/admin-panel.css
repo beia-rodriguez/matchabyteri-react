@@ -575,3 +575,393 @@
   .admin-panel-react{ padding:14px; }
   .admin-card-react{ padding:14px; }
 }
+
+/* --- PROFESSIONAL PAYMENT CARDS --- */
+
+.pay-card-react {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 14px rgba(31, 59, 38, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.pay-card-react:hover {
+  box-shadow: 0 8px 24px rgba(31, 59, 38, 0.08);
+}
+
+/* Header */
+.p-header-react {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--line);
+  margin-bottom: 16px;
+}
+
+.p-title-react {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--green-2);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.p-ref {
+  background: #f0f3f0;
+  color: var(--green);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.p-date-react {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Data Grid (Table Look) */
+.p-grid-react {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.p-data-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.p-label-sm {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.p-value {
+  font-size: 0.95rem;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.p-subtext {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Status Badges */
+.p-badge-react {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.p-badge-react.pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.p-badge-react.paid { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.p-badge-react.rejected { background-color: #fce4e4; color: #cc0000; border: 1px solid #f8c9c9; }
+
+/* Admin Row (Horizontal Bottom Form) */
+.p-admin-row-react {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) 2.5fr auto;
+  gap: 16px;
+  align-items: end;
+  background: #f9fbf9;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.p-admin-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-view-proof {
+  background: #e8f0eb;
+  color: var(--green-2);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 800;
+  text-decoration: none;
+  font-size: 0.85rem;
+  text-align: center;
+  transition: all 0.2s;
+  border: 1px solid #d8dfda;
+  display: inline-block;
+}
+
+.btn-view-proof:hover {
+  background: var(--green-2);
+  color: white;
+  border-color: var(--green-2);
+}
+
+.p-input-react, 
+.p-select-react {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  color: var(--ink);
+  height: 42px; /* Matches save button height */
+}
+
+.p-input-react:focus, 
+.p-select-react:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(47, 90, 43, 0.1);
+}
+
+/* Mobile Responsiveness for the row */
+@media (max-width: 980px) {
+  .p-admin-row-react {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .p-admin-col.action-col button {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* --- CONCERNS SPECIFIC CSS --- */
+
+/* Blue Badge for 'In Review' */
+.p-badge-react.in-review {
+  background-color: #cce5ff;
+  color: #004085;
+  border: 1px solid #b8daff;
+}
+
+/* Stylized Issue Box */
+.c-details-box {
+  background: #f9fbf9;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+.c-details-text {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* Adjust dark mode for the issue box if needed */
+body.dark-mode .c-details-box {
+  background: #1e1e1e;
+  border-color: #333333;
+}
+
+/* Ticket Accordion Hover */
+.ticket-toggle:hover .p-title-react {
+  color: var(--green);
+}
+.ticket-toggle:hover {
+  opacity: 0.85;
+}
+
+/* --- RICH TABLE & CONTACTS STYLING --- */
+
+.admin-table-react.rich-table th {
+  background: #f9fbf9;
+  border-bottom: 2px solid var(--line);
+  padding: 14px 20px;
+}
+
+.admin-table-react.rich-table td {
+  padding: 16px 20px;
+  vertical-align: middle; /* Ensures avatars and text align perfectly */
+  border-bottom: 1px solid #edf1ee;
+}
+
+.admin-table-react.rich-table tbody tr:hover {
+  background-color: #fcfdfc;
+}
+
+/* Initials Avatar */
+.c-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* Subtle Badge for Bookings Count */
+.c-booking-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: #f0f3f0;
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 0.85rem;
+}
+
+.c-booking-badge.active {
+  background: var(--green-2);
+  color: #fff;
+}
+
+/* --- RESERVATIONS EXPANDED PANEL STYLING --- */
+
+/* Chevron Button */
+.btn-expand-chevron {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-expand-chevron:hover {
+  background-color: #f0f3f0;
+  color: var(--green-2);
+}
+
+/* Expanded Detail Panel Container */
+.expanded-detail-panel {
+  background: #f9fbf9;
+  padding: 30px;
+  box-shadow: inset 0 6px 10px rgba(0,0,0,0.02);
+  border-top: 1px solid #edf1ee;
+}
+
+/* Dark Mode Overrides for Panels */
+body.dark-mode .expanded-detail-panel {
+  background: #1a1a1a;
+  border-top-color: #333;
+}
+
+body.dark-mode .admin-stat-item-react {
+  background: #242424 !important;
+  border-color: #333;
+}
+
+
+/* --- COMPACT EXPANDED PANEL (3-COLUMN) --- */
+
+.expanded-detail-panel {
+  background: #f0f3f0;
+  padding: 20px;
+  box-shadow: inset 0 4px 8px rgba(0,0,0,0.03);
+}
+
+.expanded-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.detail-section {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(31, 59, 38, 0.02);
+}
+
+.detail-heading {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--green-2);
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 8px;
+}
+
+/* Compact Stats Lists */
+.compact-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compact-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  background: #f9fbf9;
+  border-radius: 6px;
+  border: 1px solid #f0f3f0;
+}
+
+.compact-stat span {
+  color: var(--muted);
+}
+
+.compact-stat strong {
+  color: var(--ink);
+}
+
+/* Responsive Grid Fallback */
+@media (max-width: 1024px) {
+  .expanded-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .expanded-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dark Mode Overrides */
+body.dark-mode .expanded-detail-panel {
+  background: #121212;
+}
+body.dark-mode .detail-section {
+  background: #1e1e1e;
+  border-color: #333;
+}
+body.dark-mode .compact-stat {
+  background: #242424;
+  border-color: #2a2a2a;
+}
+

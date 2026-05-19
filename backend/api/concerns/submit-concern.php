@@ -11,10 +11,13 @@ if (!isset($_SESSION["user_id"])) {
 
 $userId = (int)$_SESSION["user_id"];
 
-$subject = trim($_POST["subject"] ?? "");
-$type    = trim($_POST["concern_type"] ?? "Other");
-$bookingIdRaw = trim($_POST["booking_id"] ?? "");
-$details = trim($_POST["details"] ?? "");
+// FIXED: Reads incoming React JSON stream. Falls back to standard $_POST if needed.
+$data = json_decode(file_get_contents("php://input"), true) ?: $_POST;
+
+$subject = trim($data["subject"] ?? "");
+$type    = trim($data["concern_type"] ?? "Other");
+$bookingIdRaw = trim($data["booking_id"] ?? "");
+$details = trim($data["details"] ?? "");
 
 $allowedTypes = ["Booking Issue", "Website Error", "Payment Issue", "Other"];
 if (!in_array($type, $allowedTypes, true)) {
@@ -30,8 +33,9 @@ if ($bookingIdRaw !== "") {
     $bookingId = (int)$bookingIdRaw;
 }
 
-if ($subject === "" || strlen($subject) < 4) {
-    echo json_encode(["error" => "Subject too short"]);
+// FIXED: Removed the minimum character requirement. It only fails if completely empty.
+if ($subject === "") {
+    echo json_encode(["error" => "Subject is required"]);
     exit();
 }
 
