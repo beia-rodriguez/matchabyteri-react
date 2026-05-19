@@ -11,6 +11,9 @@ export default function AdminConcerns() {
   const [counts, setCounts] = useState({ all: 0, pending: 0, in_review: 0, resolved: 0 });
   const [emailReply, setEmailReply] = useState(true);
 
+  // New state to track which ticket is currently expanded
+  const [expandedTicket, setExpandedTicket] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -43,7 +46,12 @@ export default function AdminConcerns() {
   const handleFilterSubmit = (e) => {
     e.preventDefault();
     setMsg("");
+    setExpandedTicket(null); // Close any open tickets when filtering
     loadData(q, statusFilter, limit);
+  };
+
+  const toggleTicket = (id) => {
+    setExpandedTicket((prev) => (prev === id ? null : id));
   };
 
   const handleStatusUpdate = async (e, concernId) => {
@@ -61,12 +69,11 @@ export default function AdminConcerns() {
         action: "set_status",
         concern_id: concernId,
         status: newStatus,
-        // csrf_token: sessionStorage.getItem("csrf_token") // Include if required by your API wrapper
       });
 
       if (data.status === "success") {
         setMsg(data.message);
-        loadData(); // Refresh list to reflect updates/counts
+        loadData(); 
       }
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to update status.");
@@ -100,7 +107,7 @@ export default function AdminConcerns() {
 
       if (data.status === "success") {
         setMsg(data.message);
-        loadData(); // Refresh to show new replies/dates/counts
+        loadData(); 
       }
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to send reply.");
@@ -114,6 +121,12 @@ export default function AdminConcerns() {
     if (s === "resolved") return "Resolved";
     if (s === "in_review") return "In Review";
     return "Pending";
+  };
+
+  const getBadgeClass = (s) => {
+    if (s === "resolved") return "paid"; 
+    if (s === "in_review") return "in-review"; 
+    return "pending"; 
   };
 
   return (
@@ -179,104 +192,155 @@ export default function AdminConcerns() {
         ) : concerns.length === 0 ? (
           <div className="admin-muted-react">No concerns found.</div>
         ) : (
-          <div>
-            {concerns.map((c) => (
-              <div 
-                key={c.id} 
-                className="concern-card-react" 
-                style={{ border: "1px solid #ddd", borderRadius: "8px", padding: "16px", marginBottom: "16px" }}
-              >
-                
-                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
-                  <div>
-                    <h4 style={{ margin: "0 0 6px", fontSize: "1.1rem", color: "#2f5d4e" }}>{c.subject}</h4>
-                    <div style={{ fontSize: "0.85rem", color: "#666" }}>
-                      <strong>Customer:</strong> {c.user_name || "Unknown"} ({c.user_email || "N/A"})<br />
-                      <strong>Type:</strong> {c.concern_type} 
-                      {c.booking_id ? ` • Booking ID: ${c.booking_id}` : ""}<br />
-                      <strong>Submitted:</strong> {new Date(c.created_at).toLocaleString()}<br />
-                      {c.responded_at && (
-                        <span><strong>Replied:</strong> {new Date(c.responded_at).toLocaleString()}</span>
-                      )}
-                    </div>
-                  </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {concerns.map((c) => {
+              const isExpanded = expandedTicket === c.id;
+
+              return (
+                <article 
+                  className="pay-card-react" 
+                  key={c.id} 
+                  style={{ 
+                    marginBottom: 0, 
+                    padding: isExpanded ? '24px' : '16px 24px',
+                    borderColor: isExpanded ? 'var(--green-2)' : 'var(--line)'
+                  }}
+                >
                   
-                  <div>
-                    <span style={{ 
-                      padding: "6px 12px", 
-                      borderRadius: "20px", 
-                      fontSize: "0.8rem", 
-                      fontWeight: "bold",
-                      border: "1px solid #ddd",
-                      background: "#f9f9f9",
-                      color: "#333"
-                    }}>
-                      {formatBadge(c.status)}
-                    </span>
-                  </div>
-                </div>
-
-                <details style={{ marginBottom: "16px" }}>
-                  <summary style={{ fontWeight: "bold", cursor: "pointer", color: "#666" }}>View Issue Details</summary>
-                  <div style={{ marginTop: "8px", whiteSpace: "pre-wrap", color: "#333", background: "#f1f1f1", padding: "12px", borderRadius: "6px" }}>
-                    {c.details}
-                  </div>
-                </details>
-
-                <hr style={{ border: "none", borderTop: "1px solid #ddd", margin: "16px 0" }} />
-
-                {/* Form 1: Status Only Update */}
-                <form onSubmit={(e) => handleStatusUpdate(e, c.id)} style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#2f5d4e", whiteSpace: "nowrap" }}>Status Only:</label>
-                  <select name="status" defaultValue={c.status} className="admin-input-react" style={{ width: "auto" }}>
-                    <option value="pending">Pending</option>
-                    <option value="in_review">In Review</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                  <button type="submit" className="admin-pill-react" style={{ padding: "6px 14px" }}>Update</button>
-                </form>
-
-                <hr style={{ border: "none", borderTop: "1px solid #ddd", margin: "16px 0" }} />
-
-                {/* Form 2: Reply & Update Status */}
-                <form onSubmit={(e) => handleReplySubmit(e, c.id)}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {/* --- CLICKABLE HEADER --- */}
+                  <div 
+                    className="p-header-react ticket-toggle" 
+                    onClick={() => toggleTicket(c.id)}
+                    style={{ 
+                      cursor: "pointer", 
+                      borderBottom: isExpanded ? "1px dashed var(--line)" : "none", 
+                      marginBottom: isExpanded ? "16px" : "0",
+                      paddingBottom: isExpanded ? "16px" : "0",
+                      alignItems: "center",
+                      userSelect: "none"
+                    }}
+                  >
+                    <div className="p-header-info">
+                      <h4 className="p-title-react" style={{ margin: 0 }}>
+                        Ticket #{c.id} <span style={{ color: "var(--ink)", fontWeight: 700, marginLeft: '6px' }}>{c.subject}</span>
+                      </h4>
+                      <span className="p-date-react">Submitted: {new Date(c.created_at).toLocaleString()}</span>
+                    </div>
                     
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                       <label style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#2f5d4e" }}>Set Status:</label>
-                       <select name="status" defaultValue={c.status} className="admin-input-react" style={{ width: "auto" }}>
-                          <option value="pending">Pending</option>
-                          <option value="in_review">In Review</option>
-                          <option value="resolved">Resolved</option>
-                       </select>
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#2f5d4e", display: "block", marginBottom: "6px" }}>Admin Reply:</label>
-                      <textarea
-                        name="admin_response"
-                        required
-                        defaultValue={c.admin_response || ""}
-                        className="admin-input-react"
-                        style={{ width: "100%", minHeight: "100px", resize: "vertical" }}
-                        placeholder="Write your reply to the customer..."
-                      />
-                    </div>
-
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-                      <span style={{ fontSize: "0.8rem", color: "#666" }}>
-                        {emailReply ? "A notification email will be sent to the user." : "Reply will only appear in their account dashboard."}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <span className={`p-badge-react ${getBadgeClass(c.status)}`}>
+                        {formatBadge(c.status)}
                       </span>
-                      <button type="submit" className="admin-pill-react" style={{ background: "#2f5d4e", color: "white" }}>
-                        Send Reply
-                      </button>
+                      {/* Chevron Indicator */}
+                      <span style={{ fontSize: '1.2rem', color: 'var(--muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                        ▼
+                      </span>
                     </div>
-
                   </div>
-                </form>
 
-              </div>
-            ))}
+                  {/* --- EXPANDABLE CONTENT --- */}
+                  {isExpanded && (
+                    <div className="ticket-content">
+                      {/* --- DATA GRID --- */}
+                      <div className="p-grid-react">
+                        <div className="p-data-group">
+                          <span className="p-label-sm">Customer Details</span>
+                          <span className="p-value">
+                            <strong>{c.user_name || "Unknown"}</strong><br />
+                            <span className="p-subtext">{c.user_email || "N/A"}</span>
+                          </span>
+                        </div>
+
+                        <div className="p-data-group">
+                          <span className="p-label-sm">Concern Scope</span>
+                          <span className="p-value">
+                            {c.concern_type}<br />
+                            <span className="p-subtext">{c.booking_id ? `Booking ID: #${c.booking_id}` : "General Inquiry"}</span>
+                          </span>
+                        </div>
+
+                        <div className="p-data-group">
+                          <span className="p-label-sm">Resolution Timeline</span>
+                          <span className="p-value">
+                            {c.responded_at ? (
+                              <strong style={{color: "var(--green-2)"}}>Replied: {new Date(c.responded_at).toLocaleDateString()}</strong>
+                            ) : (
+                              "Awaiting Reply"
+                            )}
+                            <br />
+                            <span className="p-subtext">Created: {new Date(c.created_at).toLocaleDateString()}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* --- ISSUE DETAILS (Stylized Box) --- */}
+                      <div className="c-details-box">
+                        <span className="p-label-sm">Issue Description</span>
+                        <p className="c-details-text">{c.details}</p>
+                      </div>
+
+                      <hr style={{ border: "none", borderTop: "1px dashed var(--line)", margin: "20px 0" }} />
+
+                      {/* --- ACTION FORMS --- */}
+                      
+                      {/* 1. Quick Status Update */}
+                      <form onSubmit={(e) => handleStatusUpdate(e, c.id)} className="p-admin-row-react" style={{ gridTemplateColumns: 'auto minmax(140px, 1fr) auto', marginBottom: '16px', background: 'transparent', padding: 0, border: 'none' }}>
+                        <div className="p-admin-col" style={{ justifyContent: 'center' }}>
+                          <span className="p-label-sm">Quick Action:</span>
+                        </div>
+                        <div className="p-admin-col">
+                          <select name="status" defaultValue={c.status} className="p-select-react" style={{ height: '38px' }}>
+                            <option value="pending">Pending</option>
+                            <option value="in_review">In Review</option>
+                            <option value="resolved">Resolved</option>
+                          </select>
+                        </div>
+                        <div className="p-admin-col action-col">
+                          <button type="submit" className="admin-btn-react admin-btn-cancel-react" style={{ height: '38px', borderRadius: '8px' }}>Update Status Only</button>
+                        </div>
+                      </form>
+
+                      {/* 2. Detailed Admin Reply */}
+                      <form onSubmit={(e) => handleReplySubmit(e, c.id)} className="p-admin-row-react" style={{ gridTemplateColumns: 'minmax(140px, 1fr) 2fr auto', alignItems: 'flex-start' }}>
+                        
+                        <div className="p-admin-col">
+                          <label className="p-label-sm">Set Status & Reply</label>
+                          <select name="status" defaultValue={c.status} className="p-select-react">
+                            <option value="pending">Pending</option>
+                            <option value="in_review">In Review</option>
+                            <option value="resolved">Resolved</option>
+                          </select>
+                          
+                          <label style={{ fontSize: "0.8rem", color: "var(--muted)", marginTop: "8px", display: "flex", gap: "6px", alignItems: "center" }}>
+                            <input type="checkbox" checked={emailReply} readOnly style={{ margin: 0 }} />
+                            {emailReply ? "Email User" : "Dashboard Only"}
+                          </label>
+                        </div>
+                        
+                        <div className="p-admin-col note-col">
+                          <label className="p-label-sm">Admin Response</label>
+                          <textarea
+                            name="admin_response"
+                            required
+                            defaultValue={c.admin_response || ""}
+                            className="p-textarea-react"
+                            placeholder="Write your detailed reply to the customer here..."
+                          />
+                        </div>
+                        
+                        <div className="p-admin-col action-col">
+                          <button type="submit" className="admin-btn-react admin-btn-approve-react" style={{ height: '42px', marginTop: '22px', padding: '0 24px', borderRadius: '8px' }}>
+                            Send Reply
+                          </button>
+                        </div>
+
+                      </form>
+                    </div>
+                  )}
+
+                </article>
+              );
+            })}
           </div>
         )}
       </div>

@@ -263,127 +263,123 @@ export default function AdminPayments() {
               }
             }
 
-            return (
-              <article className="pay-card-react" key={paymentId}>
-                <div className="p-top-react">
-                  <div>
-                    <div className="p-title-react">
-                      {p.purpose || "Payment"}
-                      {p.booking_id ? ` • Booking #${Number(p.booking_id)}` : ""}
-                      {p.amount !== null && p.amount !== ""
-                        ? ` • Amount: ₱${money(p.amount)}`
-                        : ""}
-                    </div>
+        return (
+  <article className="pay-card-react" key={paymentId}>
+    {/* --- HEADER --- */}
+    <div className="p-header-react">
+      <div className="p-header-info">
+        <h4 className="p-title-react">
+          {p.purpose || "Payment"}
+          {p.booking_id ? <span className="p-ref"># {p.booking_id}</span> : ""}
+        </h4>
+        <span className="p-date-react">Submitted: {p.created_at || "N/A"}</span>
+      </div>
+      <span className={`p-badge-react ${badgeClass}`}>
+        {badgeLabel(p.status)}
+      </span>
+    </div>
 
-                    <div className="p-meta-react">
-                      Customer: {p.user_name || "Unknown"} ({p.user_email || ""})
-                      <br />
-                      Payer Name: {p.payer_name || ""}
-                      <br />
-                      Payment Option:{" "}
-                      {paymentChoice ? paymentChoice.toUpperCase() : "N/A"}
-                      <br />
-                      Booking Total: ₱{money(totalAmount)}
-                      <br />
-                      Expected Amount: ₱{money(expectedAmount)}
-                      <br />
-                      Booking Payment Status: {p.payment_status || "N/A"}
-                      <br />
-                      {bookingInfo && (
-                        <>
-                          Schedule: {bookingInfo}
-                          <br />
-                        </>
-                      )}
-                      Reference: {p.reference_no || ""}
-                      <br />
-                      Token: {p.short_payment_token || ""}
-                      <br />
-                      Submitted: {p.created_at || ""}
-                      {paidAt ? ` • Paid At: ${paidAt}` : ""}
-                      {adminCtx?.updated_at && (
-                        <>
-                          <br />
-                          Last Admin Update: {adminCtx.updated_at}
-                        </>
-                      )}
-                    </div>
-                  </div>
+    {/* --- DATA GRID (Spreads across the card) --- */}
+    <div className="p-grid-react">
+      <div className="p-data-group">
+        <span className="p-label-sm">Customer</span>
+        <span className="p-value">
+          <strong>{p.user_name || "Unknown"}</strong><br />
+          <span className="p-subtext">{p.user_email || "No email provided"}</span>
+        </span>
+      </div>
 
-                  <span className={`p-badge-react ${badgeClass}`}>
-                    {badgeLabel(p.status)}
-                  </span>
-                </div>
+      <div className="p-data-group">
+        <span className="p-label-sm">Payer & Reference</span>
+        <span className="p-value">
+          Name: {p.payer_name || "-"}<br />
+          <span className="p-subtext">Ref: {p.reference_no || "-"}</span>
+        </span>
+      </div>
 
-                <div className="p-row-react p-proof-react">
-                  <span className="p-label-react">Proof</span>
+      <div className="p-data-group">
+        <span className="p-label-sm">Booking Info</span>
+        <span className="p-value">
+          {bookingInfo ? bookingInfo : "N/A"} <br />
+          <span className="p-subtext">Token: {p.short_payment_token || "-"}</span>
+        </span>
+      </div>
 
-                  <div>
-                    {p.proof_path ? (
-                      <a
-                        href={proofSrc(p.proof_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View Proof Image
-                      </a>
-                    ) : (
-                      <span className="admin-muted-react">No proof uploaded.</span>
-                    )}
-                  </div>
-                </div>
+      <div className="p-data-group">
+        <span className="p-label-sm">Amount Details</span>
+        <span className="p-value">
+          Expected: <strong style={{color: "var(--green-2)"}}>₱{money(expectedAmount)}</strong><br />
+          <span className="p-subtext">
+            Total: ₱{money(totalAmount)} ({paymentChoice ? paymentChoice.toUpperCase() : "N/A"})
+          </span>
+        </span>
+      </div>
+    </div>
 
-                <div className="p-divider-react" />
+    {/* --- ADMIN ACTION AREA (Horizontal row at the bottom) --- */}
+    <div className="p-admin-row-react">
+      <div className="p-admin-col">
+        <span className="p-label-sm">Proof of Payment</span>
+        {p.proof_path ? (
+          <a href={proofSrc(p.proof_path)} target="_blank" rel="noopener noreferrer" className="btn-view-proof">
+            🖼️ View Image
+          </a>
+        ) : (
+          <span className="admin-muted-react" style={{padding: '8px 0'}}>No proof attached</span>
+        )}
+      </div>
 
-                <div className="p-row-react">
-                  <label htmlFor={`payment-status-${paymentId}`}>Status</label>
+      <div className="p-admin-col">
+        <label className="p-label-sm" htmlFor={`payment-status-${paymentId}`}>Update Status</label>
+        <select
+          id={`payment-status-${paymentId}`}
+          className="p-select-react"
+          value={statuses[paymentId] || st}
+          onChange={(e) =>
+            setStatuses((prev) => ({
+              ...prev,
+              [paymentId]: e.target.value,
+            }))
+          }
+        >
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
 
-                  <select
-                    id={`payment-status-${paymentId}`}
-                    className="p-select-react"
-                    value={statuses[paymentId] || st}
-                    onChange={(e) =>
-                      setStatuses((prev) => ({
-                        ...prev,
-                        [paymentId]: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
+      <div className="p-admin-col note-col">
+        <label className="p-label-sm" htmlFor={`admin-note-${paymentId}`}>Admin Note</label>
+        {/* Changed to standard input for better horizontal row alignment */}
+        <input
+          type="text"
+          id={`admin-note-${paymentId}`}
+          className="p-input-react"
+          placeholder="Reason for rejection / general note..."
+          value={notes[paymentId] || ""}
+          onChange={(e) =>
+            setNotes((prev) => ({
+              ...prev,
+              [paymentId]: e.target.value,
+            }))
+          }
+        />
+      </div>
 
-                <div className="p-row-react">
-                  <label htmlFor={`admin-note-${paymentId}`}>Admin Note</label>
-
-                  <textarea
-                    id={`admin-note-${paymentId}`}
-                    className="p-textarea-react"
-                    placeholder="Reason / note saved into context_json"
-                    value={notes[paymentId] || ""}
-                    onChange={(e) =>
-                      setNotes((prev) => ({
-                        ...prev,
-                        [paymentId]: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="p-actions-react">
-                  <button
-                    className="admin-btn-react admin-btn-approve-react"
-                    type="button"
-                    onClick={() => handleSave(paymentId)}
-                    disabled={savingId === paymentId}
-                  >
-                    {savingId === paymentId ? "SAVING..." : "SAVE"}
-                  </button>
-                </div>
-              </article>
-            );
+      <div className="p-admin-col action-col">
+        <button
+          className="admin-btn-react admin-btn-approve-react"
+          type="button"
+          onClick={() => handleSave(paymentId)}
+          disabled={savingId === paymentId}
+          style={{ height: '42px', padding: '0 24px' }}
+        >
+          {savingId === paymentId ? "SAVING..." : "SAVE"}
+        </button>
+      </div>
+    </div>
+  </article>
+);
           })
         )}
       </div>
