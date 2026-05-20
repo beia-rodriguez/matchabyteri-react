@@ -7,7 +7,10 @@ const VoiceControl = () => {
   const [isListening, setIsListening] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Microphone is off.');
   const [pageCommands, setPageCommands] = useState([]);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // --- ACCESSIBILITY STATES ---
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [isTabReaderOn, setIsTabReaderOn] = useState(false); // Tab Reader State
   
   const recognitionRef = useRef(null);
   const activeFieldRef = useRef(null); 
@@ -16,19 +19,75 @@ const VoiceControl = () => {
   const navigate = useNavigate();
   const location = useLocation(); 
 
-  // --- DARK MODE THEME TOGGLE ---
+  // --- DARK MODE EFFECT ---
   useEffect(() => {
     if (isDarkMode) {
       document.body.classList.add('dark-mode');
+      localStorage.setItem('theme', 'dark');
     } else {
       document.body.classList.remove('dark-mode');
+      localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
+
+  // --- TAB NAVIGATION TEXT-TO-SPEECH ---
+// --- TAB NAVIGATION TEXT-TO-SPEECH (UPDATED FIX) ---
+  useEffect(() => {
+    // If turned off, make sure it shuts up immediately
+    if (!isTabReaderOn) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+
+    const handleFocus = (event) => {
+      const el = event.target;
+      
+      // Ignore the root document or body
+      if (el === document.body || el === window || el === document.documentElement) return;
+
+      // Extract text: textContent is much more reliable than innerText in React
+      let textToRead = 
+        el.getAttribute('aria-label') || 
+        el.getAttribute('alt') || 
+        el.placeholder || 
+        el.value || 
+        el.textContent || 
+        el.innerText;
+
+      // --- DEBUGGING LOG: Press F12 in your browser to see if this triggers! ---
+      console.log("Element Focused:", el);
+      console.log("Text to read:", textToRead);
+
+      if (textToRead && typeof textToRead === 'string' && textToRead.trim() !== '') {
+        // 1. Force cancel anything currently speaking
+        window.speechSynthesis.cancel(); 
+        
+        // 2. Use a tiny setTimeout. This bypasses a common Chrome bug 
+        // where the speech engine gets stuck if fired instantly after a cancel.
+        setTimeout(() => {
+          const utterance = new SpeechSynthesisUtterance(textToRead.trim());
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }, 50);
+      }
+    };
+
+    // FIX: Using 'focus' with 'true' (Capture Phase). 
+    // This catches the focus event BEFORE React's internal system can interfere with it.
+    document.addEventListener('focus', handleFocus, true);
+    
+    return () => {
+      document.removeEventListener('focus', handleFocus, true);
+      window.speechSynthesis.cancel();
+    };
+  }, [isTabReaderOn]);
 
   // --- SET CONTEXTUAL COMMANDS BASED ON PAGE ---
   useEffect(() => {
     const path = location.pathname.toLowerCase();
-    let commands = ["'Read content'", "'Stop reading'", "'Turn off microphone'"];
+    let commands = ["'Read content'", "'Stop reading'", "'Turn off microphone'", "'Dark Mode'", "'Light Mode'", "'Toggle Screen Reader'"];
 
     if (path.includes("/day")) {
       commands.push("'Book event'", "'Book workshop'", "'Events tab'", "'Workshops tab'");
@@ -97,7 +156,27 @@ const VoiceControl = () => {
       const isOnDayPage = location.pathname.includes("/day");
       const isOnBookingPage = location.pathname.includes("book");
 
-      // --- 0. DELETE / CLEAR COMMAND ---
+      // --- 0. THEME & ACCESSIBILITY COMMANDS ---
+      if (lowerTranscript.includes("dark mode") || lowerTranscript.includes("night mode")) {
+        setIsDarkMode(true);
+        speak("Switching to dark mode.");
+        return;
+      }
+      else if (lowerTranscript.includes("light mode") || lowerTranscript.includes("day mode")) {
+        setIsDarkMode(false);
+        speak("Switching to light mode.");
+        return;
+      }
+      else if (lowerTranscript.includes("screen reader") || lowerTranscript.includes("tab reader")) {
+        setIsTabReaderOn(prev => {
+          const newState = !prev;
+          speak(`Tab navigation reader turned ${newState ? "on" : "off"}.`);
+          return newState;
+        });
+        return;
+      }
+
+      // --- 0.5. DELETE / CLEAR COMMAND ---
       if (lowerTranscript === "delete" || lowerTranscript === "clear" || lowerTranscript === "clear field" || lowerTranscript === "undo") {
         const inputElement = document.getElementById(activeFieldRef.current) || document.activeElement;
         if (inputElement && (inputElement.tagName === 'INPUT' || inputElement.tagName === 'TEXTAREA')) {
@@ -303,27 +382,12 @@ const VoiceControl = () => {
         return; 
       }
 
-      if (isOnDayPage && (lowerTranscript.includes("events tab") || lowerTranscript === "event" || lowerTranscript === "events")) {
-        const btns = Array.from(document.querySelectorAll('.toggle-btn'));
-        const tab = btns.find(b => b.innerText.toLowerCase().includes('events'));
-        if (tab) { speak("Switching to events."); tab.click(); return; }
-      }
-      if (isOnDayPage && (lowerTranscript.includes("workshops tab") || lowerTranscript === "workshop" || lowerTranscript === "workshops")) {
-        const btns = Array.from(document.querySelectorAll('.toggle-btn'));
-        const tab = btns.find(b => b.innerText.toLowerCase().includes('workshops'));
-        if (tab) { speak("Switching to workshops."); tab.click(); return; }
-      }
-
       // --- 5. GENERAL NAVIGATION COMMANDS ---
       if (lowerTranscript.includes("home")) { speak("Going Home"); navigate("/"); }
       else if (lowerTranscript.includes("about")) { speak("Opening About Us"); navigate("/about"); }
       else if (lowerTranscript.includes("login") || lowerTranscript.includes("log in")) { speak("Opening Login"); navigate("/login"); }
       else if (lowerTranscript.includes("sign up") || lowerTranscript.includes("register")) { speak("Opening Sign Up"); navigate("/sign-up"); }
       else if (lowerTranscript.includes("forgot")) { speak("Opening Forgot Password"); navigate("/forgot-password"); }
-      else if (lowerTranscript.includes("public workshop")) { speak("Opening Public Workshops."); navigate("/workshop/public"); }
-      else if (lowerTranscript.includes("private workshop")) { speak("Opening Private Workshops."); navigate("/workshop/private"); }
-      else if (lowerTranscript.includes("workshop") && !isOnBookingPage) { speak("Opening Workshops."); navigate("/workshop"); }
-      else if (lowerTranscript.includes("event") && !isOnBookingPage) { speak("Opening Events."); navigate("/event"); }
       else if (lowerTranscript.includes("calendar") || lowerTranscript.includes("book now")) { speak("Opening the calendar."); navigate("/calendar"); }
 
       // --- 6. SMART DATE LOGIC ---
@@ -368,7 +432,7 @@ const VoiceControl = () => {
 
       // --- 7. DYNAMIC READ CONTENT ---
       else if (lowerTranscript.includes("read") || lowerTranscript.includes("content")) {
-        const content = document.querySelector(".panel") || document.querySelector(".card") || document.querySelector(".login-card") || document.getElementById("readable-content") || document.body;
+        const content = document.getElementById("voice-active-tab") || document.querySelector(".panel") || document.querySelector(".card") || document.querySelector(".login-card") || document.getElementById("readable-content") || document.body;
         if (content) { speak("Reading page content."); setTimeout(() => speak(content.innerText), 1500); } 
       }
 
@@ -420,6 +484,15 @@ const VoiceControl = () => {
       >
         <h3 style={{ margin: '0 0 10px 0', color: '#1a4f35' }}>Matcha Assistant</h3>
         <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>Say "Clear field" to delete mistakes.</p>
+        
+        {/* Toggle Tab Reader Button */}
+        <button 
+          onClick={() => setIsTabReaderOn(!isTabReaderOn)} 
+          style={{ width: '100%', padding: '8px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #1a4f35', cursor: 'pointer', backgroundColor: isTabReaderOn ? '#1a4f35' : '#fff', color: isTabReaderOn ? 'white' : '#1a4f35', fontWeight: 'bold' }}
+        >
+          {isTabReaderOn ? "🔊 Screen Reader: ON" : "🔇 Screen Reader: OFF"}
+        </button>
+
         <button 
           onClick={toggleMicrophone} 
           style={{ width: '100%', padding: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', backgroundColor: isListening ? '#d9534f' : '#1a4f35', color: 'white', fontWeight: 'bold' }}

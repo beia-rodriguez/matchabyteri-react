@@ -1,6 +1,5 @@
 import { Routes, Route } from "react-router-dom";
 
-// --- ADD THIS IMPORT ---
 import VoiceControl from "./components/VoiceControl";
 
 import Login from "./pages/Login";
@@ -47,10 +46,8 @@ import AdminRoute from "./components/AdminRoute";
 function App() {
   return (
     <>
-      {/* 
-        ✅ THIS IS THE NEW ADDITION ✅
-        By putting VoiceControl outside the Routes, it acts as a global floating 
-        widget that stays on the screen no matter what page the user navigates to!
+      {/* Global Voice & Theme Widget
+        This stays on the screen across all pages
       */}
       <VoiceControl />
 
