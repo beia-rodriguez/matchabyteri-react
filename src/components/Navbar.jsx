@@ -57,8 +57,6 @@ function Navbar() {
               <div className="dropdown-content">
                 <Link to="/public-workshops" onClick={handleLinkClick}>Public Workshop</Link>
                 <Link to="/private-workshop" onClick={handleLinkClick}>Private Workshop</Link>
-                <div className="dropdown-divider"></div>
-                <div className="dropdown-header">More</div>
               </div>
             </li>
           </ul>

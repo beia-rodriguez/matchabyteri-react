@@ -86,6 +86,7 @@
   font-size:1.15rem;
   margin-bottom:18px;
   text-align:center;
+  ;
 }
 
 .workshop-booking-section-title{
@@ -93,7 +94,7 @@
   font-weight:900;
   text-transform:uppercase;
   letter-spacing:.4px;
-  font-size:.78rem;
+  font-size:1rem;
   margin:22px 0 12px;
   text-align:center;
 }
