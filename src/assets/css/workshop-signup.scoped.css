@@ -105,7 +105,6 @@
 
 .ws-signup-poster{
   width:100%;
-  aspect-ratio:16 / 10;
   object-fit:cover;
   display:block;
   background:#eef2ee;
