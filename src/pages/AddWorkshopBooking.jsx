@@ -58,6 +58,38 @@ function readableText(text = "") {
     .trim();
 }
 
+function getOptionLabel(option) {
+  const priceText =
+    Number(option.price) > 0 ? `, price ${money(option.price)} pesos` : "";
+
+  const priceTypeText =
+    option.price_type === "per_quantity"
+      ? " each"
+      : option.price_type === "per_cup"
+      ? " per cup"
+      : "";
+
+  return readableText(`${option.label}${priceText}${priceTypeText}`);
+}
+
+function getSelectAriaLabel(field, fieldValue) {
+  const options = field.options || [];
+
+  const selectedOption = options.find(
+    (option) => String(option.id) === String(fieldValue)
+  );
+
+  const choices = options
+    .map((option, index) => `Press ${index + 1} for ${getOptionLabel(option)}`)
+    .join(", ");
+
+  return selectedOption
+    ? `${readableText(field.label)}. Selected ${getOptionLabel(
+        selectedOption
+      )}. Choices: ${choices}.`
+    : `${readableText(field.label)}. Select one option. Choices: ${choices}.`;
+}
+
 export default function AddWorkshopBooking() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -254,7 +286,9 @@ export default function AddWorkshopBooking() {
     readableContent
       .querySelectorAll("label, .workshop-booking-label")
       .forEach((element) => {
-        element.removeAttribute("tabindex");
+        if (!element.classList.contains("workshop-booking-opt")) {
+          element.removeAttribute("tabindex");
+        }
       });
 
     const isVisible = (element) => {
@@ -271,13 +305,14 @@ export default function AddWorkshopBooking() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .workshop-booking-date-title, .workshop-booking-year-title, .workshop-booking-title, .workshop-booking-section-title, .workshop-booking-small-note, .workshop-booking-blocked, .workshop-booking-error, .booking-label, .booking-value"
+      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .workshop-booking-opt, .workshop-booking-date-title, .workshop-booking-year-title, .workshop-booking-title, .workshop-booking-section-title, .workshop-booking-small-note, .workshop-booking-blocked, .workshop-booking-error, .booking-label, .booking-value"
     );
 
     readableElements.forEach((element) => {
       const tagName = element.tagName.toLowerCase();
 
       if (
+        !element.classList.contains("workshop-booking-opt") &&
         tagName !== "button" &&
         tagName !== "a" &&
         tagName !== "input" &&
@@ -321,6 +356,7 @@ export default function AddWorkshopBooking() {
       if (!textToRead.trim()) return;
 
       if (
+        !element.classList.contains("workshop-booking-opt") &&
         tagName !== "button" &&
         tagName !== "a" &&
         tagName !== "input" &&
@@ -374,11 +410,49 @@ export default function AddWorkshopBooking() {
     }));
   };
 
-  const handleOptionKeyDown = (e) => {
-    if (e.key === "Enter") {
+  const handleContactMethodKeyDown = (method, e) => {
+    if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      e.currentTarget.click();
+
+      setFixedInfo((prev) => ({
+        ...prev,
+        contact_methods: prev.contact_methods.includes(method.value)
+          ? prev.contact_methods.filter((item) => item !== method.value)
+          : [...prev.contact_methods, method.value],
+      }));
     }
+  };
+
+  const handleOptionKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+
+      const input = e.currentTarget.querySelector("input");
+
+      if (input && !input.disabled) {
+        input.click();
+      }
+    }
+  };
+
+  const handleSelectKeyDown = (field, e) => {
+    const options = field.options || [];
+    const pressedNumber = Number(e.key);
+
+    if (!pressedNumber || pressedNumber < 1 || pressedNumber > options.length) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const selectedOption = options[pressedNumber - 1];
+
+    if (!selectedOption) return;
+
+    setAnswers((prev) => ({
+      ...prev,
+      [field.field_name]: String(selectedOption.id),
+    }));
   };
 
   const handleDynamicChange = (field, e) => {
@@ -592,10 +666,13 @@ export default function AddWorkshopBooking() {
           value={fieldValue}
           disabled={readOnly}
           aria-label={
-            selectedOption
-              ? `${readableText(field.label)}: ${readableText(selectedOption.label)}`
-              : `Select ${readableText(field.label)}`
+            readOnly
+              ? selectedOption
+                ? `${readableText(field.label)}: ${getOptionLabel(selectedOption)}`
+                : `Select ${readableText(field.label)}`
+              : getSelectAriaLabel(field, fieldValue)
           }
+          onKeyDown={(e) => handleSelectKeyDown(field, e)}
           onChange={(e) => handleDynamicChange(field, e)}
         >
           <option value=""></option>
@@ -603,7 +680,7 @@ export default function AddWorkshopBooking() {
             <option
               key={option.id}
               value={option.id}
-              aria-label={readableText(option.label)}
+              aria-label={getOptionLabel(option)}
             >
               {option.label}
               {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
@@ -624,22 +701,32 @@ export default function AddWorkshopBooking() {
                 ? Array.isArray(fieldValue) && fieldValue.includes(String(option.id))
                 : String(fieldValue) === String(option.id);
 
+            const readableField = readableText(field.label);
+            const readableOption = getOptionLabel(option);
+
             return (
               <div key={option.id}>
-                <label className="workshop-booking-opt">
+                <label
+                  className="workshop-booking-opt"
+                  tabIndex={readOnly ? -1 : 0}
+                  role={field.field_type === "radio" ? "radio" : "checkbox"}
+                  aria-checked={checked}
+                  aria-label={`${readableField}: ${readableOption}. ${
+                    checked ? "Selected" : "Not selected"
+                  }. Press Enter to ${checked ? "unselect" : "select"}.`}
+                  onKeyDown={handleOptionKeyDown}
+                >
                   <input
                     type={field.field_type}
                     name={field.field_name}
                     value={option.id}
                     checked={checked}
                     disabled={readOnly}
-                    tabIndex={0}
-                    aria-label={`${readableText(field.label)}: ${readableText(option.label)}${
-                      checked ? ", selected" : ", not selected"
-                    }`}
-                    onKeyDown={handleOptionKeyDown}
+                    tabIndex={-1}
+                    aria-hidden="true"
                     onChange={(e) => handleDynamicChange(field, e)}
                   />
+
                   {option.label}
                   {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
                   {option.price_type === "per_quantity" ? " each" : ""}
@@ -652,8 +739,7 @@ export default function AddWorkshopBooking() {
                     min="1"
                     readOnly={readOnly}
                     value={quantities[optionKey] || 1}
-                    tabIndex={0}
-                    aria-label={`Quantity for ${readableText(option.label)}: ${
+                    aria-label={`Quantity for ${readableOption}: ${
                       quantities[optionKey] || 1
                     }`}
                     onChange={(e) =>
@@ -879,7 +965,8 @@ export default function AddWorkshopBooking() {
                         key={`${item.field_id}_${item.option_id}`}
                       >
                         <span className="booking-label">
-                          {readableText(item.field_label)}: {readableText(item.option_label)}
+                          {readableText(item.field_label)}:{" "}
+                          {readableText(item.option_label)}
                         </span>
                         <span className="booking-value">
                           ₱{money(item.line_total)}
@@ -977,23 +1064,39 @@ export default function AddWorkshopBooking() {
                     </label>
 
                     <div className="workshop-booking-options">
-                      {CONTACT_METHODS.map((method) => (
-                        <label key={method.value} className="workshop-booking-opt">
-                          <input
-                            type="checkbox"
-                            value={method.value}
-                            checked={fixedInfo.contact_methods.includes(method.value)}
-                            aria-label={`Contact method: ${method.label}${
-                              fixedInfo.contact_methods.includes(method.value)
-                                ? ", selected"
-                                : ", not selected"
-                            }`}
-                            onKeyDown={handleOptionKeyDown}
-                            onChange={handleContactMethod}
-                          />
-                          {method.label}
-                        </label>
-                      ))}
+                      {CONTACT_METHODS.map((method) => {
+                        const checked = fixedInfo.contact_methods.includes(
+                          method.value
+                        );
+
+                        return (
+                          <label
+                            key={method.value}
+                            className="workshop-booking-opt"
+                            tabIndex="0"
+                            role="checkbox"
+                            aria-checked={checked}
+                            aria-label={`Contact method: ${method.label}. ${
+                              checked ? "Selected" : "Not selected"
+                            }. Press Enter to ${
+                              checked ? "unselect" : "select"
+                            }.`}
+                            onKeyDown={(e) =>
+                              handleContactMethodKeyDown(method, e)
+                            }
+                          >
+                            <input
+                              type="checkbox"
+                              value={method.value}
+                              checked={checked}
+                              tabIndex={-1}
+                              aria-hidden="true"
+                              onChange={handleContactMethod}
+                            />
+                            {method.label}
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
 

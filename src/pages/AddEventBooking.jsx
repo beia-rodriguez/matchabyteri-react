@@ -5,7 +5,12 @@ import API from "../services/api";
 import "../assets/css/add-booking.css";
 import "../assets/css/universal.css";
 
-const CONTACT_METHODS = ["Text", "Call", "Viber", "Whatsapp"];
+const CONTACT_METHODS = [
+  { value: "Text", label: "Text" },
+  { value: "Call", label: "Call" },
+  { value: "Viber", label: "Viber" },
+  { value: "Whatsapp", label: "WhatsApp" },
+];
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -29,6 +34,60 @@ function money(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function readableText(text = "") {
+  return String(text)
+    .replace(/\bCUPS\b/gi, "cups")
+    .replace(/\bCUP\b/gi, "cup")
+    .replace(/\bCUPER\b/gi, "cups")
+    .replace(/\bPER\b/gi, "per")
+    .replace(/\bPERSON\b/gi, "person")
+    .replace(/\bOATMILK\b/gi, "oatmilk")
+    .replace(/\bOAT MILK\b/gi, "oatmilk")
+    .replace(/\bOPTIONAL\b/gi, "Optional")
+    .replace(/\bTEXT\b/gi, "Text")
+    .replace(/\bCALL\b/gi, "Call")
+    .replace(/\bVIBER\b/gi, "Viber")
+    .replace(/\bWHATSAPP\b/gi, "WhatsApp")
+    .replace(/\bNEXT\b/gi, "Next")
+    .replace(/\bCANCEL\b/gi, "Cancel")
+    .replace(/\bEDIT\b/gi, "Edit")
+    .replace(/\bCONFIRM\b/gi, "Confirm")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getOptionLabel(option) {
+  const priceText =
+    Number(option.price) > 0 ? `, price ${money(option.price)} pesos` : "";
+
+  const priceTypeText =
+    option.price_type === "per_quantity"
+      ? " each"
+      : option.price_type === "per_cup"
+      ? " per cup"
+      : "";
+
+  return readableText(`${option.label}${priceText}${priceTypeText}`);
+}
+
+function getSelectAriaLabel(field, fieldValue) {
+  const options = field.options || [];
+
+  const selectedOption = options.find(
+    (option) => String(option.id) === String(fieldValue)
+  );
+
+  const choices = options
+    .map((option, index) => `Press ${index + 1} for ${getOptionLabel(option)}`)
+    .join(", ");
+
+  return selectedOption
+    ? `${readableText(field.label)}. Selected ${getOptionLabel(
+        selectedOption
+      )}. Choices: ${choices}.`
+    : `${readableText(field.label)}. Select one option. Choices: ${choices}.`;
 }
 
 export default function AddEventBooking() {
@@ -133,6 +192,7 @@ export default function AddEventBooking() {
 
     for (const field of allFields) {
       const value = answers[field.field_name];
+
       if (value === undefined || value === "" || value === null) continue;
 
       const selectedValues = Array.isArray(value) ? value : [value];
@@ -177,13 +237,24 @@ export default function AddEventBooking() {
   }, [allFields, answers, quantities, selectedCupCount]);
 
   const totalAmount = useMemo(() => {
-    return selectedItems.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+    return selectedItems.reduce(
+      (sum, item) => sum + Number(item.line_total || 0),
+      0
+    );
   }, [selectedItems]);
 
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
 
     if (!readableContent) return;
+
+    readableContent
+      .querySelectorAll("label, .label")
+      .forEach((element) => {
+        if (!element.classList.contains("opt")) {
+          element.removeAttribute("tabindex");
+        }
+      });
 
     const isVisible = (element) => {
       const style = window.getComputedStyle(element);
@@ -199,13 +270,14 @@ export default function AddEventBooking() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .title, .section-title, .small-note, .date-title, .booking-label, .booking-value, .error"
+      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .opt, .title, .section-title, .small-note, .date-title, .booking-label, .booking-value, .error"
     );
 
     readableElements.forEach((element) => {
       const tagName = element.tagName.toLowerCase();
 
       if (
+        !element.classList.contains("opt") &&
         tagName !== "button" &&
         tagName !== "a" &&
         tagName !== "input" &&
@@ -248,6 +320,7 @@ export default function AddEventBooking() {
       if (!textToRead.trim()) return;
 
       if (
+        !element.classList.contains("opt") &&
         tagName !== "button" &&
         tagName !== "a" &&
         tagName !== "input" &&
@@ -258,7 +331,7 @@ export default function AddEventBooking() {
       }
 
       if (!element.getAttribute("aria-label")) {
-        element.setAttribute("aria-label", textToRead.trim());
+        element.setAttribute("aria-label", readableText(textToRead));
       }
     });
   }, [
@@ -299,6 +372,51 @@ export default function AddEventBooking() {
     }));
   };
 
+  const handleContactMethodKeyDown = (method, e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+
+      setFixedInfo((prev) => ({
+        ...prev,
+        contact_methods: prev.contact_methods.includes(method.value)
+          ? prev.contact_methods.filter((item) => item !== method.value)
+          : [...prev.contact_methods, method.value],
+      }));
+    }
+  };
+
+  const handleOptionKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+
+      const input = e.currentTarget.querySelector("input");
+
+      if (input && !input.disabled) {
+        input.click();
+      }
+    }
+  };
+
+  const handleSelectKeyDown = (field, e) => {
+    const options = field.options || [];
+    const pressedNumber = Number(e.key);
+
+    if (!pressedNumber || pressedNumber < 1 || pressedNumber > options.length) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const selectedOption = options[pressedNumber - 1];
+
+    if (!selectedOption) return;
+
+    setAnswers((prev) => ({
+      ...prev,
+      [field.field_name]: String(selectedOption.id),
+    }));
+  };
+
   const handleDynamicChange = (field, e) => {
     const { value, checked, type } = e.target;
 
@@ -332,6 +450,7 @@ export default function AddEventBooking() {
 
   const handleQuantityChange = (fieldId, optionId, value) => {
     const key = `${fieldId}_${optionId}`;
+
     setQuantities((prev) => ({
       ...prev,
       [key]: value,
@@ -439,8 +558,8 @@ export default function AddEventBooking() {
           value={fieldValue}
           aria-label={
             String(fieldValue).trim()
-              ? `${field.label}: ${fieldValue}`
-              : `Enter ${field.label}`
+              ? `${readableText(field.label)}: ${readableText(fieldValue)}`
+              : `Enter ${readableText(field.label)}`
           }
           onChange={(e) => handleDynamicChange(field, e)}
         />
@@ -453,8 +572,8 @@ export default function AddEventBooking() {
           value={fieldValue}
           aria-label={
             String(fieldValue).trim()
-              ? `${field.label}: ${fieldValue}`
-              : `Enter ${field.label}`
+              ? `${readableText(field.label)}: ${readableText(fieldValue)}`
+              : `Enter ${readableText(field.label)}`
           }
           onChange={(e) => handleDynamicChange(field, e)}
         />
@@ -462,23 +581,20 @@ export default function AddEventBooking() {
     }
 
     if (field.field_type === "select") {
-      const selectedOption = (field.options || []).find(
-        (option) => String(option.id) === String(fieldValue)
-      );
-
       return (
         <select
           value={fieldValue}
-          aria-label={
-            selectedOption
-              ? `${field.label}: ${selectedOption.label}`
-              : `Select ${field.label}`
-          }
+          aria-label={getSelectAriaLabel(field, fieldValue)}
+          onKeyDown={(e) => handleSelectKeyDown(field, e)}
           onChange={(e) => handleDynamicChange(field, e)}
         >
           <option value=""></option>
           {(field.options || []).map((option) => (
-            <option key={option.id} value={option.id}>
+            <option
+              key={option.id}
+              value={option.id}
+              aria-label={getOptionLabel(option)}
+            >
               {option.label}
               {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
             </option>
@@ -492,24 +608,37 @@ export default function AddEventBooking() {
         <div className="options">
           {(field.options || []).map((option) => {
             const optionKey = `${field.id}_${option.id}`;
+
             const checked =
               field.field_type === "checkbox"
                 ? Array.isArray(fieldValue) && fieldValue.includes(String(option.id))
                 : String(fieldValue) === String(option.id);
 
+            const readableField = readableText(field.label);
+            const readableOption = getOptionLabel(option);
+
             return (
               <div key={option.id}>
-                <label className="opt">
+                <label
+                  className="opt"
+                  tabIndex="0"
+                  role={field.field_type === "radio" ? "radio" : "checkbox"}
+                  aria-checked={checked}
+                  aria-label={`${readableField}: ${readableOption}. ${
+                    checked ? "Selected" : "Not selected"
+                  }. Press Enter to ${checked ? "unselect" : "select"}.`}
+                  onKeyDown={handleOptionKeyDown}
+                >
                   <input
                     type={field.field_type}
                     name={field.field_name}
                     value={option.id}
                     checked={checked}
-                    aria-label={`${field.label}: ${option.label}${
-                      checked ? ", selected" : ""
-                    }`}
+                    tabIndex={-1}
+                    aria-hidden="true"
                     onChange={(e) => handleDynamicChange(field, e)}
                   />
+
                   {option.label}
                   {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
                   {option.price_type === "per_quantity" ? " each" : ""}
@@ -521,7 +650,7 @@ export default function AddEventBooking() {
                     type="number"
                     min="1"
                     value={quantities[optionKey] || 1}
-                    aria-label={`Quantity for ${option.label}: ${
+                    aria-label={`Quantity for ${readableOption}: ${
                       quantities[optionKey] || 1
                     }`}
                     onChange={(e) =>
@@ -541,7 +670,7 @@ export default function AddEventBooking() {
       return (
         <input
           type="file"
-          aria-label={`Upload ${field.label}`}
+          aria-label={`Upload ${readableText(field.label)}`}
           onChange={(e) => handleDynamicChange(field, e)}
         />
       );
@@ -635,22 +764,39 @@ export default function AddEventBooking() {
                       </label>
 
                       <div className="options">
-                        {CONTACT_METHODS.map((method) => (
-                          <label className="opt" key={method}>
-                            <input
-                              type="checkbox"
-                              value={method}
-                              checked={fixedInfo.contact_methods.includes(method)}
-                              aria-label={`Contact method: ${method}${
-                                fixedInfo.contact_methods.includes(method)
-                                  ? ", selected"
-                                  : ""
-                              }`}
-                              onChange={handleContactMethod}
-                            />
-                            {method}
-                          </label>
-                        ))}
+                        {CONTACT_METHODS.map((method) => {
+                          const checked = fixedInfo.contact_methods.includes(
+                            method.value
+                          );
+
+                          return (
+                            <label
+                              className="opt"
+                              key={method.value}
+                              tabIndex="0"
+                              role="checkbox"
+                              aria-checked={checked}
+                              aria-label={`Contact method: ${method.label}. ${
+                                checked ? "Selected" : "Not selected"
+                              }. Press Enter to ${
+                                checked ? "unselect" : "select"
+                              }.`}
+                              onKeyDown={(e) =>
+                                handleContactMethodKeyDown(method, e)
+                              }
+                            >
+                              <input
+                                type="checkbox"
+                                value={method.value}
+                                checked={checked}
+                                tabIndex={-1}
+                                aria-hidden="true"
+                                onChange={handleContactMethod}
+                              />
+                              {method.label}
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -714,7 +860,7 @@ export default function AddEventBooking() {
                         aria-label={
                           fixedInfo.other_request.trim()
                             ? `Other Request: ${fixedInfo.other_request}`
-                            : "Enter Other Request"
+                            : "Enter Other Request Optional"
                         }
                         onChange={handleFixedChange}
                       />
@@ -755,13 +901,18 @@ export default function AddEventBooking() {
 
                     <div className="booking-summary animate-fade-in">
                       {Object.entries(fixedInfo).map(([key, value]) => {
-                        if (value === "" || (Array.isArray(value) && value.length === 0)) {
+                        if (
+                          value === "" ||
+                          (Array.isArray(value) && value.length === 0)
+                        ) {
                           return null;
                         }
 
-                        const label = key
-                          .replace(/_/g, " ")
-                          .replace(/\b\w/g, (c) => c.toUpperCase());
+                        const label = readableText(
+                          key
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (c) => c.toUpperCase())
+                        );
 
                         return (
                           <div className="booking-row" key={key}>
@@ -779,7 +930,8 @@ export default function AddEventBooking() {
                           key={`${item.field_id}_${item.option_id}`}
                         >
                           <span className="booking-label">
-                            {item.field_label}: {item.option_label}
+                            {readableText(item.field_label)}:{" "}
+                            {readableText(item.option_label)}
                           </span>
                           <span className="booking-value">
                             ₱{money(item.line_total)}
