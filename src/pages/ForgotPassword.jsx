@@ -1,13 +1,76 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import API from "../services/api";
 import "../assets/css/forgot-password.css";
+import "../assets/css/universal.css";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, button, img, a, li"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (tagName === "input") {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [message, error, submitting]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +103,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="page">
+    <div className="page" id="readable-content">
       <div className="shell">
         <div className="brand">
           <img
@@ -71,7 +134,7 @@ export default function ForgotPassword() {
 
           <form onSubmit={handleSubmit}>
             <div className="field">
-              <label className="label" htmlFor="email">
+              <label className="label" htmlFor="email" aria-label="Email">
                 Email
               </label>
 
@@ -83,6 +146,7 @@ export default function ForgotPassword() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
+                aria-label="Enter email"
               />
             </div>
 

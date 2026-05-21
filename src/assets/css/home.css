@@ -16,7 +16,7 @@
 
 .text-box {
     position: absolute;
-    bottom: 80px;
+    bottom: 40px;
     left: 50%;
     transform: translateX(-50%);
     color: white;
@@ -216,3 +216,5 @@
   font-family: "Brasika Display Regular", serif;
   color: black;
 }
+
+

@@ -1,14 +1,93 @@
+import { useEffect } from "react";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
 import "../assets/css/private-workshop.css";
+import "../assets/css/universal.css";
 
 export default function PublicWorkshop() {
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, []);
+
   return (
     <>
       <Navbar />
 
-      <div className="pw-wrapper">
-
+      <div className="pw-wrapper" id="readable-content">
         <section className="pw-book-section-text">
           <p>Book a workshop with us!</p>
 
@@ -37,10 +116,9 @@ export default function PublicWorkshop() {
 
         <section className="pw-workshop-tier-section">
           <div className="pw-workshop-tier">
-
             <div className="pw-standard-tier">
               <div className="pw-standard-button">
-                <button>STANDARD</button>
+                <button aria-label="Standard">STANDARD</button>
               </div>
 
               <div className="pw-standard-desc">
@@ -49,7 +127,7 @@ export default function PublicWorkshop() {
                 </p>
 
                 <ul className="pw-workshop-tier-list">
-                  <li>Full workshop experience (no kit included)</li>
+                  <li>Full workshop experience no kit included</li>
                   <li>Bring your own matcha tools</li>
                   <li>
                     Please indicate if you don't have your own kit and prefer not to purchase the premium package
@@ -60,7 +138,7 @@ export default function PublicWorkshop() {
 
             <div className="pw-premium-tier">
               <div className="pw-premium-button">
-                <button>PREMIUM</button>
+                <button aria-label="Premium">PREMIUM</button>
               </div>
 
               <div className="pw-premium-desc">
@@ -69,25 +147,23 @@ export default function PublicWorkshop() {
                 </p>
 
                 <ul className="pw-workshop-tier-list">
-                  <li>Full workshop experience (no kit included)</li>
+                  <li>Full workshop experience no kit included</li>
                   <li>
                     Includes a basic matcha kit to take home:
-                    Chawan (bowl), Chasen (whisk), Chashaku (scoop), and
-                    Chasen rest (stand)
+                    Chawan bowl, Chasen whisk, Chashaku scoop, and
+                    Chasen rest stand
                   </li>
                 </ul>
               </div>
             </div>
-
           </div>
 
           <div className="pw-book-button">
-            <Link to="/calendar?type=workshop">
-              <button>BOOK NOW</button>
+            <Link to="/calendar?type=workshop" aria-label="Book now">
+              <button aria-label="Book now">BOOK NOW</button>
             </Link>
           </div>
         </section>
-
       </div>
     </>
   );

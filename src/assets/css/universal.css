@@ -1,0 +1,85 @@
+body.screen-reader-on #readable-content h1:focus,
+body.screen-reader-on #readable-content h2:focus,
+body.screen-reader-on #readable-content h3:focus,
+body.screen-reader-on #readable-content h4:focus,
+body.screen-reader-on #readable-content h5:focus,
+body.screen-reader-on #readable-content h6:focus,
+body.screen-reader-on #readable-content p:focus,
+body.screen-reader-on #readable-content label:focus,
+body.screen-reader-on #readable-content input:focus,
+body.screen-reader-on #readable-content textarea:focus,
+body.screen-reader-on #readable-content select:focus,
+body.screen-reader-on #readable-content button:focus,
+body.screen-reader-on #readable-content a:focus,
+body.screen-reader-on #readable-content li:focus,
+
+body.screen-reader-on #readable-content .title:focus,
+body.screen-reader-on #readable-content .section-title:focus,
+body.screen-reader-on #readable-content .small-note:focus,
+body.screen-reader-on #readable-content .date-title:focus,
+body.screen-reader-on #readable-content .booking-label:focus,
+body.screen-reader-on #readable-content .booking-value:focus,
+body.screen-reader-on #readable-content .error:focus,
+
+body.screen-reader-on #readable-content .ws-signup-heading:focus,
+body.screen-reader-on #readable-content .ws-signup-sub:focus,
+body.screen-reader-on #readable-content .ws-signup-section-title:focus,
+body.screen-reader-on #readable-content .ws-signup-pill:focus,
+body.screen-reader-on #readable-content .ws-signup-card-title:focus,
+body.screen-reader-on #readable-content .ws-signup-meta:focus,
+
+body.screen-reader-on #readable-content .wsv-status:focus,
+body.screen-reader-on #readable-content .wsv-title:focus,
+body.screen-reader-on #readable-content .wsv-paragraph:focus,
+body.screen-reader-on #readable-content .wsv-note:focus,
+
+body.screen-reader-on #readable-content .ws-reg-status:focus,
+body.screen-reader-on #readable-content .ws-reg-title:focus,
+body.screen-reader-on #readable-content .ws-reg-pill:focus,
+body.screen-reader-on #readable-content .ws-reg-section:focus,
+body.screen-reader-on #readable-content .ws-reg-meta:focus,
+body.screen-reader-on #readable-content .ws-reg-btn:focus,
+body.screen-reader-on #readable-content .ws-reg-fullNote:focus,
+
+body.screen-reader-on #readable-content .wsPkg-meta:focus,
+body.screen-reader-on #readable-content .wsPkg-badge:focus,
+body.screen-reader-on #readable-content .wsPkg-pill:focus,
+body.screen-reader-on #readable-content .wsPkg-title:focus,
+body.screen-reader-on #readable-content .wsPkg-price:focus,
+body.screen-reader-on #readable-content .wsPkg-section:focus,
+body.screen-reader-on #readable-content .wsPkg-btn:focus,
+body.screen-reader-on #readable-content .wsPkg-fullMessage:focus,
+
+body.screen-reader-on #readable-content .pwr-card:focus,
+body.screen-reader-on #readable-content .pwr-alert:focus,
+body.screen-reader-on #readable-content .pwr-meta:focus,
+body.screen-reader-on #readable-content .pwr-package-pill:focus,
+body.screen-reader-on #readable-content .pwr-back:focus,
+
+body.screen-reader-on #readable-content .cell:focus,
+
+body.screen-reader-on #readable-content .day-title:focus,
+body.screen-reader-on #readable-content .day-year:focus,
+body.screen-reader-on #readable-content .booking-pill:focus,
+body.screen-reader-on #readable-content .name:focus,
+body.screen-reader-on #readable-content .time:focus,
+body.screen-reader-on #readable-content .status:focus,
+body.screen-reader-on #readable-content .note:focus,
+
+body.screen-reader-on #readable-content .reminder-title:focus,
+body.screen-reader-on #readable-content .reminder-year:focus,
+
+body.screen-reader-on #readable-content .workshop-booking-date-title:focus,
+body.screen-reader-on #readable-content .workshop-booking-year-title:focus,
+body.screen-reader-on #readable-content .workshop-booking-title:focus,
+body.screen-reader-on #readable-content .workshop-booking-section-title:focus,
+body.screen-reader-on #readable-content .workshop-booking-label:focus,
+body.screen-reader-on #readable-content .workshop-booking-small-note:focus,
+body.screen-reader-on #readable-content .workshop-booking-blocked:focus,
+body.screen-reader-on #readable-content .workshop-booking-error:focus,
+
+body.screen-reader-on .image-wrap [tabindex="0"]:focus {
+  outline: 2px solid #1a4f35;
+  outline-offset: 4px;
+  border-radius: 6px;
+}

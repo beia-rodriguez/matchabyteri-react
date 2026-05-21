@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/day.css";
+import "../assets/css/universal.css";
 
 export default function Day() {
   const [searchParams] = useSearchParams();
@@ -49,6 +50,84 @@ export default function Day() {
       });
   }, [date, navigate]);
 
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .day-title, .day-year, .booking-pill, .name, .time, .status, .note"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [data, activeTab, type]);
+
   if (!data) return null;
 
   const handleBack = () => {
@@ -69,10 +148,14 @@ export default function Day() {
     <>
       <Navbar />
 
-      <div className="day-page">
+      <div className="day-page" id="readable-content">
         <div className="day-top">
-          <button className="back" onClick={handleBack}>
-            <img src="/images/left-book.png" alt="Back" />
+          <button
+            className="back"
+            aria-label="Back to calendar"
+            onClick={handleBack}
+          >
+            <img src="/images/left-book.png" alt="" aria-hidden="true" />
           </button>
 
           <div className="day-title">{data.monthDay}</div>
@@ -88,6 +171,7 @@ export default function Day() {
                 className={`toggle-btn ${
                   activeTab === "event" ? "active" : ""
                 }`}
+                aria-label="Events"
                 onClick={() => setActiveTab("event")}
               >
                 Events
@@ -97,6 +181,7 @@ export default function Day() {
                 className={`toggle-btn ${
                   activeTab === "workshop" ? "active" : ""
                 }`}
+                aria-label="Workshops"
                 onClick={() => setActiveTab("workshop")}
               >
                 Workshops
@@ -104,12 +189,12 @@ export default function Day() {
             </div>
           )}
 
-          {/* ================= EVENTS ================= */}
           {showEvent && (
             <>
               {!data.eventFullyBooked && (
                 <button
                   className="add-pill"
+                  aria-label="Book Event"
                   onClick={() => goToReminder("event")}
                 >
                   ＋ Book Event
@@ -118,7 +203,13 @@ export default function Day() {
 
               {data.bookings_event.length > 0 ? (
                 data.bookings_event.map((b, i) => (
-                  <div key={i} className="booking-pill">
+                  <div
+                    key={i}
+                    className="booking-pill"
+                    aria-label={`Event. ${data.monthDay}, ${data.year}.${
+                      b.start_time ? ` Time: ${b.start_time} to ${b.end_time}.` : ""
+                    }${b.status ? ` Status: ${b.status}.` : ""}`}
+                  >
                     <div className="name">
                       Event • {data.monthDay}, {data.year}
                     </div>
@@ -130,7 +221,10 @@ export default function Day() {
                     )}
 
                     {b.status && (
-                      <div className={`status ${b.status}`}>
+                      <div
+                        className={`status ${b.status}`}
+                        aria-label={`Status: ${b.status}`}
+                      >
                         {b.status}
                       </div>
                     )}
@@ -144,12 +238,12 @@ export default function Day() {
             </>
           )}
 
-          {/* ================= WORKSHOPS ================= */}
           {showWorkshop && (
             <>
               {!data.workshopFullyBooked && (
                 <button
                   className="add-pill"
+                  aria-label="Book Workshop"
                   onClick={() => goToReminder("workshop")}
                 >
                   ＋ Book Workshop
@@ -158,7 +252,13 @@ export default function Day() {
 
               {data.bookings_workshop.length > 0 ? (
                 data.bookings_workshop.map((b, i) => (
-                  <div key={i} className="booking-pill">
+                  <div
+                    key={i}
+                    className="booking-pill"
+                    aria-label={`Workshop. ${data.monthDay}, ${data.year}.${
+                      b.start_time ? ` Time: ${b.start_time} to ${b.end_time}.` : ""
+                    }${b.status ? ` Status: ${b.status}.` : ""}`}
+                  >
                     <div className="name">
                       Workshop • {data.monthDay}, {data.year}
                     </div>
@@ -170,7 +270,10 @@ export default function Day() {
                     )}
 
                     {b.status && (
-                      <div className={`status ${b.status}`}>
+                      <div
+                        className={`status ${b.status}`}
+                        aria-label={`Status: ${b.status}`}
+                      >
                         {b.status}
                       </div>
                     )}

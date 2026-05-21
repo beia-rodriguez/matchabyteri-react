@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/public-workshop-package.css";
+import "../assets/css/universal.css";
 
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
@@ -58,11 +59,90 @@ export default function PublicWorkshopPackage({ kind }) {
       .finally(() => setLoading(false));
   }, [id, isStandard, kind]);
 
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .wsPkg-meta, .wsPkg-badge, .wsPkg-pill, .wsPkg-title, .wsPkg-price, .wsPkg-section, .wsPkg-btn, .wsPkg-fullMessage"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [loading, errorMsg, data, isStandard]);
+
   if (loading) {
     return (
       <>
         <Navbar />
-        <div className="wsPkg-wrap">
+
+        <div className="wsPkg-wrap" id="readable-content">
           <div className="wsPkg-meta">Loading workshop details...</div>
         </div>
       </>
@@ -73,7 +153,8 @@ export default function PublicWorkshopPackage({ kind }) {
     return (
       <>
         <Navbar />
-        <div className="wsPkg-wrap">
+
+        <div className="wsPkg-wrap" id="readable-content">
           <div className="wsPkg-meta">{errorMsg || "Workshop not found."}</div>
         </div>
       </>
@@ -86,7 +167,9 @@ export default function PublicWorkshopPackage({ kind }) {
   const slotInfo =
     isStandard
       ? data.max_slots > 0
-        ? `Slots: ${data.reg_count} / ${data.max_slots} (Remaining: ${data.remaining})${data.is_full ? " • FULL" : ""}`
+        ? `Slots: ${data.reg_count} / ${data.max_slots} (Remaining: ${data.remaining})${
+            data.is_full ? " • FULL" : ""
+          }`
         : `Slots: Unlimited (Registered: ${data.reg_count})`
       : null;
 
@@ -102,7 +185,7 @@ export default function PublicWorkshopPackage({ kind }) {
     <>
       <Navbar />
 
-      <div className="wsPkg-wrap">
+      <div className="wsPkg-wrap" id="readable-content">
         <div className="wsPkg-layout">
           <div className="wsPkg-poster">
             <img
@@ -117,20 +200,27 @@ export default function PublicWorkshopPackage({ kind }) {
           <div>
             {isStandard ? (
               <div className="wsPkg-badgeRow">
-                <div className="wsPkg-badge">STANDARD PACKAGE</div>
-                <div className={`wsPkg-pill ${data.is_full ? "wsPkg-pill-bad" : ""}`}>
+                <div className="wsPkg-badge" aria-label="Standard package">
+                  STANDARD PACKAGE
+                </div>
+
+                <div
+                  className={`wsPkg-pill ${
+                    data.is_full ? "wsPkg-pill-bad" : ""
+                  }`}
+                >
                   {slotInfo}
                 </div>
               </div>
             ) : (
-              <div className="wsPkg-badge">PREMIUM PACKAGE</div>
+              <div className="wsPkg-badge" aria-label="Premium package">
+                PREMIUM PACKAGE
+              </div>
             )}
 
             <div className="wsPkg-title">{data.title}</div>
 
-            <div className="wsPkg-price">
-              Price: {packagePrice}
-            </div>
+            <div className="wsPkg-price">Price: {packagePrice}</div>
 
             <div className="wsPkg-meta">
               Date: {data.dateText}
@@ -154,11 +244,17 @@ export default function PublicWorkshopPackage({ kind }) {
 
             <div className="wsPkg-btnRow">
               {isStandard && data.is_full ? (
-                <span className="wsPkg-btn wsPkg-btnDisabled">CONTINUE</span>
+                <span
+                  className="wsPkg-btn wsPkg-btnDisabled"
+                  aria-label="Continue"
+                >
+                  CONTINUE
+                </span>
               ) : (
                 <a
                   className="wsPkg-btn"
                   href={continueUrl}
+                  aria-label="Continue"
                   onClick={(e) => {
                     e.preventDefault();
                     navigate(continueUrl);
@@ -171,6 +267,7 @@ export default function PublicWorkshopPackage({ kind }) {
               <a
                 className="wsPkg-btn wsPkg-back"
                 href={backUrl}
+                aria-label="Back"
                 onClick={(e) => {
                   e.preventDefault();
                   navigate(backUrl);

@@ -3,8 +3,14 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/add-workshop-booking.css";
+import "../assets/css/universal.css";
 
-const CONTACT_METHODS = ["Text", "Call", "Viber", "Whatsapp"];
+const CONTACT_METHODS = [
+  { value: "Text", label: "Text" },
+  { value: "Call", label: "Call" },
+  { value: "Viber", label: "Viber" },
+  { value: "Whatsapp", label: "WhatsApp" },
+];
 
 function pad(n) {
   return String(n).padStart(2, "0");
@@ -30,6 +36,28 @@ function money(value) {
   });
 }
 
+function readableText(text = "") {
+  return String(text)
+    .replace(/\bCUPS\b/gi, "cups")
+    .replace(/\bCUP\b/gi, "cup")
+    .replace(/\bCUPER\b/gi, "cups")
+    .replace(/\bPER\b/gi, "per")
+    .replace(/\bPERSON\b/gi, "person")
+    .replace(/\bOATMILK\b/gi, "oatmilk")
+    .replace(/\bOAT MILK\b/gi, "oatmilk")
+    .replace(/\bOPTIONAL\b/gi, "Optional")
+    .replace(/\bTEXT\b/gi, "Text")
+    .replace(/\bCALL\b/gi, "Call")
+    .replace(/\bVIBER\b/gi, "Viber")
+    .replace(/\bWHATSAPP\b/gi, "WhatsApp")
+    .replace(/\bNEXT\b/gi, "Next")
+    .replace(/\bCANCEL\b/gi, "Cancel")
+    .replace(/\bEDIT\b/gi, "Edit")
+    .replace(/\bCONFIRM\b/gi, "Confirm")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function AddWorkshopBooking() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -53,7 +81,6 @@ export default function AddWorkshopBooking() {
   const [blocked, setBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [loadingForm, setLoadingForm] = useState(true);
-
   const [formSchema, setFormSchema] = useState(null);
 
   const [fixedInfo, setFixedInfo] = useState({
@@ -71,9 +98,10 @@ export default function AddWorkshopBooking() {
 
   useEffect(() => {
     if (type !== "workshop") {
-      navigate(`/day?date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`, {
-        replace: true,
-      });
+      navigate(
+        `/day?date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`,
+        { replace: true }
+      );
     }
   }, [type, date, navigate]);
 
@@ -97,9 +125,7 @@ export default function AddWorkshopBooking() {
   }, []);
 
   useEffect(() => {
-    API.post("/bookings/private-workshop/check-blocked.php", {
-      date,
-    })
+    API.post("/bookings/private-workshop/check-blocked.php", { date })
       .then((res) => {
         if (res.data.blocked) {
           setBlocked(true);
@@ -215,8 +241,112 @@ export default function AddWorkshopBooking() {
   }, [allFields, answers, quantities, selectedCupCount]);
 
   const totalAmount = useMemo(() => {
-    return selectedItems.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+    return selectedItems.reduce(
+      (sum, item) => sum + Number(item.line_total || 0),
+      0
+    );
   }, [selectedItems]);
+
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+    if (!readableContent) return;
+
+    readableContent
+      .querySelectorAll("label, .workshop-booking-label")
+      .forEach((element) => {
+        element.removeAttribute("tabindex");
+      });
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .workshop-booking-date-title, .workshop-booking-year-title, .workshop-booking-title, .workshop-booking-section-title, .workshop-booking-small-note, .workshop-booking-blocked, .workshop-booking-error, .booking-label, .booking-value"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        const parentDiv =
+          element.closest(".workshop-booking-field") || element.closest("div");
+        const label = parentDiv?.querySelector("label");
+
+        textToRead =
+          element.getAttribute("aria-label") ||
+          label?.innerText ||
+          element.placeholder ||
+          element.value ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", readableText(textToRead));
+      }
+    });
+  }, [
+    step,
+    error,
+    blocked,
+    blockReason,
+    loadingForm,
+    formSchema,
+    fixedInfo,
+    answers,
+    quantities,
+    selectedItems,
+    totalAmount,
+  ]);
 
   const handleFixedChange = (e) => {
     const { name, value } = e.target;
@@ -242,6 +372,13 @@ export default function AddWorkshopBooking() {
         ? [...prev.contact_methods, value]
         : prev.contact_methods.filter((item) => item !== value),
     }));
+  };
+
+  const handleOptionKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.currentTarget.click();
+    }
   };
 
   const handleDynamicChange = (field, e) => {
@@ -420,6 +557,11 @@ export default function AddWorkshopBooking() {
           type={field.field_type}
           value={fieldValue}
           readOnly={readOnly}
+          aria-label={
+            String(fieldValue).trim()
+              ? `${readableText(field.label)}: ${readableText(fieldValue)}`
+              : `Enter ${readableText(field.label)}`
+          }
           onChange={(e) => handleDynamicChange(field, e)}
         />
       );
@@ -430,21 +572,39 @@ export default function AddWorkshopBooking() {
         <textarea
           value={fieldValue}
           readOnly={readOnly}
+          aria-label={
+            String(fieldValue).trim()
+              ? `${readableText(field.label)}: ${readableText(fieldValue)}`
+              : `Enter ${readableText(field.label)}`
+          }
           onChange={(e) => handleDynamicChange(field, e)}
         />
       );
     }
 
     if (field.field_type === "select") {
+      const selectedOption = (field.options || []).find(
+        (option) => String(option.id) === String(fieldValue)
+      );
+
       return (
         <select
           value={fieldValue}
           disabled={readOnly}
+          aria-label={
+            selectedOption
+              ? `${readableText(field.label)}: ${readableText(selectedOption.label)}`
+              : `Select ${readableText(field.label)}`
+          }
           onChange={(e) => handleDynamicChange(field, e)}
         >
           <option value=""></option>
           {(field.options || []).map((option) => (
-            <option key={option.id} value={option.id}>
+            <option
+              key={option.id}
+              value={option.id}
+              aria-label={readableText(option.label)}
+            >
               {option.label}
               {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
             </option>
@@ -473,6 +633,11 @@ export default function AddWorkshopBooking() {
                     value={option.id}
                     checked={checked}
                     disabled={readOnly}
+                    tabIndex={0}
+                    aria-label={`${readableText(field.label)}: ${readableText(option.label)}${
+                      checked ? ", selected" : ", not selected"
+                    }`}
+                    onKeyDown={handleOptionKeyDown}
                     onChange={(e) => handleDynamicChange(field, e)}
                   />
                   {option.label}
@@ -487,6 +652,10 @@ export default function AddWorkshopBooking() {
                     min="1"
                     readOnly={readOnly}
                     value={quantities[optionKey] || 1}
+                    tabIndex={0}
+                    aria-label={`Quantity for ${readableText(option.label)}: ${
+                      quantities[optionKey] || 1
+                    }`}
                     onChange={(e) =>
                       handleQuantityChange(field.id, option.id, e.target.value)
                     }
@@ -506,6 +675,7 @@ export default function AddWorkshopBooking() {
         <input
           type="file"
           disabled={readOnly}
+          aria-label={`Upload ${readableText(field.label)}`}
           onChange={(e) => handleDynamicChange(field, e)}
         />
       );
@@ -518,15 +688,16 @@ export default function AddWorkshopBooking() {
     <>
       <Navbar />
 
-      <div className="workshop-booking-page">
+      <div className="workshop-booking-page" id="readable-content">
         <div className="workshop-booking-wrap">
           <div className="workshop-booking-top">
             <button
               className="workshop-booking-back"
               type="button"
+              aria-label="Back"
               onClick={() => navigate(`/day?date=${date}&type=workshop`)}
             >
-              <img src="/images/left-book.png" alt="Back" />
+              <img src="/images/left-book.png" alt="" aria-hidden="true" />
             </button>
 
             <div className="workshop-booking-date-title">{monthDay}</div>
@@ -568,24 +739,56 @@ export default function AddWorkshopBooking() {
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Full Name</label>
-                    <input value={fixedInfo.full_name} readOnly />
+                    <input
+                      value={fixedInfo.full_name}
+                      readOnly
+                      aria-label={
+                        fixedInfo.full_name.trim()
+                          ? `Full Name: ${fixedInfo.full_name}`
+                          : "Enter Full Name"
+                      }
+                    />
                   </div>
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Phone Number</label>
-                    <input value={fixedInfo.phone_number} readOnly />
+                    <input
+                      value={fixedInfo.phone_number}
+                      readOnly
+                      aria-label={
+                        fixedInfo.phone_number.trim()
+                          ? `Phone Number: ${fixedInfo.phone_number}`
+                          : "Enter Phone Number"
+                      }
+                    />
                   </div>
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Email Address</label>
-                    <input value={fixedInfo.email} readOnly />
+                    <input
+                      value={fixedInfo.email}
+                      readOnly
+                      aria-label={
+                        fixedInfo.email.trim()
+                          ? `Email Address: ${fixedInfo.email}`
+                          : "Enter Email Address"
+                      }
+                    />
                   </div>
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">
                       Contact Methods
                     </label>
-                    <input value={fixedInfo.contact_methods.join(", ")} readOnly />
+                    <input
+                      value={fixedInfo.contact_methods.join(", ")}
+                      readOnly
+                      aria-label={
+                        fixedInfo.contact_methods.length > 0
+                          ? `Contact Methods: ${fixedInfo.contact_methods.join(", ")}`
+                          : "Enter Contact Methods"
+                      }
+                    />
                   </div>
 
                   <div className="workshop-booking-section-title">
@@ -594,7 +797,11 @@ export default function AddWorkshopBooking() {
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Date</label>
-                    <input value={`${monthDay}, ${year}`} readOnly />
+                    <input
+                      value={`${monthDay}, ${year}`}
+                      readOnly
+                      aria-label={`Date: ${monthDay}, ${year}`}
+                    />
                   </div>
 
                   <div className="workshop-booking-two-col">
@@ -602,12 +809,30 @@ export default function AddWorkshopBooking() {
                       <label className="workshop-booking-label">
                         Event Time of Workshop
                       </label>
-                      <input type="time" value={fixedInfo.start_time} readOnly />
+                      <input
+                        type="time"
+                        value={fixedInfo.start_time}
+                        readOnly
+                        aria-label={
+                          fixedInfo.start_time
+                            ? `Start Time: ${fixedInfo.start_time}`
+                            : "Enter Start Time"
+                        }
+                      />
                     </div>
 
                     <div className="workshop-booking-field workshop-booking-field-no-margin">
                       <label className="workshop-booking-label">&nbsp;</label>
-                      <input type="time" value={fixedInfo.end_time} readOnly />
+                      <input
+                        type="time"
+                        value={fixedInfo.end_time}
+                        readOnly
+                        aria-label={
+                          fixedInfo.end_time
+                            ? `End Time: ${fixedInfo.end_time}`
+                            : "End Time"
+                        }
+                      />
                     </div>
                   </div>
 
@@ -636,7 +861,15 @@ export default function AddWorkshopBooking() {
                     <label className="workshop-booking-label">
                       Other Request
                     </label>
-                    <input value={fixedInfo.other_request || ""} readOnly />
+                    <input
+                      value={fixedInfo.other_request || ""}
+                      readOnly
+                      aria-label={
+                        fixedInfo.other_request.trim()
+                          ? `Other Request: ${fixedInfo.other_request}`
+                          : "Enter Other Request"
+                      }
+                    />
                   </div>
 
                   <div className="booking-summary">
@@ -646,7 +879,7 @@ export default function AddWorkshopBooking() {
                         key={`${item.field_id}_${item.option_id}`}
                       >
                         <span className="booking-label">
-                          {item.field_label}: {item.option_label}
+                          {readableText(item.field_label)}: {readableText(item.option_label)}
                         </span>
                         <span className="booking-value">
                           ₱{money(item.line_total)}
@@ -664,6 +897,7 @@ export default function AddWorkshopBooking() {
                     <button
                       type="button"
                       className="workshop-booking-btn workshop-booking-btn-edit"
+                      aria-label="Edit"
                       onClick={() => setStep("form")}
                     >
                       EDIT
@@ -672,6 +906,7 @@ export default function AddWorkshopBooking() {
                     <button
                       type="submit"
                       className="workshop-booking-btn workshop-booking-btn-confirm"
+                      aria-label="Confirm"
                       disabled={blocked}
                     >
                       CONFIRM
@@ -697,6 +932,11 @@ export default function AddWorkshopBooking() {
                       name="full_name"
                       required
                       value={fixedInfo.full_name}
+                      aria-label={
+                        fixedInfo.full_name.trim()
+                          ? `Full Name: ${fixedInfo.full_name}`
+                          : "Enter Full Name"
+                      }
                       onChange={handleFixedChange}
                     />
                   </div>
@@ -708,13 +948,27 @@ export default function AddWorkshopBooking() {
                       name="phone_number"
                       required
                       value={fixedInfo.phone_number}
+                      aria-label={
+                        fixedInfo.phone_number.trim()
+                          ? `Phone Number: ${fixedInfo.phone_number}`
+                          : "Enter Phone Number"
+                      }
                       onChange={handleFixedChange}
                     />
                   </div>
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Email Address</label>
-                    <input name="email" value={fixedInfo.email} readOnly />
+                    <input
+                      name="email"
+                      value={fixedInfo.email}
+                      readOnly
+                      aria-label={
+                        fixedInfo.email.trim()
+                          ? `Email Address: ${fixedInfo.email}`
+                          : "Enter Email Address"
+                      }
+                    />
                   </div>
 
                   <div className="workshop-booking-field">
@@ -724,14 +978,20 @@ export default function AddWorkshopBooking() {
 
                     <div className="workshop-booking-options">
                       {CONTACT_METHODS.map((method) => (
-                        <label key={method} className="workshop-booking-opt">
+                        <label key={method.value} className="workshop-booking-opt">
                           <input
                             type="checkbox"
-                            value={method}
-                            checked={fixedInfo.contact_methods.includes(method)}
+                            value={method.value}
+                            checked={fixedInfo.contact_methods.includes(method.value)}
+                            aria-label={`Contact method: ${method.label}${
+                              fixedInfo.contact_methods.includes(method.value)
+                                ? ", selected"
+                                : ", not selected"
+                            }`}
+                            onKeyDown={handleOptionKeyDown}
                             onChange={handleContactMethod}
                           />
-                          {method}
+                          {method.label}
                         </label>
                       ))}
                     </div>
@@ -743,9 +1003,11 @@ export default function AddWorkshopBooking() {
 
                   <div className="workshop-booking-field">
                     <label className="workshop-booking-label">Date</label>
-                    <select disabled>
-                      <option>{`${monthDay}, ${year}`}</option>
-                    </select>
+                    <input
+                      value={`${monthDay}, ${year}`}
+                      readOnly
+                      aria-label={`Date: ${monthDay}, ${year}`}
+                    />
                   </div>
 
                   <div className="workshop-booking-two-col">
@@ -758,6 +1020,11 @@ export default function AddWorkshopBooking() {
                         name="start_time"
                         required
                         value={fixedInfo.start_time}
+                        aria-label={
+                          fixedInfo.start_time
+                            ? `Start Time: ${fixedInfo.start_time}`
+                            : "Enter Start Time"
+                        }
                         onChange={handleFixedChange}
                       />
                     </div>
@@ -770,6 +1037,11 @@ export default function AddWorkshopBooking() {
                         required
                         readOnly
                         value={fixedInfo.end_time}
+                        aria-label={
+                          fixedInfo.end_time
+                            ? `End Time: ${fixedInfo.end_time}`
+                            : "End Time"
+                        }
                       />
                     </div>
                   </div>
@@ -805,6 +1077,11 @@ export default function AddWorkshopBooking() {
                       type="text"
                       name="other_request"
                       value={fixedInfo.other_request}
+                      aria-label={
+                        fixedInfo.other_request.trim()
+                          ? `Other Request: ${fixedInfo.other_request}`
+                          : "Enter Other Request Optional"
+                      }
                       onChange={handleFixedChange}
                     />
                   </div>
@@ -820,6 +1097,7 @@ export default function AddWorkshopBooking() {
                     <button
                       type="button"
                       className="workshop-booking-btn workshop-booking-btn-cancel"
+                      aria-label="Cancel"
                       onClick={() => navigate(`/day?date=${date}&type=workshop`)}
                     >
                       CANCEL
@@ -828,6 +1106,7 @@ export default function AddWorkshopBooking() {
                     <button
                       type="submit"
                       className="workshop-booking-btn workshop-booking-btn-next"
+                      aria-label="Next"
                       disabled={blocked}
                     >
                       NEXT
