@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
 import API from "../services/api";
 
 import "../assets/css/signup.css";
+import "../assets/css/universal.css";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignUp() {
   const navigate = useNavigate();
+
+  const errorRef = useRef(null);
+  const emailMessageRef = useRef(null);
+  const passwordMatchRef = useRef(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -45,6 +50,104 @@ export default function SignUp() {
     form.password.length > 0 &&
     form.confirm_password === form.password;
 
+  const passwordMatchMessage =
+    form.confirm_password &&
+    (passwordsMatch ? "Passwords match" : "Passwords do not match");
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.setAttribute("tabindex", "0");
+      errorRef.current.setAttribute("aria-label", error);
+    }
+
+    if (emailMessage && emailMessageRef.current) {
+      emailMessageRef.current.setAttribute("tabindex", "0");
+      emailMessageRef.current.setAttribute(
+        "aria-label",
+        checkingEmail ? "Checking email" : emailMessage.replace("✅", "").replace("❌", "")
+      );
+    }
+
+    if (passwordMatchMessage && passwordMatchRef.current) {
+      passwordMatchRef.current.setAttribute("tabindex", "0");
+      passwordMatchRef.current.setAttribute("aria-label", passwordMatchMessage);
+    }
+  }, [error, emailMessage, checkingEmail, passwordMatchMessage]);
+
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, button, img, a, li, .alert, .msg, .rule"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (tagName === "input") {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      textToRead = textToRead.replace("✅", "").replace("❌", "").trim();
+
+      if (!textToRead) return;
+
+      if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
+        element.setAttribute("tabindex", "0");
+      }
+
+      element.setAttribute("aria-label", textToRead);
+    });
+  }, [
+    form.name,
+    form.email,
+    form.password,
+    form.confirm_password,
+    emailMessage,
+    checkingEmail,
+    error,
+    passwordsMatch,
+    showPassword,
+    showConfirmPassword,
+    submitting,
+  ]);
+
   useEffect(() => {
     const email = form.email.trim().toLowerCase();
 
@@ -63,14 +166,14 @@ export default function SignUp() {
     const timer = setTimeout(async () => {
       try {
         setCheckingEmail(true);
+        setEmailMessage("Checking email...");
 
         const res = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/auth/check_email.php`,
           {
             method: "POST",
             headers: {
-              "Content-Type":
-                "application/x-www-form-urlencoded",
+              "Content-Type": "application/x-www-form-urlencoded",
             },
             body: `email=${encodeURIComponent(email)}`,
           }
@@ -79,21 +182,17 @@ export default function SignUp() {
         const data = await res.json();
 
         if (data.status === "taken") {
-          setEmailMessage("Email already exists ❌");
+          setEmailMessage("Email already exists");
           setEmailAvailable(false);
         } else if (data.status === "available") {
-          setEmailMessage("Email available ✅");
+          setEmailMessage("Email available");
           setEmailAvailable(true);
         } else {
-          setEmailMessage(
-            data.message || "Unable to check email."
-          );
+          setEmailMessage(data.message || "Unable to check email.");
           setEmailAvailable(false);
         }
       } catch {
-        setEmailMessage(
-          "Unable to check email right now."
-        );
+        setEmailMessage("Unable to check email right now.");
         setEmailAvailable(false);
       } finally {
         setCheckingEmail(false);
@@ -126,9 +225,7 @@ export default function SignUp() {
     setError("");
 
     if (!allValid) {
-      setError(
-        "Please complete all requirements before signing up."
-      );
+      setError("Please complete all requirements before signing up.");
       return;
     }
 
@@ -141,10 +238,7 @@ export default function SignUp() {
         email: form.email.trim().toLowerCase(),
       };
 
-      const res = await API.post(
-        "/auth/sign-up.php",
-        payload
-      );
+      const res = await API.post("/auth/sign-up.php", payload);
 
       if (res.data.status === "success") {
         navigate("/login", {
@@ -152,25 +246,21 @@ export default function SignUp() {
           state: {
             message:
               res.data.message ||
-              "Account created. Please check your email to verify your account before logging in.",
+              "Account created successfully. Please check your email to verify your account.",
           },
         });
       } else {
-        setError(
-          res.data.message || "Sign up failed."
-        );
+        setError(res.data.message || "Sign up failed.");
       }
     } catch {
-      setError(
-        "Server error. Please try again."
-      );
+      setError("Server error. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="signup-page">
+    <div className="signup-page" id="readable-content">
       <div className="shell">
         <div className="brand">
           <img
@@ -185,9 +275,13 @@ export default function SignUp() {
 
           {error && (
             <div
+              ref={errorRef}
               className="alert"
               role="alert"
               aria-live="assertive"
+              aria-atomic="true"
+              tabIndex="0"
+              aria-label={error}
             >
               {error}
             </div>
@@ -195,10 +289,7 @@ export default function SignUp() {
 
           <form onSubmit={handleSubmit}>
             <div className="field">
-              <label
-                className="label"
-                htmlFor="name"
-              >
+              <label className="label" htmlFor="name" aria-label="Full Name">
                 Full Name
               </label>
 
@@ -207,24 +298,21 @@ export default function SignUp() {
                 className="input"
                 type="text"
                 value={form.name}
-                onChange={(e) =>
-                  updateField(
-                    "name",
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updateField("name", e.target.value)}
                 required
                 minLength={2}
                 maxLength={100}
                 autoComplete="name"
+                aria-label={
+                  form.name.trim()
+                    ? `Full Name: ${form.name}`
+                    : "Enter full name"
+                }
               />
             </div>
 
             <div className="field">
-              <label
-                className="label"
-                htmlFor="email"
-              >
+              <label className="label" htmlFor="email" aria-label="Email">
                 Email
               </label>
 
@@ -233,25 +321,32 @@ export default function SignUp() {
                 className="input"
                 type="email"
                 value={form.email}
-                onChange={(e) =>
-                  updateField(
-                    "email",
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updateField("email", e.target.value)}
                 required
                 autoComplete="email"
                 aria-describedby="email-message"
+                aria-label={
+                  form.email.trim()
+                    ? `Email: ${form.email}`
+                    : "Enter email"
+                }
               />
 
               <p
+                ref={emailMessageRef}
                 id="email-message"
                 className="msg"
+                role="status"
                 aria-live="polite"
+                aria-atomic="true"
+                tabIndex={emailMessage ? "0" : undefined}
+                aria-label={
+                  checkingEmail
+                    ? "Checking email"
+                    : emailMessage.replace("✅", "").replace("❌", "")
+                }
               >
-                {checkingEmail
-                  ? "Checking email..."
-                  : emailMessage}
+                {checkingEmail ? "Checking email..." : emailMessage}
               </p>
             </div>
 
@@ -259,6 +354,7 @@ export default function SignUp() {
               <label
                 className="label"
                 htmlFor="password"
+                aria-label="Password"
               >
                 Password
               </label>
@@ -267,92 +363,61 @@ export default function SignUp() {
                 <input
                   id="password"
                   className="input"
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
+                  type={showPassword ? "text" : "password"}
                   value={form.password}
-                  onChange={(e) =>
-                    updateField(
-                      "password",
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => updateField("password", e.target.value)}
                   required
                   autoComplete="new-password"
                   aria-describedby="password-rules"
+                  aria-label={
+                    form.password
+                      ? "Password entered"
+                      : "Enter password"
+                  }
                 />
 
                 <button
                   type="button"
                   className="toggle"
-                  onClick={() =>
-                    setShowPassword(
-                      (prev) => !prev
-                    )
-                  }
-                  aria-label={
-                    showPassword
-                      ? "Hide password"
-                      : "Show password"
-                  }
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeOff
-                      size={18}
-                      aria-hidden="true"
-                    />
+                    <EyeOff size={18} aria-hidden="true" />
                   ) : (
-                    <Eye
-                      size={18}
-                      aria-hidden="true"
-                    />
+                    <Eye size={18} aria-hidden="true" />
                   )}
                 </button>
               </div>
 
-              <ul
-                id="password-rules"
-                className="rules"
-              >
-                {Object.entries(rules).map(
-                  ([key, valid]) => (
+              <ul id="password-rules" className="rules">
+                {Object.entries(rules).map(([key, valid]) => {
+                  const ruleText =
+                    {
+                      length: "At least 8 characters",
+                      upper: "At least 1 uppercase letter",
+                      lower: "At least 1 lowercase letter",
+                      number: "At least 1 number",
+                      special: "At least 1 special character",
+                    }[key];
+
+                  return (
                     <li
                       key={key}
                       className={`rule ${
-                        valid
-                          ? "ok show"
-                          : form.password
-                          ? "show"
-                          : ""
+                        valid ? "ok show" : form.password ? "show" : ""
+                      }`}
+                      aria-label={`${ruleText}: ${
+                        valid ? "correct" : "not yet correct"
                       }`}
                     >
-                      <span
-                        className="dot"
-                        aria-hidden="true"
-                      ></span>
+                      <span className="dot" aria-hidden="true"></span>
 
-                      <span className="text">
-                        {
-                          {
-                            length:
-                              "At least 8 characters",
-                            upper:
-                              "At least 1 uppercase letter",
-                            lower:
-                              "At least 1 lowercase letter",
-                            number:
-                              "At least 1 number",
-                            special:
-                              "At least 1 special character",
-                          }[key]
-                        }
-                      </span>
+                      <span className="text">{ruleText}</span>
                     </li>
-                  )
-                )}
+                  );
+                })}
               </ul>
             </div>
 
@@ -360,6 +425,7 @@ export default function SignUp() {
               <label
                 className="label"
                 htmlFor="confirm_password"
+                aria-label="Confirm Password"
               >
                 Confirm Password
               </label>
@@ -368,58 +434,49 @@ export default function SignUp() {
                 <input
                   id="confirm_password"
                   className="input"
-                  type={
-                    showConfirmPassword
-                      ? "text"
-                      : "password"
-                  }
+                  type={showConfirmPassword ? "text" : "password"}
                   value={form.confirm_password}
                   onChange={(e) =>
-                    updateField(
-                      "confirm_password",
-                      e.target.value
-                    )
+                    updateField("confirm_password", e.target.value)
                   }
                   required
                   autoComplete="new-password"
                   aria-describedby="password-match-message"
+                  aria-label={
+                    form.confirm_password
+                      ? "Confirm password entered"
+                      : "Enter confirm password"
+                  }
                 />
 
                 <button
                   type="button"
                   className="toggle"
-                  onClick={() =>
-                    setShowConfirmPassword(
-                      (prev) => !prev
-                    )
-                  }
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
                   aria-label={
                     showConfirmPassword
                       ? "Hide confirm password"
                       : "Show confirm password"
                   }
-                  aria-pressed={
-                    showConfirmPassword
-                  }
+                  aria-pressed={showConfirmPassword}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff
-                      size={18}
-                      aria-hidden="true"
-                    />
+                    <EyeOff size={18} aria-hidden="true" />
                   ) : (
-                    <Eye
-                      size={18}
-                      aria-hidden="true"
-                    />
+                    <Eye size={18} aria-hidden="true" />
                   )}
                 </button>
               </div>
 
               <p
+                ref={passwordMatchRef}
                 id="password-match-message"
                 className="msg"
+                role="status"
                 aria-live="polite"
+                aria-atomic="true"
+                tabIndex={form.confirm_password ? "0" : undefined}
+                aria-label={passwordMatchMessage || ""}
               >
                 {form.confirm_password &&
                   (passwordsMatch
@@ -432,16 +489,15 @@ export default function SignUp() {
               className="btn"
               type="submit"
               disabled={submitting}
+              aria-label={submitting ? "Signing up" : "Sign up"}
             >
-              {submitting
-                ? "SIGNING UP..."
-                : "SIGN UP"}
+              {submitting ? "SIGNING UP..." : "SIGN UP"}
             </button>
           </form>
 
           <div className="signup-footer">
             Already a user?{" "}
-            <Link to="/login">
+            <Link to="/login" aria-label="Log in">
               LOG IN
             </Link>
           </div>

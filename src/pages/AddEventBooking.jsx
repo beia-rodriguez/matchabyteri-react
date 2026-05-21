@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/add-booking.css";
+import "../assets/css/universal.css";
 
 const CONTACT_METHODS = ["Text", "Call", "Viber", "Whatsapp"];
 
@@ -179,6 +180,99 @@ export default function AddEventBooking() {
     return selectedItems.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
   }, [selectedItems]);
 
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .title, .section-title, .small-note, .date-title, .booking-label, .booking-value, .error"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        const parentDiv = element.closest(".field") || element.closest("div");
+        const label = parentDiv?.querySelector("label");
+
+        textToRead =
+          element.getAttribute("aria-label") ||
+          label?.innerText ||
+          element.placeholder ||
+          element.value ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [
+    step,
+    error,
+    loadingForm,
+    formSchema,
+    fixedInfo,
+    answers,
+    quantities,
+    selectedItems,
+    totalAmount,
+  ]);
+
   const handleFixedChange = (e) => {
     const { name, value } = e.target;
 
@@ -343,6 +437,11 @@ export default function AddEventBooking() {
         <input
           type={field.field_type}
           value={fieldValue}
+          aria-label={
+            String(fieldValue).trim()
+              ? `${field.label}: ${fieldValue}`
+              : `Enter ${field.label}`
+          }
           onChange={(e) => handleDynamicChange(field, e)}
         />
       );
@@ -352,14 +451,31 @@ export default function AddEventBooking() {
       return (
         <textarea
           value={fieldValue}
+          aria-label={
+            String(fieldValue).trim()
+              ? `${field.label}: ${fieldValue}`
+              : `Enter ${field.label}`
+          }
           onChange={(e) => handleDynamicChange(field, e)}
         />
       );
     }
 
     if (field.field_type === "select") {
+      const selectedOption = (field.options || []).find(
+        (option) => String(option.id) === String(fieldValue)
+      );
+
       return (
-        <select value={fieldValue} onChange={(e) => handleDynamicChange(field, e)}>
+        <select
+          value={fieldValue}
+          aria-label={
+            selectedOption
+              ? `${field.label}: ${selectedOption.label}`
+              : `Select ${field.label}`
+          }
+          onChange={(e) => handleDynamicChange(field, e)}
+        >
           <option value=""></option>
           {(field.options || []).map((option) => (
             <option key={option.id} value={option.id}>
@@ -389,6 +505,9 @@ export default function AddEventBooking() {
                     name={field.field_name}
                     value={option.id}
                     checked={checked}
+                    aria-label={`${field.label}: ${option.label}${
+                      checked ? ", selected" : ""
+                    }`}
                     onChange={(e) => handleDynamicChange(field, e)}
                   />
                   {option.label}
@@ -402,6 +521,9 @@ export default function AddEventBooking() {
                     type="number"
                     min="1"
                     value={quantities[optionKey] || 1}
+                    aria-label={`Quantity for ${option.label}: ${
+                      quantities[optionKey] || 1
+                    }`}
                     onChange={(e) =>
                       handleQuantityChange(field.id, option.id, e.target.value)
                     }
@@ -416,7 +538,13 @@ export default function AddEventBooking() {
     }
 
     if (field.field_type === "file") {
-      return <input type="file" onChange={(e) => handleDynamicChange(field, e)} />;
+      return (
+        <input
+          type="file"
+          aria-label={`Upload ${field.label}`}
+          onChange={(e) => handleDynamicChange(field, e)}
+        />
+      );
     }
 
     return null;
@@ -426,11 +554,12 @@ export default function AddEventBooking() {
     <>
       <Navbar />
 
-      <div className="booking-page">
+      <div className="booking-page" id="readable-content">
         <div className="wrap">
           <div className="top">
             <button
               className="back"
+              aria-label="Back"
               onClick={() => navigate(`/day?date=${date}&type=event`)}
             >
               ← Back
@@ -460,6 +589,11 @@ export default function AddEventBooking() {
                         type="text"
                         name="full_name"
                         value={fixedInfo.full_name}
+                        aria-label={
+                          fixedInfo.full_name.trim()
+                            ? `Full Name: ${fixedInfo.full_name}`
+                            : "Enter Full Name"
+                        }
                         onChange={handleFixedChange}
                       />
                     </div>
@@ -470,6 +604,11 @@ export default function AddEventBooking() {
                         type="text"
                         name="phone_number"
                         value={fixedInfo.phone_number}
+                        aria-label={
+                          fixedInfo.phone_number.trim()
+                            ? `Phone Number: ${fixedInfo.phone_number}`
+                            : "Enter Phone Number"
+                        }
                         onChange={handleFixedChange}
                       />
                     </div>
@@ -482,6 +621,11 @@ export default function AddEventBooking() {
                         required
                         value={fixedInfo.email}
                         readOnly
+                        aria-label={
+                          fixedInfo.email.trim()
+                            ? `Email Address: ${fixedInfo.email}`
+                            : "Enter Email Address"
+                        }
                       />
                     </div>
 
@@ -497,6 +641,11 @@ export default function AddEventBooking() {
                               type="checkbox"
                               value={method}
                               checked={fixedInfo.contact_methods.includes(method)}
+                              aria-label={`Contact method: ${method}${
+                                fixedInfo.contact_methods.includes(method)
+                                  ? ", selected"
+                                  : ""
+                              }`}
                               onChange={handleContactMethod}
                             />
                             {method}
@@ -512,6 +661,11 @@ export default function AddEventBooking() {
                           type="time"
                           name="start_time"
                           value={fixedInfo.start_time}
+                          aria-label={
+                            fixedInfo.start_time
+                              ? `Start Time: ${fixedInfo.start_time}`
+                              : "Enter Start Time"
+                          }
                           onChange={handleFixedChange}
                         />
                       </div>
@@ -523,6 +677,11 @@ export default function AddEventBooking() {
                           name="end_time"
                           value={fixedInfo.end_time}
                           readOnly
+                          aria-label={
+                            fixedInfo.end_time
+                              ? `End Time: ${fixedInfo.end_time}`
+                              : "End Time"
+                          }
                         />
                       </div>
                     </div>
@@ -552,6 +711,11 @@ export default function AddEventBooking() {
                         type="text"
                         name="other_request"
                         value={fixedInfo.other_request}
+                        aria-label={
+                          fixedInfo.other_request.trim()
+                            ? `Other Request: ${fixedInfo.other_request}`
+                            : "Enter Other Request"
+                        }
                         onChange={handleFixedChange}
                       />
                     </div>
@@ -566,12 +730,17 @@ export default function AddEventBooking() {
                     <div className="actions">
                       <button
                         className="btn btn-cancel"
+                        aria-label="Cancel"
                         onClick={() => navigate(`/day?date=${date}&type=event`)}
                       >
                         CANCEL
                       </button>
 
-                      <button className="btn btn-next" onClick={handleReview}>
+                      <button
+                        className="btn btn-next"
+                        aria-label="Next"
+                        onClick={handleReview}
+                      >
                         NEXT
                       </button>
                     </div>
@@ -625,11 +794,19 @@ export default function AddEventBooking() {
                     </div>
 
                     <div className="actions">
-                      <button className="btn btn-edit" onClick={() => setStep("form")}>
+                      <button
+                        className="btn btn-edit"
+                        aria-label="Edit"
+                        onClick={() => setStep("form")}
+                      >
                         EDIT
                       </button>
 
-                      <button className="btn btn-confirm" onClick={handleConfirm}>
+                      <button
+                        className="btn btn-confirm"
+                        aria-label="Confirm"
+                        onClick={handleConfirm}
+                      >
                         CONFIRM
                       </button>
                     </div>

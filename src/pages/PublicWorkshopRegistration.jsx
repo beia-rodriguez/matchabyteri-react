@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/public-workshop-registration.css";
+import "../assets/css/universal.css";
 
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
@@ -40,6 +41,89 @@ export default function PublicWorkshopRegistration() {
 
     loadRegistrationInfo();
   }, [id, packageType, navigate]);
+
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .pwr-card, .pwr-alert, .pwr-meta, .pwr-package-pill, .pwr-back"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        const parentDiv = element.closest("div");
+        const label = parentDiv?.querySelector("label");
+
+        textToRead =
+          element.getAttribute("aria-label") ||
+          label?.innerText ||
+          element.placeholder ||
+          element.value ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [loading, submitting, err, data, form, packageType]);
 
   const loadRegistrationInfo = async () => {
     setLoading(true);
@@ -139,7 +223,7 @@ export default function PublicWorkshopRegistration() {
     return (
       <>
         <Navbar />
-        <div className="pwr-page">
+        <div className="pwr-page" id="readable-content">
           <div className="pwr-wrap">
             <div className="pwr-card">Loading registration...</div>
           </div>
@@ -152,13 +236,14 @@ export default function PublicWorkshopRegistration() {
     return (
       <>
         <Navbar />
-        <div className="pwr-page">
+        <div className="pwr-page" id="readable-content">
           <div className="pwr-wrap">
             <div className="pwr-card">
               <div className="pwr-alert pwr-alert-bad">{err}</div>
               <button
                 className="pwr-back"
                 type="button"
+                aria-label="Back to Workshops"
                 onClick={() => navigate("/public-workshops")}
               >
                 ← Back to Workshops
@@ -176,7 +261,7 @@ export default function PublicWorkshopRegistration() {
     <>
       <Navbar />
 
-      <div className="pwr-page">
+      <div className="pwr-page" id="readable-content">
         <div className="pwr-wrap">
           <div className="pwr-card">
             {err && <div className="pwr-alert pwr-alert-bad">{err}</div>}
@@ -207,7 +292,12 @@ export default function PublicWorkshopRegistration() {
                   Price: ₱{Number(data?.price || 0).toFixed(2)}
                 </div>
 
-                <div className="pwr-package-pill">
+                <div
+                  className="pwr-package-pill"
+                  aria-label={`Package: ${
+                    packageType === "premium" ? "Premium" : "Standard"
+                  }`}
+                >
                   Package: {packageType.toUpperCase()}
                 </div>
               </div>
@@ -223,6 +313,11 @@ export default function PublicWorkshopRegistration() {
                   value={form.full_name}
                   onChange={handleChange}
                   required
+                  aria-label={
+                    form.full_name.trim()
+                      ? `Full Name: ${form.full_name}`
+                      : "Enter Full Name"
+                  }
                 />
               </div>
 
@@ -236,6 +331,11 @@ export default function PublicWorkshopRegistration() {
                     value={form.email}
                     onChange={handleChange}
                     required
+                    aria-label={
+                      form.email.trim()
+                        ? `Email Address: ${form.email}`
+                        : "Enter Email Address"
+                    }
                   />
                 </div>
 
@@ -248,6 +348,11 @@ export default function PublicWorkshopRegistration() {
                     value={form.phone}
                     onChange={handleChange}
                     required
+                    aria-label={
+                      form.phone.trim()
+                        ? `Phone Number: ${form.phone}`
+                        : "Enter Phone Number"
+                    }
                   />
                 </div>
               </div>
@@ -256,12 +361,14 @@ export default function PublicWorkshopRegistration() {
                 type="submit"
                 value={submitting ? "REGISTERING..." : "REGISTER"}
                 disabled={submitting}
+                aria-label={submitting ? "Registering" : "Register"}
               />
             </form>
 
             <button
               className="pwr-back"
               type="button"
+              aria-label="Back to Packages"
               onClick={() => navigate(`/public-workshops/${id}/register`)}
             >
               ← Back to Packages

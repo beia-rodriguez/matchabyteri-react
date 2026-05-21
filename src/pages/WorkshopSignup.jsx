@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/workshop-signup.scoped.css";
+import "../assets/css/universal.css";
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -75,6 +76,84 @@ export default function WorkshopSignup() {
       .finally(() => setLoading(false));
   }, [tab]);
 
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
+
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .ws-signup-heading, .ws-signup-sub, .ws-signup-section-title, .ws-signup-pill, .ws-signup-card-title, .ws-signup-meta"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [tab, data, loading, errorMsg]);
+
   const sectionTitle = tab === "past" ? "Past Workshops" : "Coming Soon";
   const emptyMsg =
     tab === "past"
@@ -85,7 +164,7 @@ export default function WorkshopSignup() {
     <>
       <Navbar />
 
-      <div className="ws-signup-page">
+      <div className="ws-signup-page" id="readable-content">
         <div className="ws-signup-wrap">
           <h1 className="ws-signup-heading">Workshops</h1>
 

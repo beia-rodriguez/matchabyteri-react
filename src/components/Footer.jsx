@@ -5,7 +5,6 @@ function Footer() {
   return (
     <footer className="footer">
       <div className="footer-inner">
-
         <div className="footer-brand">
           <img src="/images/MBT_white 1.png" alt="Matcha by Teri" />
           <p>
@@ -16,10 +15,26 @@ function Footer() {
 
         <div className="footer-nav">
           <ul>
-            <li><Link to="/">Home</Link></li>
-            <li><Link to="/about">About Us</Link></li>
-            <li><Link to="/event">Event</Link></li>
-            <li><Link to="/private-workshop">Workshops</Link></li>
+            <li>
+              <Link to="/" aria-label="Go to Home page">
+               
+              </Link>
+            </li>
+            <li>
+              <Link to="/about-us" aria-label="Go to About Us page">
+               
+              </Link>
+            </li>
+            <li>
+              <Link to="/private-workshop" aria-label="Go to Private Workshop page">
+               
+              </Link>
+            </li>
+            <li>
+              <Link to="/calendar?type=workshop" aria-label="Book a workshop">
+               
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -33,17 +48,35 @@ function Footer() {
         </div>
 
         <div className="footer-follow">
-          <p>
-            Follow us on Facebook and Instagram for updates!
-          </p>
+          <p>Follow us on Facebook and Instagram for updates!</p>
 
           <div className="footer-icons">
-            <a href="#"><img src="/images/ic_baseline-facebook.png" alt="Facebook" /></a>
-            <a href="#"><img src="/images/mdi_instagram.png" alt="Instagram" /></a>
-            <a href="/images/mdi_email.png"><img src="/images/mdi_email.png" alt="Email" /></a>
+            <a
+              href="https://www.facebook.com/teri.plastina03"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open Matcha by Teri Facebook page"
+            >
+              <img src="/images/ic_baseline-facebook.png" alt="Facebook" />
+            </a>
+
+            <a
+              href="https://www.instagram.com/matchabyteri/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open Matcha by Teri Instagram page"
+            >
+              <img src="/images/mdi_instagram.png" alt="Instagram" />
+            </a>
+
+            <a
+              href="mailto:matchabyteri@gmail.com"
+              aria-label="Send email to Matcha by Teri"
+            >
+              <img src="/images/mdi_email.png" alt="Email" />
+            </a>
           </div>
         </div>
-
       </div>
 
       <div className="footer-bottom">

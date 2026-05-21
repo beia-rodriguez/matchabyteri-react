@@ -1,6 +1,7 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../assets/css/reminder.css";
+import "../assets/css/universal.css";
 import { useEffect } from "react";
 
 export default function Reminder() {
@@ -11,13 +12,90 @@ export default function Reminder() {
   const typeParam = searchParams.get("type") || "both";
 
   useEffect(() => {
-  if (!dateParam) {
-    navigate("/calendar");
-  }
-}, [dateParam, navigate]);
+    if (!dateParam) {
+      navigate("/calendar");
+    }
+  }, [dateParam, navigate]);
 
-if (!dateParam) return null;
+  useEffect(() => {
+    const readableContent = document.getElementById("readable-content");
 
+    if (!readableContent) return;
+
+    const isVisible = (element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        style.opacity !== "0" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+
+    const readableElements = readableContent.querySelectorAll(
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .reminder-title, .reminder-year"
+    );
+
+    readableElements.forEach((element) => {
+      const tagName = element.tagName.toLowerCase();
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.removeAttribute("tabindex");
+      }
+
+      if (!isVisible(element)) return;
+
+      let textToRead = "";
+
+      if (tagName === "img") {
+        textToRead = element.getAttribute("alt") || "";
+      } else if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      ) {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.placeholder ||
+          element.name ||
+          element.id ||
+          "Input field";
+      } else {
+        textToRead =
+          element.getAttribute("aria-label") ||
+          element.innerText ||
+          element.textContent ||
+          "";
+      }
+
+      if (!textToRead.trim()) return;
+
+      if (
+        tagName !== "button" &&
+        tagName !== "a" &&
+        tagName !== "input" &&
+        tagName !== "textarea" &&
+        tagName !== "select"
+      ) {
+        element.setAttribute("tabindex", "0");
+      }
+
+      if (!element.getAttribute("aria-label")) {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    });
+  }, [dateParam, typeParam]);
+
+  if (!dateParam) return null;
 
   const type = ["event", "workshop", "both"].includes(typeParam)
     ? typeParam
@@ -26,7 +104,7 @@ if (!dateParam) return null;
   const dateObj = new Date(dateParam);
   const monthDay = dateObj.toLocaleDateString("en-US", {
     month: "long",
-    day: "numeric"
+    day: "numeric",
   });
   const year = dateObj.getFullYear();
 
@@ -46,10 +124,14 @@ if (!dateParam) return null;
     <>
       <Navbar />
 
-      <div className="reminder-page">
+      <div className="reminder-page" id="readable-content">
         <div className="reminder-top">
-          <button className="back" onClick={handleBack}>
-            <img src="/images/left-book.png" alt="Back" />
+          <button
+            className="back"
+            aria-label="Back"
+            onClick={handleBack}
+          >
+            <img src="/images/left-book.png" alt="" aria-hidden="true" />
           </button>
 
           <div className="reminder-title">{monthDay}</div>
@@ -81,7 +163,11 @@ if (!dateParam) return null;
           </div>
 
           <div className="actions">
-            <button className="btn-next" onClick={handleNext}>
+            <button
+              className="btn-next"
+              aria-label="Next"
+              onClick={handleNext}
+            >
               NEXT
             </button>
           </div>
