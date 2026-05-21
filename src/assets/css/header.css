@@ -49,6 +49,8 @@ nav ul {
   gap: 60px;
   list-style: none;
   align-items: center;
+  margin: 0;
+  padding: 0; /* Important: Removes default browser padding */
 }
 
 nav ul li {
@@ -103,12 +105,13 @@ nav ul li a:hover,
   transform: rotate(180deg);
 }
 
-/* DROPDOWN PANEL */
+/* DROPDOWN PANEL (Desktop) */
 .dropdown-content {
   position: absolute;
   top: 120%;
-  left: 0;
-  min-width: 230px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px) scale(0.98);
+  min-width: 200px;
   background: #ffffff;
   border: 1px solid #e4ebe6;
   border-radius: 14px;
@@ -118,7 +121,6 @@ nav ul li a:hover,
 
   /* Animation */
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
   pointer-events: none;
   transition: all 0.25s ease;
 }
@@ -126,7 +128,7 @@ nav ul li a:hover,
 /* Open State */
 .dropdown.open .dropdown-content {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateX(-50%) translateY(0) scale(1);
   pointer-events: auto;
 }
 
@@ -138,27 +140,45 @@ nav ul li a:hover,
   text-decoration: none;
   font-weight: 600;
   font-size: 0.92rem;
-  transition: background 0.2s ease, padding-left 0.2s ease;
+  text-align: center;
+  transition: background 0.2s ease;
 }
 
 .dropdown-content a:hover {
   background: #f4f7f5;
-  padding-left: 22px;
 }
 
-.dropdown-divider {
-  height: 1px;
-  background: #e6ece8;
-  margin: 8px 0;
+/* ============================= */
+/* HAMBURGER MENU */
+/* ============================= */
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  z-index: 2001;
 }
 
-.dropdown-header {
-  padding: 8px 18px 6px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #7b8a7c;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.hamburger .bar {
+  width: 24px;
+  height: 3px;
+  background-color: #305b45;
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.hamburger.active .bar:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+.hamburger.active .bar:nth-child(2) {
+  opacity: 0;
+}
+.hamburger.active .bar:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
 }
 
 /* ============================= */
@@ -198,8 +218,8 @@ nav ul li a:hover,
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #305b45;
   display: flex;
@@ -212,31 +232,96 @@ nav ul li a:hover,
 
 .avatar:hover {
   transform: scale(1.08);
-  opacity: 0.9;
 }
 
 .avatar svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   fill: #ffffff;
 }
 
-.avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 /* ============================= */
-/* RESPONSIVE */
+/* RESPONSIVE (MOBILE FIXES) */
 /* ============================= */
 
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
   header {
-    padding: 8px 20px;
+    padding: 10px 20px;
+  }
+  
+  .hamburger {
+    display: flex;
+  }
+
+  /* Main mobile menu container */
+  .nav-wrapper {
+    position: absolute;
+    top: 100%; /* Pushes it exactly below the header */
+    left: 0;
+    width: 100%;
+    background: #ffffff;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    flex-direction: column;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+  }
+
+  .nav-wrapper.mobile-open {
+    max-height: 500px; 
+    padding: 20px 0;
   }
 
   nav ul {
-    gap: 28px;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+  }
+
+  nav ul li {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Centers all links and dropdowns horizontally */
+  }
+
+  /* =========================================
+     FIX: Override Desktop Dropdown Positioning 
+     ========================================= */
+  .dropdown-content {
+    position: relative; /* Change from absolute so it flows normally */
+    top: auto;
+    left: auto;
+    transform: none !important; /* Force kills the translateX(-50%) */
+    min-width: unset;
+    width: 90%;
+    max-width: 300px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.05); /* Soft inner shadow for depth */
+    border: none;
+    background: #f4f7f5;
+    margin-top: 10px;
+    display: none;
+  }
+
+  .dropdown.open .dropdown-content {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Ensure the Actions (Book Now / Avatar) are positioned well */
+  .actions {
+    margin-left: auto;
+    margin-right: 15px;
+  }
+}
+
+@media (max-width: 450px) {
+  .btn-book {
+    display: none;
+  }
+  .actions {
+    margin-right: 15px;
   }
 }

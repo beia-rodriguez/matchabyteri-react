@@ -127,28 +127,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       }
 
       $stmt->close();
-
-      if ($bookingId > 0) {
-        $bstmt = $conn->prepare("
-          UPDATE bookings
-          SET payment_status = ?
-          WHERE id = ?
-          LIMIT 1
-        ");
-
-        if (!$bstmt) {
-          throw new Exception("Failed to prepare booking update.");
+      
+    if ($bookingId > 0) {
+        // If the new status is 'paid' and it wasn't already 'paid', update balance
+        if ($newStatus === "paid" && $oldStatus !== "paid") {
+            $bstmt = $conn->prepare("
+              UPDATE bookings
+              SET payment_status = ?, amount_paid = amount_paid + ?
+              WHERE id = ?
+              LIMIT 1
+            ");
+            $bstmt->bind_param("sdi", $bookingPaymentStatus, $paymentAmount, $bookingId);
+        } else {
+            // Otherwise just update the payment status string
+            $bstmt = $conn->prepare("
+              UPDATE bookings
+              SET payment_status = ?
+              WHERE id = ?
+              LIMIT 1
+            ");
+            $bstmt->bind_param("si", $bookingPaymentStatus, $bookingId);
         }
 
-        $bstmt->bind_param("si", $bookingPaymentStatus, $bookingId);
-
-        if (!$bstmt->execute()) {
-          throw new Exception($bstmt->error);
-        }
-
+        if (!$bstmt) throw new Exception("Failed to prepare booking update.");
+        if (!$bstmt->execute()) throw new Exception($bstmt->error);
         $bstmt->close();
-      }
-
+    }
       $conn->commit();
 
       echo json_encode([

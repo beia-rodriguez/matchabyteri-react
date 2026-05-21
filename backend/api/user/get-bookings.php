@@ -22,6 +22,7 @@ $stmt = $conn->prepare("
     status,
     payment_status,
     total_amount,
+    amount_paid, -- NEW: Fetching the amount already paid
     cancel_requested,
     cancel_reason,
     created_at
@@ -36,6 +37,7 @@ while ($row = $res->fetch_assoc()) {
     // Normalize nulls so the front end always has defined keys
     $row["payment_status"]   = $row["payment_status"]   ?? "unpaid";
     $row["total_amount"]     = (float)($row["total_amount"] ?? 0);
+    $row["amount_paid"]      = (float)($row["amount_paid"] ?? 0); // NEW: Normalize amount paid
     $row["cancel_requested"] = (bool)($row["cancel_requested"] ?? false);
     $row["cancel_reason"]    = $row["cancel_reason"] ?? "";
     $private[] = $row;

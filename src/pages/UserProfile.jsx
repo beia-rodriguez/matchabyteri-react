@@ -3,19 +3,16 @@ import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import Navbar from "../components/Navbar";
 import "../assets/css/user-profile.css";
- 
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
- 
+
 function money(value) {
   return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
- 
-/**
- * Returns display config for a payment_status value.
- */
+
 function paymentBadge(status) {
   switch ((status || "unpaid").toLowerCase()) {
     case "paid":
@@ -30,10 +27,7 @@ function paymentBadge(status) {
       return { label: "UNPAID", color: "var(--muted, #888)" };
   }
 }
- 
-/**
- * Returns display config for a booking status value.
- */
+
 function bookingStatusBadge(status) {
   switch ((status || "").toLowerCase()) {
     case "approved":
@@ -46,34 +40,22 @@ function bookingStatusBadge(status) {
       return { label: status?.toUpperCase() || "PENDING", color: "var(--muted, #888)" };
   }
 }
- 
-/**
- * Whether a booking can have a payment action (pay downpayment / pay remaining).
- * - status must be approved or pending (not cancelled/rejected)
- * - payment_status must NOT be paid or pending (pending means waiting admin verify)
- */
+
 function getPaymentAction(booking) {
   const bStatus = (booking.status || "").toLowerCase();
   const pStatus = (booking.payment_status || "unpaid").toLowerCase();
- 
-  // Terminal booking states — no payment
+
   if (["cancelled", "rejected"].includes(bStatus)) return null;
-  // Already fully paid
   if (pStatus === "paid") return null;
-  // Waiting for admin to verify an already-submitted payment
   if (pStatus === "pending") return null;
- 
+
   if (pStatus === "partial") {
     return { label: "Pay Remaining", choice: "remaining" };
   }
- 
-  // unpaid or rejected payment → allow paying downpayment
+
   return { label: "Pay Now", choice: "downpayment" };
 }
- 
-/**
- * Whether the user can request cancellation.
- */
+
 function canCancel(booking) {
   const bStatus = (booking.status || "").toLowerCase();
   return (
@@ -81,30 +63,30 @@ function canCancel(booking) {
     !booking.cancel_requested
   );
 }
- 
+
 // ─── Cancel Modal ────────────────────────────────────────────────────────────
- 
+
 function CancelModal({ booking, onClose, onSuccess }) {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
- 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
- 
+
     if (reason.trim().length < 10) {
       setError("Please provide a reason of at least 10 characters.");
       return;
     }
- 
+
     setSubmitting(true);
     try {
       const res = await API.post("/user/cancel-booking.php", {
         booking_id: booking.id,
         reason: reason.trim(),
       });
- 
+
       if (res.data.success) {
         onSuccess(booking.id);
       } else {
@@ -116,12 +98,11 @@ function CancelModal({ booking, onClose, onSuccess }) {
       setSubmitting(false);
     }
   };
- 
-  // Close on backdrop click
+
   const handleBackdrop = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
- 
+
   return (
     <div className="modal-backdrop" onClick={handleBackdrop}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -129,7 +110,7 @@ function CancelModal({ booking, onClose, onSuccess }) {
           <span className="modal-title">Request Cancellation</span>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
- 
+
         <div className="modal-body">
           <div className="modal-info-row">
             <span className="modal-info-label">Booking Date</span>
@@ -147,7 +128,7 @@ function CancelModal({ booking, onClose, onSuccess }) {
               {booking.booking_type}
             </span>
           </div>
- 
+
           <form onSubmit={handleSubmit} style={{ marginTop: 18 }}>
             <label className="modal-field-label">
               Reason for Cancellation <span style={{ color: "#dc2626" }}>*</span>
@@ -162,14 +143,14 @@ function CancelModal({ booking, onClose, onSuccess }) {
               required
             />
             <div className="modal-char-count">{reason.length} / 500</div>
- 
+
             {error && <div className="modal-error">{error}</div>}
- 
+
             <div className="modal-warning">
               ⚠ Cancellation requests are subject to admin review. Refunds, if applicable,
               depend on your booking terms.
             </div>
- 
+
             <div className="modal-actions">
               <button
                 type="button"
@@ -193,29 +174,26 @@ function CancelModal({ booking, onClose, onSuccess }) {
     </div>
   );
 }
- 
+
 // ─── Main Component ──────────────────────────────────────────────────────────
- 
+
 export default function UserProfile() {
   const navigate = useNavigate();
- 
+
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [preview, setPreview] = useState(null);
   const [unreadReplies, setUnreadReplies] = useState(0);
- 
-  // Cancel modal state
-  const [cancelTarget, setCancelTarget] = useState(null); // booking object or null
- 
+
+  const [cancelTarget, setCancelTarget] = useState(null); 
+
   const [form, setForm] = useState({
     name: "",
     phone_number: "",
     birthdate: "",
     profile_picture: null,
   });
- 
-  // ── Data loading ──────────────────────────────────────────────────────────
- 
+
   useEffect(() => {
     Promise.all([
       API.get("/user/get-profile.php"),
@@ -226,7 +204,7 @@ export default function UserProfile() {
         setUser(userData);
         setUnreadReplies(userData.unreadReplies || 0);
         setBookings(bookingRes.data.privateBookings || []);
- 
+
         setForm({
           name: userData.name || "",
           phone_number: userData.phone_number || "",
@@ -240,9 +218,7 @@ export default function UserProfile() {
         }
       });
   }, [navigate]);
- 
-  // ── Form handlers ─────────────────────────────────────────────────────────
- 
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "profile_picture") {
@@ -253,26 +229,26 @@ export default function UserProfile() {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
   };
- 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
- 
+
     if (!form.name.trim()) {
       alert("Please enter your name.");
       return;
     }
- 
+
     const formData = new FormData();
     formData.append("name", form.name);
     formData.append("phone_number", form.phone_number);
     formData.append("birthdate", form.birthdate);
     if (form.profile_picture) formData.append("profile_picture", form.profile_picture);
- 
+
     try {
       const res = await API.post("/user/update-profile.php", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
- 
+
       if (res.data.success) {
         setUser((prev) => ({
           ...prev,
@@ -289,7 +265,7 @@ export default function UserProfile() {
       alert("Error updating profile. Please try again.");
     }
   };
- 
+
   const handleLogout = async (e) => {
     e.preventDefault();
     if (!window.confirm("Are you sure you want to log out?")) return;
@@ -297,11 +273,8 @@ export default function UserProfile() {
     localStorage.removeItem("user");
     navigate("/login");
   };
- 
-  // ── Cancel booking handlers ───────────────────────────────────────────────
- 
+
   const handleCancelSuccess = (bookingId) => {
-    // Optimistically mark as cancel_requested in local state
     setBookings((prev) =>
       prev.map((b) =>
         b.id === bookingId ? { ...b, cancel_requested: true } : b
@@ -310,35 +283,30 @@ export default function UserProfile() {
     setCancelTarget(null);
     alert("Cancellation request submitted. The admin will review your request shortly.");
   };
- 
-  // ── Pay remaining ─────────────────────────────────────────────────────────
- 
+
   const handlePayAction = (booking) => {
     const action = getPaymentAction(booking);
     if (!action) return;
- 
+
     const purposeMap = {
       event: "event_booking",
       workshop: "workshop_booking",
     };
     const purpose = purposeMap[booking.booking_type] || "event_booking";
- 
+
     navigate(
       `/gcash-payment?purpose=${purpose}&booking_id=${booking.id}`
     );
   };
- 
-  // ── Render ────────────────────────────────────────────────────────────────
- 
+
   if (!user) return null;
- 
+
   const isAdmin = user.role?.toLowerCase() === "admin";
- 
+
   return (
     <>
       <Navbar />
- 
-      {/* Cancel Modal */}
+
       {cancelTarget && (
         <CancelModal
           booking={cancelTarget}
@@ -346,32 +314,47 @@ export default function UserProfile() {
           onSuccess={handleCancelSuccess}
         />
       )}
- 
+
       <div className="profile-wrap">
         <div className="profile-title">Profile</div>
- 
+
         <div className="profile-card">
- 
+
           {/* PROFILE HEADER */}
           <div className="top-row">
             <div className="who">
-              <img
-                className="profile-pic"
-                src={
-                  preview
-                    ? preview
-                    : user.profile_picture && user.profile_picture.trim() !== ""
-                    ? `/api/${user.profile_picture}`
-                    : "/pics/default-avatar.png"
-                }
-                alt="Profile"
-              />
+              
+              {/* Profile Image & Upload Button Combined */}
+              <div className="profile-pic-container">
+                <img
+                  className="profile-pic"
+                  src={
+                    preview
+                      ? preview
+                      : user.profile_picture && user.profile_picture.trim() !== ""
+                      ? `/api/${user.profile_picture}`
+                      : "/pics/default-avatar.png"
+                  }
+                  alt="Profile"
+                />
+                <label className="btn-upload-photo">
+                  Change Photo
+                  <input
+                    type="file"
+                    name="profile_picture"
+                    accept="image/*"
+                    onChange={handleChange}
+                    hidden
+                  />
+                </label>
+              </div>
+
               <div className="meta">
                 <div className="name">{user.name}</div>
                 <div className="email">{user.email}</div>
               </div>
             </div>
- 
+
             {isAdmin && (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <div className="admin-badge">You are an Admin</div>
@@ -384,7 +367,7 @@ export default function UserProfile() {
               </div>
             )}
           </div>
- 
+
           {/* QUICK ACTIONS */}
           {!isAdmin && (
             <div className="quick-actions">
@@ -402,12 +385,12 @@ export default function UserProfile() {
               </button>
             </div>
           )}
- 
+
           <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "25px 0" }} />
- 
+
           {/* PROFILE FORM */}
           <form onSubmit={handleSubmit} className="profile-form">
-            <div className="field">
+            <div className="field full">
               <label>Name</label>
               <input
                 type="text"
@@ -417,13 +400,7 @@ export default function UserProfile() {
                 required
               />
             </div>
- 
-            <div className="field">
-              <label>Email (cannot change)</label>
-              <input type="text" value={user.email} disabled />
-              <div className="hint">Email cannot be changed from this page.</div>
-            </div>
- 
+
             <div className="field">
               <label>Birthdate</label>
               <input
@@ -433,7 +410,7 @@ export default function UserProfile() {
                 onChange={handleChange}
               />
             </div>
- 
+
             <div className="field">
               <label>Contact Number</label>
               <input
@@ -444,23 +421,12 @@ export default function UserProfile() {
                 placeholder="09XXXXXXXXX"
               />
             </div>
- 
-            <div className="field full">
-              <label>Profile Picture</label>
-              <input
-                type="file"
-                name="profile_picture"
-                accept="image/*"
-                onChange={handleChange}
-              />
-              <div className="hint">JPG/PNG/GIF only. Max 2MB.</div>
-            </div>
- 
+
             {/* ── BOOKINGS SECTION ────────────────────────────────────────── */}
             {!isAdmin && (
               <div className="field full bookings-section">
                 <label className="bookings-label">My Bookings</label>
- 
+
                 {bookings.length === 0 ? (
                   <p className="hint">You haven't made any bookings yet.</p>
                 ) : (
@@ -484,7 +450,7 @@ export default function UserProfile() {
                           const payAction = getPaymentAction(b);
                           const showCancel = canCancel(b);
                           const cancelPending = b.cancel_requested;
- 
+
                           return (
                             <tr key={b.id}>
                               <td className="td-date">{b.booking_date}</td>
@@ -509,10 +475,20 @@ export default function UserProfile() {
                                 </span>
                               </td>
                               <td className="td-amount">
-                                {b.total_amount > 0
-                                  ? `₱${money(b.total_amount)}`
-                                  : "—"}
-                              </td>
+  {b.total_amount > 0 ? (
+    <>
+      <div>Total: ₱{money(b.total_amount)}</div>
+      {b.payment_status?.toLowerCase() === "partial" && (
+        <div style={{ color: "#e07b00", fontSize: "0.75rem", marginTop: "4px" }}>
+          Paid: ₱{money(b.amount_paid)} <br/>
+          Balance: ₱{money(b.total_amount - b.amount_paid)}
+        </div>
+      )}
+    </>
+  ) : (
+    "—"
+  )}
+</td>
                               <td className="td-actions">
                                 {/* Pay action */}
                                 {payAction && (
@@ -524,7 +500,7 @@ export default function UserProfile() {
                                     {payAction.label}
                                   </button>
                                 )}
- 
+
                                 {/* Cancel action */}
                                 {showCancel && (
                                   <button
@@ -535,14 +511,14 @@ export default function UserProfile() {
                                     Cancel
                                   </button>
                                 )}
- 
+
                                 {/* Cancel pending indicator */}
                                 {cancelPending && (
                                   <span className="cancel-pending-badge">
                                     Cancel Requested
                                   </span>
                                 )}
- 
+
                                 {/* No actions available */}
                                 {!payAction && !showCancel && !cancelPending && (
                                   <span className="hint" style={{ fontSize: "0.75rem" }}>—</span>
@@ -557,7 +533,7 @@ export default function UserProfile() {
                 )}
               </div>
             )}
- 
+
             <div className="actions full">
               <button type="button" className="btn btn-back" onClick={() => navigate(-1)}>
                 Back
@@ -567,13 +543,13 @@ export default function UserProfile() {
               </button>
             </div>
           </form>
- 
+
           <div className="logout">
             <a href="#" onClick={handleLogout}>
               Logout
             </a>
           </div>
- 
+
         </div>
       </div>
     </>

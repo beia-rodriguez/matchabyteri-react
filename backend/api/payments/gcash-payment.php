@@ -111,21 +111,10 @@ if ($isPublicWorkshop) {
     "location" => $registration["location"],
   ];
 } else {
-  $stmt = $conn->prepare("
-    SELECT
-      id,
-      user_id,
-      booking_date,
-      start_time,
-      end_time,
-      booking_type,
-      notes,
-      payment_status,
-      total_amount,
-      form_snapshot
+$stmt = $conn->prepare("
+    SELECT id, user_id, booking_date, start_time, end_time, booking_type, notes, payment_status, total_amount, amount_paid, form_snapshot
     FROM bookings
-    WHERE id = ?
-    LIMIT 1
+    WHERE id = ? LIMIT 1
   ");
 
   if (!$stmt) {
@@ -202,9 +191,9 @@ if ($isPublicWorkshop) {
 if ($downpaymentPercentage <= 0 || $downpaymentPercentage > 100) {
   $downpaymentPercentage = 50.0;
 }
-
+$amountPaid = (float)($booking["amount_paid"] ?? 0);
 $downpaymentAmount = round($totalAmount * ($downpaymentPercentage / 100), 2);
-$remainingAmount = round($totalAmount - $downpaymentAmount, 2);
+$remainingAmount = round($totalAmount - $amountPaid, 2);
 
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
   if ($isPublicWorkshop) {
@@ -245,13 +234,13 @@ if ($_SERVER["REQUEST_METHOD"] === "GET") {
     exit();
   }
 
-  $common = [
+$common = [
     "payment_status" => $paymentStatus,
     "total_amount" => $totalAmount,
+    "amount_paid" => $amountPaid, // Add this so the frontend knows what to display
     "downpayment_amount" => $downpaymentAmount,
     "remaining_amount" => $remainingAmount,
   ];
-
   echo json_encode([
     "success" => true,
     "gcash_number" => $GCASH_NUMBER,
