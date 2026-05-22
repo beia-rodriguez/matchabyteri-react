@@ -29,7 +29,7 @@ export default function ForgotPassword() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, button, img, a, li"
+      "h1, h2, h3, h4, h5, h6, p, label, input, button, img, a, li, .fp-helper-text, .fp-login-footer"
     );
 
     readableElements.forEach((element) => {
@@ -46,8 +46,11 @@ export default function ForgotPassword() {
       if (tagName === "img") {
         textToRead = element.getAttribute("alt") || "";
       } else if (tagName === "input") {
+        const label = readableContent.querySelector(`label[for="${element.id}"]`);
+
         textToRead =
           element.getAttribute("aria-label") ||
+          label?.innerText ||
           element.placeholder ||
           element.name ||
           element.id ||
@@ -77,7 +80,9 @@ export default function ForgotPassword() {
     setMessage("");
     setError("");
 
-    if (!email.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
       setError("Please enter your email.");
       return;
     }
@@ -86,7 +91,7 @@ export default function ForgotPassword() {
       setSubmitting(true);
 
       const res = await API.post("/auth/forgot-password.php", {
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
       });
 
       if (res.data.status === "success") {
@@ -103,63 +108,84 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="page" id="readable-content">
-      <div className="shell">
-        <div className="brand">
+    <main className="fp-page" id="readable-content">
+      <div className="fp-shell">
+        <section className="fp-brand" aria-label="Matcha By Teri brand">
           <img
-            className="brand-logo"
+            className="fp-brand-logo"
             src="/images/MBT_white 1.png"
             alt="Matcha By Teri"
           />
-        </div>
+        </section>
 
-        <div className="login-card">
-          <h1>Forgot Password</h1>
+        <section className="fp-card" aria-labelledby="fp-title">
+          <h1 className="fp-title" id="fp-title">
+            Forgot Password
+          </h1>
 
-          <p className="helper-text">
+          <p className="fp-helper-text" id="fp-instructions">
             Enter your email and we’ll send you a password reset link.
           </p>
 
           {error && (
-            <div className="alert" role="alert" aria-live="assertive">
+            <div
+              className="fp-alert fp-alert--error"
+              role="alert"
+              aria-live="assertive"
+              tabIndex={0}
+            >
               {error}
             </div>
           )}
 
           {message && (
-            <div className="success" role="status" aria-live="polite">
+            <div
+              className="fp-alert fp-alert--success"
+              role="status"
+              aria-live="polite"
+              tabIndex={0}
+            >
               {message}
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label className="label" htmlFor="email" aria-label="Email">
+          <form className="fp-form" onSubmit={handleSubmit} noValidate>
+            <div className="fp-field">
+              <label className="fp-label" htmlFor="fp-email">
                 Email
               </label>
 
               <input
-                id="email"
-                className="input"
+                id="fp-email"
+                className="fp-input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                aria-label="Enter email"
+                aria-label="Enter email address"
+                aria-describedby="fp-instructions"
               />
             </div>
 
-            <button className="btn" type="submit" disabled={submitting}>
+            <button
+              className="fp-submit-button"
+              type="submit"
+              disabled={submitting}
+              aria-label={submitting ? "Sending password reset link" : "Send reset link"}
+            >
               {submitting ? "SENDING..." : "SEND RESET LINK"}
             </button>
           </form>
 
-          <div className="login-footer">
-            Remembered your password? <Link to="/login">LOG IN</Link>
-          </div>
-        </div>
+          <p className="fp-login-footer">
+            Remembered your password?{" "}
+            <Link className="fp-login-link" to="/login">
+              LOG IN
+            </Link>
+          </p>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

@@ -259,14 +259,10 @@ export default function AdminCalendar() {
           Use this to block dates that should not be available for new bookings.
         </p>
 
-        <form onSubmit={handleSave}>
-          <div className="admin-form-row-react">
-            <div>
-              <label
-                className="admin-muted-react"
-                htmlFor="block-date"
-                style={{ display: "block", marginBottom: 6 }}
-              >
+        <form onSubmit={handleSave} className="calendar-block-form-react">
+          <div className="calendar-block-grid-react">
+            <div className="calendar-block-field-react">
+              <label className="calendar-block-label-react" htmlFor="block-date">
                 Block Date
               </label>
 
@@ -285,12 +281,8 @@ export default function AdminCalendar() {
               />
             </div>
 
-            <div>
-              <label
-                className="admin-muted-react"
-                htmlFor="block-reason"
-                style={{ display: "block", marginBottom: 6 }}
-              >
+            <div className="calendar-block-field-react">
+              <label className="calendar-block-label-react" htmlFor="block-reason">
                 Reason
               </label>
 
@@ -309,12 +301,11 @@ export default function AdminCalendar() {
               />
             </div>
 
-            <div>
+            <div className="calendar-block-action-react">
               <button
                 className="admin-btn-react admin-btn-approve-react"
                 type="submit"
                 disabled={saving}
-                style={{ padding: "10px 14px" }}
               >
                 {saving ? "SAVING..." : "SAVE"}
               </button>

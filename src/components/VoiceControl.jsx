@@ -2680,11 +2680,12 @@ export default function VoiceControl() {
         position === "left" ? "position-left" : "position-right"
       }`}
     >
-      <div
-        id="accessibility-menu"
-        className={`accessibility-menu ${isOpen ? "show" : ""}`}
-        aria-hidden={!isOpen}
-      >
+      {isOpen && (
+        <div
+          id="accessibility-menu"
+          className="accessibility-menu show"
+          aria-hidden="false"
+        >
         <div className="accessibility-main-column">
           <button
             type="button"
@@ -2824,7 +2825,8 @@ export default function VoiceControl() {
             )}
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {isOpen && (
         <div className="accessibility-tools-side">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "./../assets/css/AdminForms.css";
 import { 
   Type, 
   AlignLeft, 
@@ -115,7 +116,7 @@ const typeMap = Object.fromEntries(QUESTION_TYPES.map((t) => [t.value, t]));
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-const emptyOption = () => ({ _id: uid(), label: "", price: 0, price_type: "fixed" });
+const emptyOption = () => ({ _id: uid(), label: "", price: 0, price_type: "fixed", is_other: false });
 
 const emptyField = (field_type = "text") => ({
   _id: uid(),
@@ -168,7 +169,7 @@ const eventTemplate = () => [
         field_type: "select",
         is_required: true,
         allow_quantity: false,
-        options: ["Birthday Party", "Corporate Event", "Product Launch", "Bridal Shower", "Baby Shower", "Other"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed" })),
+        options: ["Birthday Party", "Corporate Event", "Product Launch", "Bridal Shower", "Baby Shower", "Other"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
       },
       { _id: uid(), label: "Event Name", field_name: "", field_type: "text", is_required: true, allow_quantity: false, options: [] },
       { _id: uid(), label: "Location", field_name: "", field_type: "text", is_required: true, allow_quantity: false, options: [] },
@@ -179,7 +180,7 @@ const eventTemplate = () => [
         field_type: "select",
         is_required: true,
         allow_quantity: false,
-        options: ["10–20", "21–30", "31–40", "41–50", "50+"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed" })),
+        options: ["10–20", "21–30", "31–40", "41–50", "50+"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
       },
     ],
   },
@@ -200,7 +201,7 @@ const eventTemplate = () => [
           ["100 cups", 26000],
           ["150 cups", 34500],
           ["200 cups", 40000],
-        ].map(([l, p]) => ({ _id: uid(), label: l, price: p, price_type: "fixed" })),
+        ].map(([l, p]) => ({ _id: uid(), label: l, price: p, price_type: "fixed", is_other: false })),
       },
       {
         _id: uid(),
@@ -214,7 +215,7 @@ const eventTemplate = () => [
           ["6 menu items", 1500, "fixed"],
           ["8 menu items", 3000, "fixed"],
           ["Customized cups logo", 12, "per_cup"],
-        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt })),
+        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt, is_other: false })),
       },
       {
         _id: uid(),
@@ -223,7 +224,7 @@ const eventTemplate = () => [
         field_type: "radio",
         is_required: false,
         allow_quantity: false,
-        options: ["Oatmilk", "Dairy Milk (+ ₱1,500)", "Non-fat Milk (+ ₱1,500)"].map((l, i) => ({ _id: uid(), label: l, price: i === 0 ? 0 : 1500, price_type: "fixed" })),
+        options: ["Oatmilk", "Dairy Milk (+ ₱1,500)", "Non-fat Milk (+ ₱1,500)"].map((l, i) => ({ _id: uid(), label: l, price: i === 0 ? 0 : 1500, price_type: "fixed", is_other: false })),
       },
       {
         _id: uid(),
@@ -235,7 +236,7 @@ const eventTemplate = () => [
         options: [
           ["Extra staff", 800, "per_quantity"],
           ["Sintra board sign", 0, "fixed"],
-        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt })),
+        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt, is_other: false })),
       },
     ],
   },
@@ -253,7 +254,7 @@ const workshopTemplate = () => [
         field_type: "select",
         is_required: true,
         allow_quantity: false,
-        options: ["Matcha Workshop", "Private Workshop", "Corporate Workshop", "Other"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed" })),
+        options: ["Matcha Workshop", "Private Workshop", "Corporate Workshop", "Other"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
       },
       {
         _id: uid(),
@@ -262,7 +263,7 @@ const workshopTemplate = () => [
         field_type: "select",
         is_required: true,
         allow_quantity: false,
-        options: ["Makati", "Greenhills, San Juan", "I have a set location"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed" })),
+        options: ["Makati", "Greenhills, San Juan", "I have a set location"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
       },
       {
         _id: uid(),
@@ -271,7 +272,7 @@ const workshopTemplate = () => [
         field_type: "select",
         is_required: true,
         allow_quantity: false,
-        options: ["10–20", "21–30", "31–40", "41–50", "50+"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed" })),
+        options: ["10–20", "21–30", "31–40", "41–50", "50+"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
       },
     ],
   },
@@ -286,7 +287,7 @@ const workshopTemplate = () => [
         field_type: "radio",
         is_required: true,
         allow_quantity: false,
-        options: ["2 cups per person", "3 cups per person", "5 cups per person"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed" })),
+        options: ["2 cups per person", "3 cups per person", "5 cups per person"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
       },
       {
         _id: uid(),
@@ -308,7 +309,7 @@ const workshopTemplate = () => [
           ["Oatmilk", 0, "fixed"],
           ["Dairy Milk", 30, "per_cup"],
           ["Sparkling Water", 40, "per_cup"],
-        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt })),
+        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt, is_other: false })),
       },
     ],
   },
@@ -337,9 +338,10 @@ function TypePicker({ value, onChange }) {
 
 function OptionRow({ option, fieldType, onChange, onRemove, canRemove }) {
   const hasPricing = typeMap[fieldType]?.hasPricing;
+  const isOther = !!option.is_other;
 
   return (
-    <div className="afc-option-row">
+    <div className={`afc-option-row ${isOther ? "afc-option-row-other" : ""}`}>
       <span className="afc-option-bullet">
         {fieldType === "radio" ? "◉" : fieldType === "select" ? "▾" : "☐"}
       </span>
@@ -347,12 +349,13 @@ function OptionRow({ option, fieldType, onChange, onRemove, canRemove }) {
       <input
         className="afc-option-input"
         type="text"
-        placeholder="Option label…"
-        value={option.label}
+        placeholder={isOther ? "Other answer option" : "Option label…"}
+        value={isOther ? "Other" : option.label}
+        disabled={isOther}
         onChange={(e) => onChange("label", e.target.value)}
       />
 
-      {hasPricing && (
+      {hasPricing && !isOther && (
         <>
           <div className="afc-option-price-wrap">
             <span className="afc-option-currency">₱</span>
@@ -362,8 +365,10 @@ function OptionRow({ option, fieldType, onChange, onRemove, canRemove }) {
               min="0"
               step="0.01"
               placeholder="0"
-              value={option.price}
-              onChange={(e) => onChange("price", parseFloat(e.target.value) || 0)}
+              value={option.price ?? ""}
+onChange={(e) =>
+  onChange("price", e.target.value === "" ? "" : parseFloat(e.target.value))
+}
             />
           </div>
 
@@ -381,6 +386,23 @@ function OptionRow({ option, fieldType, onChange, onRemove, canRemove }) {
           </select>
         </>
       )}
+
+      <label className="afc-option-other-toggle" title="Let customer type their own answer, like Google Forms Other">
+        <input
+          type="checkbox"
+          checked={isOther}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            onChange({
+              is_other: checked,
+              label: checked ? "Other" : "",
+              price: checked ? 0 : Number(option.price || 0),
+              price_type: checked ? "fixed" : option.price_type || "fixed",
+            });
+          }}
+        />
+        <span>Other</span>
+      </label>
 
       {canRemove && (
         <button
@@ -424,8 +446,14 @@ const handleTypeChange = (newType) => {
     setShowTypePicker(false);
   };
 
-  const updateOption = (optIndex, key, value) => {
-    const next = field.options.map((o, i) => (i === optIndex ? { ...o, [key]: value } : o));
+  const updateOption = (optIndex, keyOrObj, value) => {
+    const next = field.options.map((o, i) => {
+      if (i !== optIndex) return o;
+      if (typeof keyOrObj === "object" && keyOrObj !== null) {
+        return { ...o, ...keyOrObj };
+      }
+      return { ...o, [keyOrObj]: value };
+    });
     onUpdate("options", next);
   };
 
@@ -553,7 +581,7 @@ const handleTypeChange = (newType) => {
   );
 }
 
-function SectionEditor({ section, sectionIndex, totalSections, onUpdate, onRemove, onAddField }) {
+function SectionEditor({ section, sectionIndex, totalSections, onUpdate, onRemove, onMove, onAddField }) {
 const updateField = (fieldIndex, keyOrObj, value) => {
     const next = section.fields.map((f, i) => {
       if (i !== fieldIndex) return f;
@@ -602,17 +630,44 @@ const updateField = (fieldIndex, keyOrObj, value) => {
           value={section.title}
           onChange={(e) => onUpdate("title", e.target.value)}
         />
-        {totalSections > 1 && (
+        <div className="afc-section-actions" aria-label={`Section ${sectionIndex + 1} actions`}>
           <button
             type="button"
-            className="afc-icon-btn afc-remove-btn"
-            onClick={onRemove}
-            title="Remove section"
-            style={{ alignSelf: "flex-start", padding: "6px 12px", fontSize: "0.85rem" }}
+            className="afc-icon-btn afc-section-action-btn"
+            onClick={() => onMove(-1)}
+            disabled={sectionIndex === 0}
+            title="Move section up"
+            aria-label={`Move section ${sectionIndex + 1} up`}
           >
-            Remove section
+            <ArrowUp size={16} />
+            <span>Move up</span>
           </button>
-        )}
+
+          <button
+            type="button"
+            className="afc-icon-btn afc-section-action-btn"
+            onClick={() => onMove(1)}
+            disabled={sectionIndex === totalSections - 1}
+            title="Move section down"
+            aria-label={`Move section ${sectionIndex + 1} down`}
+          >
+            <ArrowDown size={16} />
+            <span>Move down</span>
+          </button>
+
+          {totalSections > 1 && (
+            <button
+              type="button"
+              className="afc-icon-btn afc-remove-btn afc-section-action-btn"
+              onClick={onRemove}
+              title="Remove section"
+              aria-label={`Remove section ${sectionIndex + 1}`}
+            >
+              <Trash2 size={16} />
+              <span>Remove section</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {(section.fields || []).map((field, fieldIndex) => (
@@ -693,7 +748,7 @@ function PreviewField({ field }) {
             <option>— Select an option —</option>
             {(field.options || []).map((o, i) => (
               <option key={i}>
-                {o.label}
+                {o.is_other ? "Other" : o.label}
                 {o.price > 0
                   ? ` (+₱${money(o.price)}${
                       o.price_type !== "fixed"
@@ -715,7 +770,7 @@ function PreviewField({ field }) {
                 <label className="opt">
                   <input type={field.field_type} disabled name={field._id} />
                   <span>
-                    {o.label}
+                    {o.is_other ? "Other:" : o.label}
                     {o.price > 0 && (
                       <span style={{ color: "var(--green-2)", fontWeight: 800 }}>
                         {" "}
@@ -724,9 +779,18 @@ function PreviewField({ field }) {
                     )}
                   </span>
                 </label>
+                {o.is_other && (
+                  <input
+                    type="text"
+                    placeholder="Customer types their answer"
+                    disabled
+                    style={{ marginTop: 8 }}
+                  />
+                )}
                 {field.allow_quantity &&
                   field.field_type === "checkbox" &&
-                  o.label && (
+                  o.label &&
+                  !o.is_other && (
                     <input
                       type="number"
                       min="1"
@@ -744,37 +808,62 @@ function PreviewField({ field }) {
   );
 }
 
-function LivePreview({ title, sections, downpayment }) {
+function LivePreview({ title, sections, downpayment, baseRate }) {
+  const cleanBaseRate = Math.max(0, Number(baseRate || 0));
+  const cleanDownpayment = Math.min(100, Math.max(1, Number(downpayment || 50)));
+  const dueNow =
+    cleanDownpayment >= 100
+      ? cleanBaseRate
+      : (cleanBaseRate * cleanDownpayment) / 100;
+
   return (
     <div className="afp-root afp-isolated-scope">
       <div className="card">
         <div className="title" style={{ fontSize: "1.8rem", marginBottom: 6 }}>
           {title || "Untitled Form"}
         </div>
-        <div
-          style={{
-            textAlign: "center",
-            color: "var(--muted)",
-            fontSize: "0.9rem",
-            marginBottom: 24,
-            fontWeight: 700,
-          }}
-        >
-          {downpayment < 100
-            ? `${downpayment}% downpayment required to confirm booking`
-            : "Full payment required to confirm booking"}
-        </div>
 
-        {sections.map((section, si) => (
-          <div key={section._id} style={{ marginBottom: 32 }}>
+        {cleanBaseRate > 0 && (
+          <div className="afp-price-note">
+            Starting rate: ₱{money(cleanBaseRate)} •{" "}
+            {cleanDownpayment < 100
+              ? `${cleanDownpayment}% downpayment required to confirm booking`
+              : "Full payment required to confirm booking"}
+          </div>
+        )}
+
+        {sections.map((section) => (
+          <div key={section._id} className="afp-preview-section">
             {section.title && (
               <div className="section-title">{section.title}</div>
             )}
+
             {(section.fields || []).map((field) => (
               <PreviewField key={field._id} field={field} />
             ))}
           </div>
         ))}
+
+        <div className="afp-booking-summary">
+          {cleanBaseRate > 0 && (
+            <div className="afp-booking-row">
+              <span>Base Booking Rate</span>
+              <strong>₱{money(cleanBaseRate)}</strong>
+            </div>
+          )}
+
+          {cleanBaseRate > 0 && cleanDownpayment < 100 && (
+            <div className="afp-booking-row">
+              <span>Downpayment Due Now</span>
+              <strong>₱{money(dueNow)}</strong>
+            </div>
+          )}
+
+          <div className="afp-booking-row afp-booking-row-total">
+            <span>Total Starts At</span>
+            <strong>₱{money(cleanBaseRate)}</strong>
+          </div>
+        </div>
 
         <div className="actions" style={{ justifyContent: "center" }}>
           <button
@@ -796,6 +885,7 @@ export default function AdminForms() {
   const [bookingType, setBookingType] = useState("event");
   const [csrfToken, setCsrfToken] = useState("");
   const [title, setTitle] = useState("");
+  const [baseRate, setBaseRate] = useState(0);
   const [downpayment, setDownpayment] = useState(50);
   const [sections, setSections] = useState(eventTemplate());
   const [loading, setLoading] = useState(false);
@@ -824,9 +914,10 @@ export default function AdminForms() {
         allow_quantity: Number(field.allow_quantity) === 1,
         options: (field.options || []).map((o) => ({
           _id: uid(),
-          label: o.label || "",
-          price: Number(o.price || 0),
-          price_type: o.price_type || "fixed",
+          label: Number(o.is_other || 0) === 1 ? "Other" : o.label || "",
+          price: Number(o.is_other || 0) === 1 ? 0 : Number(o.price || 0),
+          price_type: Number(o.is_other || 0) === 1 ? "fixed" : o.price_type || "fixed",
+          is_other: Number(o.is_other || 0) === 1,
         })),
       })),
     }));
@@ -847,6 +938,7 @@ export default function AdminForms() {
 
       if (data.form) {
         setTitle(data.form.title || "");
+        setBaseRate(Number(data.form.base_rate || 0));
         setDownpayment(Number(data.form.downpayment_percentage || 50));
         const normalized = normalizeFromApi(data.form.sections);
         setSections(
@@ -854,6 +946,7 @@ export default function AdminForms() {
         );
       } else {
         setTitle(getDefaultTitle(type));
+        setBaseRate(0);
         setDownpayment(50);
         setSections(getDefaultTemplate(type));
       }
@@ -861,6 +954,7 @@ export default function AdminForms() {
       console.error(err);
       setError("Failed to load booking form.");
       setTitle(getDefaultTitle(type));
+      setBaseRate(0);
       setSections(getDefaultTemplate(type));
     } finally {
       setLoading(false);
@@ -881,6 +975,19 @@ export default function AdminForms() {
   const removeSection = (si) =>
     setSections((prev) => prev.filter((_, i) => i !== si));
 
+  const moveSection = (sectionIndex, dir) =>
+    setSections((prev) => {
+      const next = [...prev];
+      const target = sectionIndex + dir;
+
+      if (target < 0 || target >= next.length) {
+        return prev;
+      }
+
+      [next[sectionIndex], next[target]] = [next[target], next[sectionIndex]];
+      return next;
+    });
+
   const addFieldToSection = (si) =>
     setSections((prev) =>
       prev.map((s, i) =>
@@ -890,22 +997,36 @@ export default function AdminForms() {
 
   const validate = () => {
     if (!title.trim()) return "Please give this form a title.";
+    if (Number(baseRate) < 0) return "Base booking rate cannot be negative.";
     if (Number(downpayment) < 1 || Number(downpayment) > 100)
       return "Downpayment percentage must be between 1 and 100.";
     const liveSections = sections.filter((s) => (s.fields || []).length > 0);
     if (!liveSections.length) return "Add at least one question.";
 
-    for (const section of sections) {
+    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
+      const section = sections[sectionIndex];
+
       for (const field of section.fields || []) {
-        if (!field.label.trim()) return "Every question needs a label.";
-        if (
-          typeMap[field.field_type]?.hasOptions &&
-          !(field.options || []).length
-        )
-          return `"${field.label}" needs at least one option.`;
-        for (const opt of field.options || []) {
-          if (!opt.label.trim())
-            return `"${field.label}" has an option without a label.`;
+        if (!field.label.trim()) {
+          return `Section ${sectionIndex + 1} has a question without a label.`;
+        }
+
+        if (typeMap[field.field_type]?.hasOptions) {
+          const options = field.options || [];
+
+          if (!options.length) {
+            return `"${field.label}" needs at least one option.`;
+          }
+
+          for (const opt of options) {
+            if (!opt.is_other && !String(opt.label || "").trim()) {
+              return `"${field.label}" has an option without a label.`;
+            }
+
+            if (Number(opt.price || 0) < 0) {
+              return `"${field.label}" has an option with a negative price.`;
+            }
+          }
         }
       }
     }
@@ -930,22 +1051,26 @@ export default function AdminForms() {
         csrf_token: csrfToken,
         booking_type: bookingType,
         title,
+        base_rate: Number(baseRate || 0),
         downpayment_percentage: Number(downpayment),
-        sections: processedSections.map((s) => ({
-          title: s.title,
-          fields: s.fields.map((f) => ({
-            label: f.label,
-            field_name: f.field_name,
-            field_type: f.field_type,
-            is_required: f.is_required ? 1 : 0,
-            allow_quantity: f.allow_quantity ? 1 : 0,
-            options: f.options.map((o) => ({
-              label: o.label,
-              price: o.price,
-              price_type: o.price_type,
+        sections: processedSections
+          .filter((s) => (s.fields || []).length > 0)
+          .map((s) => ({
+            title: String(s.title || "").trim(),
+            fields: s.fields.map((f) => ({
+              label: String(f.label || "").trim(),
+              field_name: f.field_name,
+              field_type: f.field_type,
+              is_required: f.is_required ? 1 : 0,
+              allow_quantity: f.allow_quantity ? 1 : 0,
+              options: (f.options || []).map((o) => ({
+                label: o.is_other ? "Other" : String(o.label || "").trim(),
+                price: o.is_other ? 0 : Number(o.price || 0),
+                price_type: o.is_other ? "fixed" : o.price_type,
+                is_other: o.is_other ? 1 : 0,
+              })),
             })),
           })),
-        })),
       });
 
       if (data.success) {
@@ -964,6 +1089,7 @@ export default function AdminForms() {
 
   const handleResetConfirm = () => {
     setTitle(getDefaultTitle(bookingType));
+    setBaseRate(0);
     setDownpayment(50);
     setSections(getDefaultTemplate(bookingType));
     setConfirmReset(false);
@@ -973,6 +1099,7 @@ export default function AdminForms() {
 
   return (
     <AdminLayout title="Booking Forms">
+      <div className="admin-forms-page-react">
       {confirmReset && (
         <div
           className="afc-modal-backdrop"
@@ -1068,6 +1195,20 @@ export default function AdminForms() {
               </div>
               <div className="afc-settings-field afc-settings-field--sm">
                 <label className="afc-label">
+                  Base Booking Rate <span className="afc-label-hint">(₱)</span>
+                </label>
+                <input
+                  className="afc-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={baseRate}
+                  onChange={(e) => setBaseRate(e.target.value)}
+                />
+              </div>
+
+              <div className="afc-settings-field afc-settings-field--sm">
+                <label className="afc-label">
                   Downpayment % <span className="afc-label-hint"> (1–100)</span>
                 </label>
                 <input
@@ -1081,6 +1222,7 @@ export default function AdminForms() {
               </div>
             </div>
             <div className="afc-downpayment-preview">
+              <strong>Starting booking rate:</strong> ₱{money(baseRate)}.{" "}
               {downpayment >= 100
                 ? "Customers must pay the full amount upfront."
                 : `Customers pay ${downpayment}% now and the remaining ${
@@ -1101,6 +1243,7 @@ export default function AdminForms() {
                   totalSections={sections.length}
                   onUpdate={(k, v) => updateSection(si, k, v)}
                   onRemove={() => removeSection(si)}
+                  onMove={(dir) => moveSection(si, dir)}
                   onAddField={() => addFieldToSection(si)}
                 />
               ))}
@@ -1139,9 +1282,11 @@ export default function AdminForms() {
               title={title}
               sections={sections}
               downpayment={downpayment}
+              baseRate={baseRate}
             />
           </div>
         )}
+      </div>
       </div>
     </AdminLayout>
   );

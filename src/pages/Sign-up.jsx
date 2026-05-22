@@ -9,6 +9,10 @@ import "../assets/css/universal.css";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function cleanReaderText(text = "") {
+  return String(text).replace("✅", "").replace("❌", "").trim();
+}
+
 export default function SignUp() {
   const navigate = useNavigate();
 
@@ -47,8 +51,7 @@ export default function SignUp() {
   }, [form.password]);
 
   const passwordsMatch =
-    form.password.length > 0 &&
-    form.confirm_password === form.password;
+    form.password.length > 0 && form.confirm_password === form.password;
 
   const passwordMatchMessage =
     form.confirm_password &&
@@ -64,7 +67,7 @@ export default function SignUp() {
       emailMessageRef.current.setAttribute("tabindex", "0");
       emailMessageRef.current.setAttribute(
         "aria-label",
-        checkingEmail ? "Checking email" : emailMessage.replace("✅", "").replace("❌", "")
+        checkingEmail ? "Checking email" : cleanReaderText(emailMessage)
       );
     }
 
@@ -93,10 +96,30 @@ export default function SignUp() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, button, img, a, li, .alert, .msg, .rule"
+      [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "p",
+        "label",
+        "input",
+        "button",
+        "img",
+        "a",
+        "li",
+        ".auth-signup-alert",
+        ".auth-signup-message",
+        ".auth-signup-rule",
+        ".auth-signup-footer",
+      ].join(", ")
     );
 
     readableElements.forEach((element) => {
+      if (element.closest(".accessibility-bubble-wrapper")) return;
+
       const tagName = element.tagName.toLowerCase();
 
       if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
@@ -124,7 +147,7 @@ export default function SignUp() {
           "";
       }
 
-      textToRead = textToRead.replace("✅", "").replace("❌", "").trim();
+      textToRead = cleanReaderText(textToRead);
 
       if (!textToRead) return;
 
@@ -133,6 +156,7 @@ export default function SignUp() {
       }
 
       element.setAttribute("aria-label", textToRead);
+      element.classList.add("voice-readable");
     });
   }, [
     form.name,
@@ -163,6 +187,8 @@ export default function SignUp() {
       return;
     }
 
+    const controller = new AbortController();
+
     const timer = setTimeout(async () => {
       try {
         setCheckingEmail(true);
@@ -176,6 +202,7 @@ export default function SignUp() {
               "Content-Type": "application/x-www-form-urlencoded",
             },
             body: `email=${encodeURIComponent(email)}`,
+            signal: controller.signal,
           }
         );
 
@@ -191,15 +218,20 @@ export default function SignUp() {
           setEmailMessage(data.message || "Unable to check email.");
           setEmailAvailable(false);
         }
-      } catch {
-        setEmailMessage("Unable to check email right now.");
-        setEmailAvailable(false);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          setEmailMessage("Unable to check email right now.");
+          setEmailAvailable(false);
+        }
       } finally {
         setCheckingEmail(false);
       }
     }, 350);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [form.email]);
 
   const allValid =
@@ -260,23 +292,27 @@ export default function SignUp() {
   };
 
   return (
-    <div className="signup-page" id="readable-content">
-      <div className="shell">
-        <div className="brand">
+    <main
+      className="auth-signup-page"
+      id="readable-content"
+      aria-label="Sign up page"
+    >
+      <div className="auth-signup-shell">
+        <section className="auth-signup-brand" aria-label="Matcha By Teri brand">
           <img
-            className="brand-logo"
+            className="auth-signup-brand-logo"
             src="/images/MBT_white 1.png"
             alt="Matcha By Teri"
           />
-        </div>
+        </section>
 
-        <div className="signup-card">
-          <h1>Sign Up</h1>
+        <section className="auth-signup-card" aria-label="Sign up form">
+          <h1 className="auth-signup-title">Sign Up</h1>
 
           {error && (
             <div
               ref={errorRef}
-              className="alert"
+              className="auth-signup-alert"
               role="alert"
               aria-live="assertive"
               aria-atomic="true"
@@ -287,15 +323,20 @@ export default function SignUp() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label className="label" htmlFor="name" aria-label="Full Name">
+          <form className="auth-signup-form" onSubmit={handleSubmit}>
+            <div className="auth-signup-field">
+              <label
+                className="auth-signup-label"
+                htmlFor="auth-signup-name"
+                aria-label="Full Name"
+              >
                 Full Name
               </label>
 
               <input
-                id="name"
-                className="input"
+                id="auth-signup-name"
+                name="name"
+                className="auth-signup-input"
                 type="text"
                 value={form.name}
                 onChange={(e) => updateField("name", e.target.value)}
@@ -311,74 +352,74 @@ export default function SignUp() {
               />
             </div>
 
-            <div className="field">
-              <label className="label" htmlFor="email" aria-label="Email">
+            <div className="auth-signup-field">
+              <label
+                className="auth-signup-label"
+                htmlFor="auth-signup-email"
+                aria-label="Email"
+              >
                 Email
               </label>
 
               <input
-                id="email"
-                className="input"
+                id="auth-signup-email"
+                name="email"
+                className="auth-signup-input"
                 type="email"
                 value={form.email}
                 onChange={(e) => updateField("email", e.target.value)}
                 required
                 autoComplete="email"
-                aria-describedby="email-message"
+                aria-describedby="auth-signup-email-message"
                 aria-label={
-                  form.email.trim()
-                    ? `Email: ${form.email}`
-                    : "Enter email"
+                  form.email.trim() ? `Email: ${form.email}` : "Enter email"
                 }
               />
 
               <p
                 ref={emailMessageRef}
-                id="email-message"
-                className="msg"
+                id="auth-signup-email-message"
+                className={`auth-signup-message ${
+                  emailAvailable ? "auth-signup-message-ok" : ""
+                }`}
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
                 tabIndex={emailMessage ? "0" : undefined}
                 aria-label={
-                  checkingEmail
-                    ? "Checking email"
-                    : emailMessage.replace("✅", "").replace("❌", "")
+                  checkingEmail ? "Checking email" : cleanReaderText(emailMessage)
                 }
               >
                 {checkingEmail ? "Checking email..." : emailMessage}
               </p>
             </div>
 
-            <div className="field">
+            <div className="auth-signup-field">
               <label
-                className="label"
-                htmlFor="password"
+                className="auth-signup-label"
+                htmlFor="auth-signup-password"
                 aria-label="Password"
               >
                 Password
               </label>
 
-              <div className="input-wrap">
+              <div className="auth-signup-input-wrap">
                 <input
-                  id="password"
-                  className="input"
+                  id="auth-signup-password"
+                  name="password"
+                  className="auth-signup-input auth-signup-password-input"
                   type={showPassword ? "text" : "password"}
                   value={form.password}
                   onChange={(e) => updateField("password", e.target.value)}
                   required
                   autoComplete="new-password"
-                  aria-describedby="password-rules"
-                  aria-label={
-                    form.password
-                      ? "Password entered"
-                      : "Enter password"
-                  }
+                  aria-describedby="auth-signup-password-rules"
+                  aria-label={form.password ? "Password entered" : "Enter password"}
                 />
 
                 <button
                   type="button"
-                  className="toggle"
+                  className="auth-signup-toggle"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
@@ -391,7 +432,7 @@ export default function SignUp() {
                 </button>
               </div>
 
-              <ul id="password-rules" className="rules">
+              <ul id="auth-signup-password-rules" className="auth-signup-rules">
                 {Object.entries(rules).map(([key, valid]) => {
                   const ruleText =
                     {
@@ -405,35 +446,43 @@ export default function SignUp() {
                   return (
                     <li
                       key={key}
-                      className={`rule ${
-                        valid ? "ok show" : form.password ? "show" : ""
+                      className={`auth-signup-rule ${
+                        valid
+                          ? "auth-signup-rule-ok auth-signup-rule-show"
+                          : form.password
+                          ? "auth-signup-rule-show"
+                          : ""
                       }`}
                       aria-label={`${ruleText}: ${
                         valid ? "correct" : "not yet correct"
                       }`}
                     >
-                      <span className="dot" aria-hidden="true"></span>
+                      <span
+                        className="auth-signup-rule-dot"
+                        aria-hidden="true"
+                      ></span>
 
-                      <span className="text">{ruleText}</span>
+                      <span className="auth-signup-rule-text">{ruleText}</span>
                     </li>
                   );
                 })}
               </ul>
             </div>
 
-            <div className="field">
+            <div className="auth-signup-field">
               <label
-                className="label"
-                htmlFor="confirm_password"
+                className="auth-signup-label"
+                htmlFor="auth-signup-confirm-password"
                 aria-label="Confirm Password"
               >
                 Confirm Password
               </label>
 
-              <div className="input-wrap">
+              <div className="auth-signup-input-wrap">
                 <input
-                  id="confirm_password"
-                  className="input"
+                  id="auth-signup-confirm-password"
+                  name="confirm_password"
+                  className="auth-signup-input auth-signup-password-input"
                   type={showConfirmPassword ? "text" : "password"}
                   value={form.confirm_password}
                   onChange={(e) =>
@@ -441,7 +490,7 @@ export default function SignUp() {
                   }
                   required
                   autoComplete="new-password"
-                  aria-describedby="password-match-message"
+                  aria-describedby="auth-signup-password-match-message"
                   aria-label={
                     form.confirm_password
                       ? "Confirm password entered"
@@ -451,7 +500,7 @@ export default function SignUp() {
 
                 <button
                   type="button"
-                  className="toggle"
+                  className="auth-signup-toggle"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
                   aria-label={
                     showConfirmPassword
@@ -470,8 +519,10 @@ export default function SignUp() {
 
               <p
                 ref={passwordMatchRef}
-                id="password-match-message"
-                className="msg"
+                id="auth-signup-password-match-message"
+                className={`auth-signup-message ${
+                  passwordsMatch ? "auth-signup-message-ok" : ""
+                }`}
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
@@ -486,23 +537,27 @@ export default function SignUp() {
             </div>
 
             <button
-              className="btn"
+              className="auth-signup-btn"
               type="submit"
-              disabled={submitting}
+              disabled={!allValid || submitting}
               aria-label={submitting ? "Signing up" : "Sign up"}
             >
               {submitting ? "SIGNING UP..." : "SIGN UP"}
             </button>
           </form>
 
-          <div className="signup-footer">
+          <div className="auth-signup-footer">
             Already a user?{" "}
-            <Link to="/login" aria-label="Log in">
+            <Link
+              className="auth-signup-link"
+              to="/login"
+              aria-label="Log in"
+            >
               LOG IN
             </Link>
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

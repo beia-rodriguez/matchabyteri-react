@@ -57,7 +57,7 @@ function posterSrc(path) {
 
 function EmptyState({ text }) {
   return (
-    <div className="admin-muted-react" role="status" aria-live="polite" style={{ padding: '30px', textAlign: 'center', background: '#f9fbf9', borderRadius: '12px', border: '1px dashed var(--line)' }}>
+    <div className="aw-empty-state" role="status" aria-live="polite">
       {text}
     </div>
   );
@@ -65,11 +65,7 @@ function EmptyState({ text }) {
 
 function FieldLabel({ htmlFor, children }) {
   return (
-    <label
-      className="admin-muted-react admin-section-label"
-      htmlFor={htmlFor}
-      style={{ display: "block", marginBottom: '6px', fontWeight: 800, fontSize: '0.85rem', color: 'var(--green-2)' }}
-    >
+    <label className="aw-field-label" htmlFor={htmlFor}>
       {children}
     </label>
   );
@@ -591,93 +587,245 @@ export default function AdminWorkshops() {
         </div>
 
       {/* =========================================
-    TAB 2: ADD NEW WORKSHOP
-========================================= */}
-<div className={`admin-section-react ${tab === "add" ? "show" : ""}`} style={{ paddingTop: '20px' }}>
-  <div style={{ width: '100%' }}> {/* Removed maxWidth to allow full stretch */}
-    <h3 style={{ margin: '0 0 20px 0', color: 'var(--green-2)', textAlign: 'center' }}>Create a New Workshop</h3>
-    
-    <form onSubmit={handleAddWorkshop}>
-      
-      {/* Container for Basic Info and Pricing: Spreads to full width */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-        
-        {/* Basic Information */}
-        <div style={{ background: '#f9fbf9', padding: '24px', borderRadius: '12px', border: '1px solid var(--line)' }}>
-          <h4 style={{ margin: '0 0 16px 0', color: 'var(--ink)' }}>Basic Information</h4>
-          
-          <div style={{ marginBottom: '16px' }}>
-            <FieldLabel htmlFor="add-title">Workshop Title</FieldLabel>
-            <input id="add-title" className="admin-input-react" style={{ width: '100%' }} type="text" name="title" value={addForm.title} onChange={handleAddChange} required />
-          </div>
+          TAB 2: ADD NEW WORKSHOP
+      ========================================= */}
+      <div className={`admin-section-react ${tab === "add" ? "show" : ""}`}>
+        <section className="aw-add-workshop">
+          <header className="aw-add-header">
+            <h3 className="aw-add-title">Create a New Workshop</h3>
+            <p className="aw-add-subtitle">
+              Fill out the workshop details, package inclusions, pricing, capacity, and poster.
+            </p>
+          </header>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <FieldLabel htmlFor="add-date">Date</FieldLabel>
-              <input id="add-date" className="admin-input-react" style={{ width: '100%' }} type="date" name="workshop_date" value={addForm.workshop_date} onChange={handleAddChange} required />
-            </div>
-            <div>
-              <FieldLabel htmlFor="add-location">Location</FieldLabel>
-              <input id="add-location" className="admin-input-react" style={{ width: '100%' }} type="text" name="location" value={addForm.location} onChange={handleAddChange} required />
-            </div>
-          </div>
-          {/* ... (Keep your existing time/visibility inputs here) ... */}
-        </div>
+          <form className="aw-add-form" onSubmit={handleAddWorkshop}>
+            <div className="aw-add-layout">
+              <div className="aw-add-column">
+                <section className="aw-form-card">
+                  <h4 className="aw-form-card-title">Basic Information</h4>
 
-        {/* Pricing & Capacity */}
-        <div style={{ background: '#f9fbf9', padding: '24px', borderRadius: '12px', border: '1px solid var(--line)' }}>
-          <h4 style={{ margin: '0 0 16px 0', color: 'var(--ink)' }}>Pricing & Capacity</h4>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <FieldLabel htmlFor="add-standard-price">Standard Price (₱)</FieldLabel>
-              <input id="add-standard-price" className="admin-input-react" style={{ width: '100%' }} type="number" min="0" step="0.01" name="standard_price" value={addForm.standard_price} onChange={handleAddChange} />
+                  <div className="aw-field">
+                    <FieldLabel htmlFor="add-title">Workshop Title</FieldLabel>
+                    <input
+                      id="add-title"
+                      className="aw-input"
+                      type="text"
+                      name="title"
+                      value={addForm.title}
+                      onChange={handleAddChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="aw-grid aw-grid-2">
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-date">Date</FieldLabel>
+                      <input
+                        id="add-date"
+                        className="aw-input"
+                        type="date"
+                        name="workshop_date"
+                        value={addForm.workshop_date}
+                        onChange={handleAddChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-location">Location</FieldLabel>
+                      <input
+                        id="add-location"
+                        className="aw-input"
+                        type="text"
+                        name="location"
+                        value={addForm.location}
+                        onChange={handleAddChange}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="aw-grid aw-grid-3">
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-start-time">Start Time</FieldLabel>
+                      <input
+                        id="add-start-time"
+                        className="aw-input"
+                        type="time"
+                        name="start_time"
+                        value={addForm.start_time}
+                        onChange={handleAddChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-end-time">End Time</FieldLabel>
+                      <input
+                        id="add-end-time"
+                        className="aw-input"
+                        type="time"
+                        name="end_time"
+                        value={addForm.end_time}
+                        onChange={handleAddChange}
+                      />
+                    </div>
+
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-is-active">Visibility</FieldLabel>
+                      <select
+                        id="add-is-active"
+                        className="aw-input"
+                        name="is_active"
+                        value={addForm.is_active}
+                        onChange={handleAddChange}
+                      >
+                        <option value="1">Active</option>
+                        <option value="0">Hidden</option>
+                      </select>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="aw-form-card">
+                  <h4 className="aw-form-card-title">Pricing & Capacity</h4>
+
+                  <div className="aw-grid aw-grid-2">
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-standard-price">Standard Price (₱)</FieldLabel>
+                      <input
+                        id="add-standard-price"
+                        className="aw-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        name="standard_price"
+                        value={addForm.standard_price}
+                        onChange={handleAddChange}
+                      />
+                    </div>
+
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-premium-price">Premium Price (₱)</FieldLabel>
+                      <input
+                        id="add-premium-price"
+                        className="aw-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        name="premium_price"
+                        value={addForm.premium_price}
+                        onChange={handleAddChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="aw-field">
+                    <FieldLabel htmlFor="add-max-slots">Maximum Slots (0 = Unlimited)</FieldLabel>
+                    <input
+                      id="add-max-slots"
+                      className="aw-input"
+                      type="number"
+                      name="max_slots"
+                      min="0"
+                      value={addForm.max_slots}
+                      onChange={handleAddChange}
+                    />
+                  </div>
+                </section>
+
+                <section className="aw-form-card">
+                  <h4 className="aw-form-card-title">Poster</h4>
+
+                  <div className="aw-file-box">
+                    <FieldLabel htmlFor="add-poster">Workshop Poster Image</FieldLabel>
+                    <input
+                      id="add-poster"
+                      className="aw-file-input"
+                      type="file"
+                      name="poster"
+                      accept="image/*"
+                      onChange={(e) => setAddPoster(e.target.files?.[0] || null)}
+                      required
+                    />
+
+                    {addPoster ? (
+                      <div className="aw-file-name">Selected: {addPoster.name}</div>
+                    ) : (
+                      <div className="aw-file-hint">Upload a clear poster image for the workshop page.</div>
+                    )}
+                  </div>
+                </section>
+              </div>
+
+              <div className="aw-add-column">
+                <section className="aw-form-card aw-content-card">
+                  <h4 className="aw-form-card-title">Content & Media</h4>
+
+                  <div className="aw-field">
+                    <FieldLabel htmlFor="add-description">Main Description</FieldLabel>
+                    <textarea
+                      id="add-description"
+                      className="aw-textarea aw-textarea-large"
+                      name="description"
+                      rows="6"
+                      value={addForm.description}
+                      onChange={handleAddChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="aw-field">
+                    <FieldLabel htmlFor="add-register-points">Register Page Points</FieldLabel>
+                    <textarea
+                      id="add-register-points"
+                      className="aw-textarea"
+                      name="register_points"
+                      rows="5"
+                      placeholder={"- Bullet 1\n- Bullet 2"}
+                      value={addForm.register_points}
+                      onChange={handleAddChange}
+                    />
+                  </div>
+
+                  <div className="aw-grid aw-grid-2">
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-standard-points">Standard Package Inclusions</FieldLabel>
+                      <textarea
+                        id="add-standard-points"
+                        className="aw-textarea"
+                        name="standard_points"
+                        rows="5"
+                        value={addForm.standard_points}
+                        onChange={handleAddChange}
+                      />
+                    </div>
+
+                    <div className="aw-field">
+                      <FieldLabel htmlFor="add-premium-points">Premium Package Inclusions</FieldLabel>
+                      <textarea
+                        id="add-premium-points"
+                        className="aw-textarea"
+                        name="premium_points"
+                        rows="5"
+                        value={addForm.premium_points}
+                        onChange={handleAddChange}
+                      />
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
-            <div>
-              <FieldLabel htmlFor="add-premium-price">Premium Price (₱)</FieldLabel>
-              <input id="add-premium-price" className="admin-input-react" style={{ width: '100%' }} type="number" min="0" step="0.01" name="premium_price" value={addForm.premium_price} onChange={handleAddChange} />
+
+            <div className="aw-create-actions">
+              <button className="aw-create-button" type="submit" disabled={savingAdd}>
+                <Save size={18} aria-hidden="true" />
+                {savingAdd ? "SAVING..." : "CREATE WORKSHOP"}
+              </button>
             </div>
-          </div>
-          <div>
-            <FieldLabel htmlFor="add-max-slots">Maximum Slots (0 = Unlimited)</FieldLabel>
-            <input id="add-max-slots" className="admin-input-react" style={{ width: '100%' }} type="number" name="max_slots" min="0" value={addForm.max_slots} onChange={handleAddChange} />
-          </div>
-        </div>
+          </form>
+        </section>
       </div>
-
-      {/* Content & Media (Full width) */}
-      <div style={{ background: '#f9fbf9', padding: '24px', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '20px', width: '100%' }}>
-        <h4 style={{ margin: '0 0 16px 0', color: 'var(--ink)' }}>Content & Media</h4>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <FieldLabel htmlFor="add-description">Main Description</FieldLabel>
-          <textarea id="add-description" className="admin-input-react admin-textarea-full" name="description" rows="4" value={addForm.description} onChange={handleAddChange} required />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-          <div>
-            <FieldLabel htmlFor="add-standard-points">Standard Package Inclusions</FieldLabel>
-            <textarea id="add-standard-points" className="admin-input-react admin-textarea-full" name="standard_points" rows="4" value={addForm.standard_points} onChange={handleAddChange} />
-          </div>
-          <div>
-            <FieldLabel htmlFor="add-premium-points">Premium Package Inclusions</FieldLabel>
-            <textarea id="add-premium-points" className="admin-input-react admin-textarea-full" name="premium_points" rows="4" value={addForm.premium_points} onChange={handleAddChange} />
-          </div>
-        </div>
-
-        <div style={{ padding: '16px', background: '#fff', border: '1px dashed var(--line)', borderRadius: '8px' }}>
-          <FieldLabel htmlFor="add-poster">Workshop Poster Image</FieldLabel>
-          <input id="add-poster" className="admin-input-react" type="file" name="poster" accept="image/*" onChange={(e) => setAddPoster(e.target.files?.[0] || null)} required style={{ border: 'none', padding: 0 }} />
-        </div>
-      </div>
-
-      <button className="admin-btn-react admin-btn-approve-react" type="submit" disabled={savingAdd} style={{ padding: '16px 0', fontSize: '1rem', width: '100%', borderRadius: '12px' }}>
-        <Save size={18} style={{ marginRight: '8px' }} />
-        {savingAdd ? "SAVING..." : "CREATE WORKSHOP"}
-      </button>
-    </form>
-  </div>
-</div>
 
         {/* =========================================
             TAB 3: REGISTRATIONS

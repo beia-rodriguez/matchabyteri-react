@@ -14,6 +14,7 @@ if (!isset($_SESSION["user_id"])) {
 $userId = (int) $_SESSION["user_id"];
 
 $private = [];
+$awaitingPayment = [];
 
 $stmt = $conn->prepare("
     SELECT
@@ -23,7 +24,6 @@ $stmt = $conn->prepare("
         b.end_time,
         b.booking_type,
         b.status,
-        b.payment_status,
         b.total_amount,
 
         COALESCE(SUM(
@@ -31,7 +31,18 @@ $stmt = $conn->prepare("
                 WHEN p.status = 'paid' THEN p.amount
                 ELSE 0
             END
-        ), 0) AS computed_amount_paid,
+        ), 0) AS amount_paid,
+
+        CASE
+            WHEN COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) >= b.total_amount
+                 AND b.total_amount > 0 THEN 'paid'
+
+            WHEN COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) > 0 THEN 'partial'
+
+            WHEN COALESCE(SUM(CASE WHEN p.status = 'pending' THEN 1 ELSE 0 END), 0) > 0 THEN 'pending'
+
+            ELSE 'unpaid'
+        END AS computed_payment_status,
 
         b.cancel_requested,
         b.cancel_reason,
@@ -48,7 +59,6 @@ $stmt = $conn->prepare("
         b.end_time,
         b.booking_type,
         b.status,
-        b.payment_status,
         b.total_amount,
         b.cancel_requested,
         b.cancel_reason,
@@ -70,28 +80,27 @@ $result = $stmt->get_result();
 
 while ($row = $result->fetch_assoc()) {
     $row["status"] = $row["status"] ?? "pending";
-    $row["payment_status"] = $row["payment_status"] ?? "unpaid";
+    $row["payment_status"] = $row["computed_payment_status"] ?? "unpaid";
 
     $row["total_amount"] = (float) ($row["total_amount"] ?? 0);
-    $row["amount_paid"] = (float) ($row["computed_amount_paid"] ?? 0);
+    $row["amount_paid"] = (float) ($row["amount_paid"] ?? 0);
     $row["balance"] = max($row["total_amount"] - $row["amount_paid"], 0);
 
-    /*
-      Optional safety:
-      If payment_status in bookings is outdated, derive display status from actual paid amount.
-    */
-    if ($row["amount_paid"] >= $row["total_amount"] && $row["total_amount"] > 0) {
-        $row["payment_status"] = "paid";
-    } elseif ($row["amount_paid"] > 0) {
-        $row["payment_status"] = "partial";
-    }
-
-    unset($row["computed_amount_paid"]);
+    unset($row["computed_payment_status"]);
 
     $row["cancel_requested"] = (int) ($row["cancel_requested"] ?? 0);
     $row["cancel_reason"] = $row["cancel_reason"] ?? "";
     $row["cancel_requested_at"] = $row["cancel_requested_at"] ?? null;
 
+    if ($row["status"] === "pending_payment") {
+        $row["display_status"] = "awaiting_payment";
+        $row["can_continue_payment"] = true;
+        $awaitingPayment[] = $row;
+        continue;
+    }
+
+    $row["display_status"] = $row["status"];
+    $row["can_continue_payment"] = false;
     $private[] = $row;
 }
 
@@ -99,6 +108,7 @@ $stmt->close();
 
 echo json_encode([
     "success" => true,
-    "privateBookings" => $private
+    "privateBookings" => $private,
+    "awaitingPaymentBookings" => $awaitingPayment
 ]);
 exit();

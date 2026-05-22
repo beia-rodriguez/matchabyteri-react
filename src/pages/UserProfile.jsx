@@ -88,124 +88,188 @@ function CancelModal({ booking, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
 
-  const cleanReason = reason.trim();
+    const cleanReason = reason.trim();
 
-  if (cleanReason.length < 10) {
-    setError("Please provide a reason of at least 10 characters.");
-    return;
-  }
-
-  setSubmitting(true);
-
-  try {
-    const formData = new FormData();
-    formData.append("booking_id", String(booking.id));
-    formData.append("reason", cleanReason);
-
-    const res = await API.post("/user/cancel-booking.php", formData);
-
-    console.log("Cancel booking full response:", res);
-    console.log("Cancel booking response data:", res.data);
-
-    if (res.data && res.data.success === true) {
-      onSuccess(booking.id);
-    } else {
-      setError(
-        typeof res.data === "string"
-          ? res.data
-          : res.data?.error || "Failed to submit request."
-      );
+    if (cleanReason.length < 10) {
+      setError("Please provide a reason of at least 10 characters.");
+      return;
     }
-  } catch (err) {
-    console.error("Cancel booking error:", err);
 
-    setError(
-      err.response?.data?.error ||
-        err.response?.data ||
-        "Failed to submit request. Please try again."
-    );
-  } finally {
-    setSubmitting(false);
-  }
-};
+    setSubmitting(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("booking_id", String(booking.id));
+      formData.append("reason", cleanReason);
+
+      const res = await API.post("/user/cancel-booking.php", formData);
+
+      if (res.data && res.data.success === true) {
+        onSuccess(booking.id);
+      } else {
+        setError(
+          typeof res.data === "string"
+            ? res.data
+            : res.data?.error || "Failed to submit request."
+        );
+      }
+    } catch (err) {
+      console.error("Cancel booking error:", err);
+
+      setError(
+        err.response?.data?.error ||
+          err.response?.data ||
+          "Failed to submit request. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleBackdrop = (e) => {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget && !submitting) onClose();
   };
 
   return (
-    <div className="modal-backdrop" onClick={handleBackdrop}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <span className="modal-title">Request Cancellation</span>
+    <div
+      className="cancel-request-modal__backdrop"
+      onClick={handleBackdrop}
+      role="presentation"
+    >
+      <section
+        className="cancel-request-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cancel-request-modal-title"
+        aria-describedby="cancel-request-modal-description"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="cancel-request-modal__header">
+          <h2
+            className="cancel-request-modal__title"
+            id="cancel-request-modal-title"
+            tabIndex={0}
+          >
+            Request Cancellation
+          </h2>
 
           <button
             type="button"
-            className="modal-close"
+            className="cancel-request-modal__close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Close cancellation request modal"
             disabled={submitting}
           >
             ×
           </button>
-        </div>
+        </header>
 
-        <div className="modal-body">
-          <div className="modal-info-row">
-            <span className="modal-info-label">Booking Date</span>
-            <span className="modal-info-value">{booking.booking_date}</span>
-          </div>
+        <div className="cancel-request-modal__body">
+          <p
+            className="cancel-request-modal__description"
+            id="cancel-request-modal-description"
+            tabIndex={0}
+          >
+            Review your booking details, enter your cancellation reason, then submit your request for admin review.
+          </p>
 
-          <div className="modal-info-row">
-            <span className="modal-info-label">Time</span>
-            <span className="modal-info-value">
-              {booking.start_time?.slice(0, 5)} – {booking.end_time?.slice(0, 5)}
-            </span>
-          </div>
-
-          <div className="modal-info-row">
-            <span className="modal-info-label">Type</span>
-            <span
-              className="modal-info-value"
-              style={{ textTransform: "capitalize" }}
-            >
-              {booking.booking_type}
-            </span>
-          </div>
-
-          <form onSubmit={handleSubmit} style={{ marginTop: 18 }}>
-            <label className="modal-field-label">
-              Reason for Cancellation <span style={{ color: "#dc2626" }}>*</span>
-            </label>
-
-            <textarea
-              className="modal-textarea"
-              rows={4}
-              maxLength={500}
-              placeholder="Please explain why you want to cancel this booking…"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-              disabled={submitting}
-            />
-
-            <div className="modal-char-count">{reason.length} / 500</div>
-
-            {error && <div className="modal-error">{error}</div>}
-
-            <div className="modal-warning">
-              ⚠ Cancellation requests are subject to admin review. Refunds, if applicable,
-              depend on your booking terms.
+          <div className="cancel-request-modal__summary" aria-label="Booking summary">
+            <div className="cancel-request-modal__summary-row" tabIndex={0}>
+              <span className="cancel-request-modal__summary-label">Booking Date</span>
+              <strong className="cancel-request-modal__summary-value">
+                {booking.booking_date}
+              </strong>
             </div>
 
-            <div className="modal-actions">
+            <div className="cancel-request-modal__summary-row" tabIndex={0}>
+              <span className="cancel-request-modal__summary-label">Time</span>
+              <strong className="cancel-request-modal__summary-value">
+                {booking.start_time?.slice(0, 5)} – {booking.end_time?.slice(0, 5)}
+              </strong>
+            </div>
+
+            <div className="cancel-request-modal__summary-row" tabIndex={0}>
+              <span className="cancel-request-modal__summary-label">Type</span>
+              <strong className="cancel-request-modal__summary-value cancel-request-modal__summary-value--capitalize">
+                {booking.booking_type}
+              </strong>
+            </div>
+          </div>
+
+          <form className="cancel-request-modal__form" onSubmit={handleSubmit}>
+            <div className="cancel-request-modal__field">
+              <label
+                className="cancel-request-modal__label"
+                htmlFor="cancel-request-reason"
+                tabIndex={0}
+              >
+                Reason for Cancellation <span aria-hidden="true">*</span>
+              </label>
+
+              <textarea
+                id="cancel-request-reason"
+                className="cancel-request-modal__textarea"
+                rows={5}
+                maxLength={500}
+                placeholder="Please explain why you want to cancel this booking..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                required
+                disabled={submitting}
+                aria-required="true"
+                aria-invalid={error ? "true" : "false"}
+                aria-describedby={
+                  error
+                    ? "cancel-request-reason-help cancel-request-char-count cancel-request-error"
+                    : "cancel-request-reason-help cancel-request-char-count"
+                }
+              />
+
+              <p
+                className="cancel-request-modal__help"
+                id="cancel-request-reason-help"
+                tabIndex={0}
+              >
+                Please enter at least 10 characters. The submit button stays available so screen readers can detect it.
+              </p>
+
+              <div
+                className="cancel-request-modal__char-count"
+                id="cancel-request-char-count"
+                tabIndex={0}
+                aria-live="polite"
+              >
+                {reason.length} / 500 characters
+              </div>
+            </div>
+
+            {error && (
+              <div
+                className="cancel-request-modal__error"
+                id="cancel-request-error"
+                role="alert"
+                tabIndex={0}
+              >
+                {error}
+              </div>
+            )}
+
+            <div className="cancel-request-modal__warning" tabIndex={0}>
+              <strong>⚠ Cancellation requests are subject to admin review.</strong>
+              <span>
+                Refunds, if applicable, depend on your booking terms.
+              </span>
+            </div>
+
+            <div className="cancel-request-modal__actions">
               <button
                 type="button"
-                className="btn btn-back"
+                className="cancel-request-modal__button cancel-request-modal__button--back"
                 onClick={onClose}
                 disabled={submitting}
               >
@@ -214,15 +278,21 @@ const handleSubmit = async (e) => {
 
               <button
                 type="submit"
-                className="btn btn-cancel-confirm"
-                disabled={submitting || reason.trim().length < 10}
+                className="cancel-request-modal__button cancel-request-modal__button--submit"
+                disabled={submitting}
+                aria-describedby="cancel-request-reason-help"
+                aria-label={
+                  reason.trim().length < 10
+                    ? "Submit Request. Enter at least 10 characters before submitting."
+                    : "Submit Request"
+                }
               >
-                {submitting ? "Submitting…" : "Submit Request"}
+                {submitting ? "Submitting..." : "Submit Request"}
               </button>
             </div>
           </form>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

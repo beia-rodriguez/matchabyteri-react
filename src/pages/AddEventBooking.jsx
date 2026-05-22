@@ -113,6 +113,7 @@ export default function AddEventBooking() {
 
   const [answers, setAnswers] = useState({});
   const [quantities, setQuantities] = useState({});
+  const [otherAnswers, setOtherAnswers] = useState({});
 
   useEffect(() => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -167,6 +168,30 @@ export default function AddEventBooking() {
     return formSchema.sections.flatMap((section) => section.fields || []);
   }, [formSchema]);
 
+  const baseRate = useMemo(() => {
+    return Math.max(0, Number(formSchema?.base_rate || 0));
+  }, [formSchema]);
+
+  const isOtherOption = (option) => Number(option?.is_other || 0) === 1;
+
+  const otherAnswerKey = (fieldId, optionId) => `${fieldId}_${optionId}`;
+
+  const getOtherAnswer = (fieldId, optionId) => {
+    return otherAnswers[otherAnswerKey(fieldId, optionId)] || "";
+  };
+
+  const selectedOptionNeedsOtherText = (field, value) => {
+    const selectedValues = Array.isArray(value) ? value : [value];
+
+    return selectedValues.some((selectedValue) => {
+      const option = (field.options || []).find(
+        (opt) => String(opt.id) === String(selectedValue)
+      );
+
+      return isOtherOption(option);
+    });
+  };
+
   const selectedCupCount = useMemo(() => {
     for (const field of allFields) {
       const selected = answers[field.field_name];
@@ -218,12 +243,19 @@ export default function AddEventBooking() {
         if (priceType === "per_quantity") lineTotal = price * qty;
         if (priceType === "per_cup") lineTotal = price * selectedCupCount;
 
+        const optionIsOther = isOtherOption(option);
+        const otherValue = optionIsOther
+          ? getOtherAnswer(field.id, option.id).trim()
+          : "";
+
         items.push({
           field_id: field.id,
           field_label: field.label,
           field_name: field.field_name,
           option_id: option.id,
-          option_label: option.label,
+          option_label: optionIsOther && otherValue ? `Other: ${otherValue}` : option.label,
+          option_is_other: optionIsOther ? 1 : 0,
+          other_value: otherValue,
           price,
           price_type: priceType,
           quantity: qty,
@@ -234,14 +266,16 @@ export default function AddEventBooking() {
     }
 
     return items;
-  }, [allFields, answers, quantities, selectedCupCount]);
+  }, [allFields, answers, quantities, selectedCupCount, otherAnswers]);
 
   const totalAmount = useMemo(() => {
-    return selectedItems.reduce(
+    const optionTotal = selectedItems.reduce(
       (sum, item) => sum + Number(item.line_total || 0),
       0
     );
-  }, [selectedItems]);
+
+    return baseRate + optionTotal;
+  }, [baseRate, selectedItems]);
 
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
@@ -342,6 +376,7 @@ export default function AddEventBooking() {
     fixedInfo,
     answers,
     quantities,
+    otherAnswers,
     selectedItems,
     totalAmount,
   ]);
@@ -420,6 +455,14 @@ export default function AddEventBooking() {
   const handleDynamicChange = (field, e) => {
     const { value, checked, type } = e.target;
 
+    if (field.field_type === "checkbox" && !checked) {
+      clearOtherAnswer(field.id, value);
+    }
+
+    if (field.field_type === "radio" || field.field_type === "select") {
+      clearOtherAnswersForField(field);
+    }
+
     setAnswers((prev) => {
       if (field.field_type === "checkbox") {
         const current = Array.isArray(prev[field.field_name])
@@ -457,6 +500,33 @@ export default function AddEventBooking() {
     }));
   };
 
+  const handleOtherAnswerChange = (fieldId, optionId, value) => {
+    setOtherAnswers((prev) => ({
+      ...prev,
+      [otherAnswerKey(fieldId, optionId)]: value,
+    }));
+  };
+
+  const clearOtherAnswer = (fieldId, optionId) => {
+    setOtherAnswers((prev) => {
+      const next = { ...prev };
+      delete next[otherAnswerKey(fieldId, optionId)];
+      return next;
+    });
+  };
+
+  const clearOtherAnswersForField = (field) => {
+    setOtherAnswers((prev) => {
+      const next = { ...prev };
+
+      (field.options || []).forEach((option) => {
+        delete next[otherAnswerKey(field.id, option.id)];
+      });
+
+      return next;
+    });
+  };
+
   const validateForm = () => {
     if (!fixedInfo.full_name.trim()) return "Full name is required.";
     if (!fixedInfo.phone_number.trim()) return "Phone number is required.";
@@ -478,7 +548,26 @@ export default function AddEventBooking() {
       }
     }
 
-    if (totalAmount <= 0) return "Please select at least one priced option.";
+    for (const field of allFields) {
+      const value = answers[field.field_name];
+
+      if (!selectedOptionNeedsOtherText(field, value)) continue;
+
+      const selectedValues = Array.isArray(value) ? value : [value];
+      const missingOtherText = selectedValues.some((selectedValue) => {
+        const option = (field.options || []).find(
+          (opt) => String(opt.id) === String(selectedValue)
+        );
+
+        return isOtherOption(option) && !getOtherAnswer(field.id, option.id).trim();
+      });
+
+      if (missingOtherText) {
+        return `Please specify your answer for "${field.label} - Other".`;
+      }
+    }
+
+    if (totalAmount <= 0) return "Please select at least one priced option or ask admin to set a base booking rate.";
 
     return "";
   };
@@ -513,7 +602,9 @@ export default function AddEventBooking() {
   const buildDraft = () => ({
     ...fixedInfo,
     dynamic_answers: answers,
+    other_answers: otherAnswers,
     selected_items: selectedItems,
+    base_rate: baseRate,
     total_amount: totalAmount,
   });
 
@@ -581,25 +672,44 @@ export default function AddEventBooking() {
     }
 
     if (field.field_type === "select") {
+      const selectedOption = (field.options || []).find(
+        (option) => String(option.id) === String(fieldValue)
+      );
+
       return (
-        <select
-          value={fieldValue}
-          aria-label={getSelectAriaLabel(field, fieldValue)}
-          onKeyDown={(e) => handleSelectKeyDown(field, e)}
-          onChange={(e) => handleDynamicChange(field, e)}
-        >
-          <option value=""></option>
-          {(field.options || []).map((option) => (
-            <option
-              key={option.id}
-              value={option.id}
-              aria-label={getOptionLabel(option)}
-            >
-              {option.label}
-              {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
-            </option>
-          ))}
-        </select>
+        <>
+          <select
+            value={fieldValue}
+            aria-label={getSelectAriaLabel(field, fieldValue)}
+            onKeyDown={(e) => handleSelectKeyDown(field, e)}
+            onChange={(e) => handleDynamicChange(field, e)}
+          >
+            <option value=""></option>
+            {(field.options || []).map((option) => (
+              <option
+                key={option.id}
+                value={option.id}
+                aria-label={getOptionLabel(option)}
+              >
+                {option.label}
+                {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
+              </option>
+            ))}
+          </select>
+
+          {selectedOption && isOtherOption(selectedOption) && (
+            <input
+              className="other-input"
+              type="text"
+              value={getOtherAnswer(field.id, selectedOption.id)}
+              placeholder="Please specify"
+              aria-label={`Please specify other answer for ${readableText(field.label)}`}
+              onChange={(e) =>
+                handleOtherAnswerChange(field.id, selectedOption.id, e.target.value)
+              }
+            />
+          )}
+        </>
       );
     }
 
@@ -645,6 +755,19 @@ export default function AddEventBooking() {
                   {option.price_type === "per_cup" ? " per cup" : ""}
                 </label>
 
+                {checked && isOtherOption(option) && (
+                  <input
+                    className="other-input"
+                    type="text"
+                    value={getOtherAnswer(field.id, option.id)}
+                    placeholder="Please specify"
+                    aria-label={`Please specify other answer for ${readableField}`}
+                    onChange={(e) =>
+                      handleOtherAnswerChange(field.id, option.id, e.target.value)
+                    }
+                  />
+                )}
+
                 {checked && Number(field.allow_quantity) === 1 && (
                   <input
                     type="number"
@@ -688,10 +811,11 @@ export default function AddEventBooking() {
           <div className="top">
             <button
               className="back"
+              type="button"
               aria-label="Back"
               onClick={() => navigate(`/day?date=${date}&type=event`)}
             >
-              ← Back
+              <img src="/images/left-book.png" alt="" aria-hidden="true" />
             </button>
 
             <div className="date-title">{date}</div>
@@ -867,6 +991,13 @@ export default function AddEventBooking() {
                     </div>
 
                     <div className="booking-summary">
+                      {baseRate > 0 && (
+                        <div className="booking-row">
+                          <span className="booking-label">Base Booking Rate</span>
+                          <span className="booking-value">₱{money(baseRate)}</span>
+                        </div>
+                      )}
+
                       <div className="booking-row">
                         <span className="booking-label">Total</span>
                         <span className="booking-value">₱{money(totalAmount)}</span>
@@ -875,6 +1006,7 @@ export default function AddEventBooking() {
 
                     <div className="actions">
                       <button
+                        type="button"
                         className="btn btn-cancel"
                         aria-label="Cancel"
                         onClick={() => navigate(`/day?date=${date}&type=event`)}
@@ -883,6 +1015,7 @@ export default function AddEventBooking() {
                       </button>
 
                       <button
+                        type="button"
                         className="btn btn-next"
                         aria-label="Next"
                         onClick={handleReview}
@@ -924,6 +1057,13 @@ export default function AddEventBooking() {
                         );
                       })}
 
+                      {baseRate > 0 && (
+                        <div className="booking-row">
+                          <span className="booking-label">Base Booking Rate</span>
+                          <span className="booking-value">₱{money(baseRate)}</span>
+                        </div>
+                      )}
+
                       {selectedItems.map((item) => (
                         <div
                           className="booking-row"
@@ -947,6 +1087,7 @@ export default function AddEventBooking() {
 
                     <div className="actions">
                       <button
+                        type="button"
                         className="btn btn-edit"
                         aria-label="Edit"
                         onClick={() => setStep("form")}
@@ -955,6 +1096,7 @@ export default function AddEventBooking() {
                       </button>
 
                       <button
+                        type="button"
                         className="btn btn-confirm"
                         aria-label="Confirm"
                         onClick={handleConfirm}

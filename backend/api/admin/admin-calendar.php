@@ -57,6 +57,7 @@ if ($method === "GET") {
       u.email AS user_email
     FROM bookings b
     LEFT JOIN users u ON b.user_id = u.id
+    WHERE b.status <> 'pending_payment'
     ORDER BY 
       b.booking_date DESC,
       b.start_time ASC,

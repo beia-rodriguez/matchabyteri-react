@@ -199,7 +199,7 @@ try {
         form_snapshot
       )
     VALUES
-      (?, ?, ?, ?, 'event', 'pending', ?, ?, 'unpaid', ?, ?)
+      (?, ?, ?, ?, 'event', 'pending_payment', ?, ?, 'unpaid', ?, ?)
   ");
 
   if (!$insert) {
@@ -230,6 +230,9 @@ try {
   echo json_encode([
     "success" => true,
     "booking_id" => $bookingId,
+    "status" => "pending_payment",
+    "payment_status" => "unpaid",
+    "message" => "Booking hold created. Please submit GCash proof to send it for admin review.",
     "total_amount" => $total_amount
   ]);
   exit();
