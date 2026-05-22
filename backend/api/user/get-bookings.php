@@ -1,49 +1,104 @@
 <?php
 session_start();
+
 require_once __DIR__ . "/../../config/db.php";
-header("Content-Type: application/json");
- 
+
+header("Content-Type: application/json; charset=utf-8");
+
 if (!isset($_SESSION["user_id"])) {
     http_response_code(401);
-    echo json_encode(["error" => "Unauthorized"]);
+    echo json_encode(["error" => "Unauthorized. Please login again."]);
     exit();
 }
- 
-$id = (int)$_SESSION["user_id"];
- 
+
+$userId = (int) $_SESSION["user_id"];
+
 $private = [];
+
 $stmt = $conn->prepare("
-  SELECT
-    id,
-    booking_date,
-    start_time,
-    end_time,
-    booking_type,
-    status,
-    payment_status,
-    total_amount,
-    amount_paid, -- NEW: Fetching the amount already paid
-    cancel_requested,
-    cancel_reason,
-    created_at
-  FROM bookings
-  WHERE user_id = ?
-  ORDER BY booking_date DESC
+    SELECT
+        b.id,
+        b.booking_date,
+        b.start_time,
+        b.end_time,
+        b.booking_type,
+        b.status,
+        b.payment_status,
+        b.total_amount,
+
+        COALESCE(SUM(
+            CASE
+                WHEN p.status = 'paid' THEN p.amount
+                ELSE 0
+            END
+        ), 0) AS computed_amount_paid,
+
+        b.cancel_requested,
+        b.cancel_reason,
+        b.cancel_requested_at,
+        b.created_at
+    FROM bookings b
+    LEFT JOIN payments p
+        ON p.booking_id = b.id
+    WHERE b.user_id = ?
+    GROUP BY
+        b.id,
+        b.booking_date,
+        b.start_time,
+        b.end_time,
+        b.booking_type,
+        b.status,
+        b.payment_status,
+        b.total_amount,
+        b.cancel_requested,
+        b.cancel_reason,
+        b.cancel_requested_at,
+        b.created_at
+    ORDER BY b.booking_date DESC, b.start_time DESC
 ");
-$stmt->bind_param("i", $id);
+
+if (!$stmt) {
+    http_response_code(500);
+    echo json_encode(["error" => "Database prepare failed: " . $conn->error]);
+    exit();
+}
+
+$stmt->bind_param("i", $userId);
 $stmt->execute();
-$res = $stmt->get_result();
-while ($row = $res->fetch_assoc()) {
-    // Normalize nulls so the front end always has defined keys
-    $row["payment_status"]   = $row["payment_status"]   ?? "unpaid";
-    $row["total_amount"]     = (float)($row["total_amount"] ?? 0);
-    $row["amount_paid"]      = (float)($row["amount_paid"] ?? 0); // NEW: Normalize amount paid
-    $row["cancel_requested"] = (bool)($row["cancel_requested"] ?? false);
-    $row["cancel_reason"]    = $row["cancel_reason"] ?? "";
+
+$result = $stmt->get_result();
+
+while ($row = $result->fetch_assoc()) {
+    $row["status"] = $row["status"] ?? "pending";
+    $row["payment_status"] = $row["payment_status"] ?? "unpaid";
+
+    $row["total_amount"] = (float) ($row["total_amount"] ?? 0);
+    $row["amount_paid"] = (float) ($row["computed_amount_paid"] ?? 0);
+    $row["balance"] = max($row["total_amount"] - $row["amount_paid"], 0);
+
+    /*
+      Optional safety:
+      If payment_status in bookings is outdated, derive display status from actual paid amount.
+    */
+    if ($row["amount_paid"] >= $row["total_amount"] && $row["total_amount"] > 0) {
+        $row["payment_status"] = "paid";
+    } elseif ($row["amount_paid"] > 0) {
+        $row["payment_status"] = "partial";
+    }
+
+    unset($row["computed_amount_paid"]);
+
+    $row["cancel_requested"] = (int) ($row["cancel_requested"] ?? 0);
+    $row["cancel_reason"] = $row["cancel_reason"] ?? "";
+    $row["cancel_requested_at"] = $row["cancel_requested_at"] ?? null;
+
     $private[] = $row;
 }
+
 $stmt->close();
- 
+
 echo json_encode([
-  "privateBookings" => $private
+    "success" => true,
+    "privateBookings" => $private
 ]);
+exit();
