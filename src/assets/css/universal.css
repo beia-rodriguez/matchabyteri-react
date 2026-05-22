@@ -16,6 +16,27 @@ body.screen-reader-on #readable-content summary:focus,
 body.screen-reader-on #readable-content details:focus,
 body.screen-reader-on #readable-content th:focus,
 body.screen-reader-on #readable-content td:focus,
+body.screen-reader-on #readable-content .voice-readable:focus,
+
+body.screen-reader-on #voice-active-tab h1:focus,
+body.screen-reader-on #voice-active-tab h2:focus,
+body.screen-reader-on #voice-active-tab h3:focus,
+body.screen-reader-on #voice-active-tab h4:focus,
+body.screen-reader-on #voice-active-tab h5:focus,
+body.screen-reader-on #voice-active-tab h6:focus,
+body.screen-reader-on #voice-active-tab p:focus,
+body.screen-reader-on #voice-active-tab label:focus,
+body.screen-reader-on #voice-active-tab input:focus,
+body.screen-reader-on #voice-active-tab textarea:focus,
+body.screen-reader-on #voice-active-tab select:focus,
+body.screen-reader-on #voice-active-tab button:focus,
+body.screen-reader-on #voice-active-tab a:focus,
+body.screen-reader-on #voice-active-tab li:focus,
+body.screen-reader-on #voice-active-tab summary:focus,
+body.screen-reader-on #voice-active-tab details:focus,
+body.screen-reader-on #voice-active-tab th:focus,
+body.screen-reader-on #voice-active-tab td:focus,
+body.screen-reader-on #voice-active-tab .voice-readable:focus,
 
 body.screen-reader-on #readable-content .title:focus,
 body.screen-reader-on #readable-content .section-title:focus,
@@ -111,8 +132,48 @@ body.screen-reader-on #readable-content .modal-char-count:focus,
 body.screen-reader-on #readable-content .modal-error:focus,
 body.screen-reader-on #readable-content .modal-warning:focus,
 
+body.screen-reader-on #readable-content .gcash-card:focus,
+body.screen-reader-on #readable-content .gcash-title:focus,
+body.screen-reader-on #readable-content .gcash-sub:focus,
+body.screen-reader-on #readable-content .gcash-eyebrow:focus,
+body.screen-reader-on #readable-content .gcash-status-pill:focus,
+body.screen-reader-on #readable-content .gcash-alert:focus,
+body.screen-reader-on #readable-content .gcash-qr-card:focus,
+body.screen-reader-on #readable-content .gcash-business-card:focus,
+body.screen-reader-on #readable-content .gcash-business-row:focus,
+body.screen-reader-on #readable-content .gcash-note-box:focus,
+body.screen-reader-on #readable-content .gcash-summary-item:focus,
+body.screen-reader-on #readable-content .gcash-radio-option:focus,
+body.screen-reader-on #readable-content .gcash-file-hint:focus,
+body.screen-reader-on #readable-content .gcash-note:focus,
+body.screen-reader-on #readable-content .gcash-back:focus,
+
 body.screen-reader-on .image-wrap [tabindex="0"]:focus {
-  outline: 2px solid #1a4f35;
+  outline: 3px solid #ffde59;
   outline-offset: 4px;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 6px rgba(47, 90, 43, 0.15);
+}
+
+body.screen-reader-on #readable-content input:focus,
+body.screen-reader-on #readable-content textarea:focus,
+body.screen-reader-on #readable-content select:focus,
+body.screen-reader-on #voice-active-tab input:focus,
+body.screen-reader-on #voice-active-tab textarea:focus,
+body.screen-reader-on #voice-active-tab select:focus {
+  outline: 3px solid #ffde59;
+  outline-offset: 3px;
+  border-color: #2f5a2b;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

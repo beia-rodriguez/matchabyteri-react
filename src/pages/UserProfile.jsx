@@ -75,11 +75,10 @@ function getPaymentAction(booking) {
 
 function canCancel(booking) {
   const bStatus = (booking.status || "").toLowerCase();
+  const cancelRequested =
+    Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
 
-  return (
-    ["pending", "approved"].includes(bStatus) &&
-    !booking.cancel_requested
-  );
+  return ["pending", "approved"].includes(bStatus) && !cancelRequested;
 }
 
 // ─── Cancel Modal ────────────────────────────────────────────────────────────
@@ -89,116 +88,50 @@ function CancelModal({ booking, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const modal = document.getElementById("readable-content");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
 
-    if (!modal) return;
+  const cleanReason = reason.trim();
 
-    const isVisible = (element) => {
-      const style = window.getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
+  if (cleanReason.length < 10) {
+    setError("Please provide a reason of at least 10 characters.");
+    return;
+  }
 
-      return (
-        style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        style.opacity !== "0" &&
-        rect.width > 0 &&
-        rect.height > 0
-      );
-    };
+  setSubmitting(true);
 
-    const readableElements = modal.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .modal-title, .modal-info-label, .modal-info-value, .modal-field-label, .modal-char-count, .modal-error, .modal-warning"
-    );
+  try {
+    const formData = new FormData();
+    formData.append("booking_id", String(booking.id));
+    formData.append("reason", cleanReason);
 
-    readableElements.forEach((element) => {
-      const tagName = element.tagName.toLowerCase();
+    const res = await API.post("/user/cancel-booking.php", formData);
 
-      if (
-        tagName !== "button" &&
-        tagName !== "a" &&
-        tagName !== "input" &&
-        tagName !== "textarea" &&
-        tagName !== "select"
-      ) {
-        element.removeAttribute("tabindex");
-      }
+    console.log("Cancel booking full response:", res);
+    console.log("Cancel booking response data:", res.data);
 
-      if (!isVisible(element)) return;
-
-      let textToRead = "";
-
-      if (tagName === "img") {
-        textToRead = element.getAttribute("alt") || "";
-      } else if (
-        tagName === "input" ||
-        tagName === "textarea" ||
-        tagName === "select"
-      ) {
-        textToRead =
-          element.getAttribute("aria-label") ||
-          element.placeholder ||
-          element.value ||
-          element.name ||
-          element.id ||
-          "Input field";
-      } else {
-        textToRead =
-          element.getAttribute("aria-label") ||
-          element.innerText ||
-          element.textContent ||
-          "";
-      }
-
-      if (!textToRead.trim()) return;
-
-      if (
-        tagName !== "button" &&
-        tagName !== "a" &&
-        tagName !== "input" &&
-        tagName !== "textarea" &&
-        tagName !== "select"
-      ) {
-        element.setAttribute("tabindex", "0");
-      }
-
-      if (!element.getAttribute("aria-label")) {
-        element.setAttribute("aria-label", readableText(textToRead));
-      }
-    });
-  }, [reason, error, submitting]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    if (reason.trim().length < 10) {
-      setError("Please provide a reason of at least 10 characters.");
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const res = await API.post("/user/cancel-booking.php", {
-        booking_id: booking.id,
-        reason: reason.trim(),
-      });
-
-      if (res.data.success) {
-        onSuccess(booking.id);
-      } else {
-        setError(res.data.error || "Failed to submit request.");
-      }
-    } catch (err) {
+    if (res.data && res.data.success === true) {
+      onSuccess(booking.id);
+    } else {
       setError(
-        err.response?.data?.error ||
-          "Failed to submit request. Please try again."
+        typeof res.data === "string"
+          ? res.data
+          : res.data?.error || "Failed to submit request."
       );
-    } finally {
-      setSubmitting(false);
     }
-  };
+  } catch (err) {
+    console.error("Cancel booking error:", err);
+
+    setError(
+      err.response?.data?.error ||
+        err.response?.data ||
+        "Failed to submit request. Please try again."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleBackdrop = (e) => {
     if (e.target === e.currentTarget) onClose();
@@ -211,9 +144,11 @@ function CancelModal({ booking, onClose, onSuccess }) {
           <span className="modal-title">Request Cancellation</span>
 
           <button
+            type="button"
             className="modal-close"
             onClick={onClose}
             aria-label="Close"
+            disabled={submitting}
           >
             ×
           </button>
@@ -251,15 +186,11 @@ function CancelModal({ booking, onClose, onSuccess }) {
               className="modal-textarea"
               rows={4}
               maxLength={500}
-              placeholder="Please explain why you want to cancel this booking… (min. 10 characters)"
+              placeholder="Please explain why you want to cancel this booking…"
               value={reason}
-              aria-label={
-                reason.trim()
-                  ? `Reason for Cancellation: ${reason}`
-                  : "Enter Reason for Cancellation"
-              }
               onChange={(e) => setReason(e.target.value)}
               required
+              disabled={submitting}
             />
 
             <div className="modal-char-count">{reason.length} / 500</div>
@@ -275,7 +206,6 @@ function CancelModal({ booking, onClose, onSuccess }) {
               <button
                 type="button"
                 className="btn btn-back"
-                aria-label="Go Back"
                 onClick={onClose}
                 disabled={submitting}
               >
@@ -285,7 +215,6 @@ function CancelModal({ booking, onClose, onSuccess }) {
               <button
                 type="submit"
                 className="btn btn-cancel-confirm"
-                aria-label={submitting ? "Submitting" : "Submit Request"}
                 disabled={submitting || reason.trim().length < 10}
               >
                 {submitting ? "Submitting…" : "Submit Request"}
@@ -440,46 +369,44 @@ export default function UserProfile() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!form.name.trim()) {
-      alert("Please enter your name.");
-      return;
+  if (!form.name.trim()) {
+    alert("Please enter your name.");
+    return;
+  }
+
+  const formData = new FormData();
+
+  formData.append("name", form.name);
+  formData.append("phone_number", form.phone_number);
+  formData.append("birthdate", form.birthdate);
+
+  if (form.profile_picture) {
+    formData.append("profile_picture", form.profile_picture);
+  }
+
+  try {
+    const res = await API.post("/user/update-profile.php", formData);
+
+    if (res.data.success) {
+      setUser((prev) => ({
+        ...prev,
+        profile_picture: res.data.profile_picture,
+        name: form.name,
+      }));
+
+      setPreview(null);
+      alert("Profile updated successfully");
+    } else {
+      alert(res.data.error || "Update failed");
     }
-
-    const formData = new FormData();
-
-    formData.append("name", form.name);
-    formData.append("phone_number", form.phone_number);
-    formData.append("birthdate", form.birthdate);
-
-    if (form.profile_picture) {
-      formData.append("profile_picture", form.profile_picture);
-    }
-
-    try {
-      const res = await API.post("/user/update-profile.php", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      if (res.data.success) {
-        setUser((prev) => ({
-          ...prev,
-          profile_picture: res.data.profile_picture,
-          name: form.name,
-        }));
-
-        setPreview(null);
-        alert("Profile updated successfully");
-      } else {
-        alert(res.data.error || "Update failed");
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-      alert("Error updating profile. Please try again.");
-    }
-  };
+  } catch (err) {
+    console.error("Upload error:", err);
+    alert("Error updating profile. Please try again.");
+  }
+};
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -491,16 +418,18 @@ export default function UserProfile() {
     navigate("/login");
   };
 
-  const handleCancelSuccess = (bookingId) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId ? { ...b, cancel_requested: true } : b
-      )
-    );
+const handleCancelSuccess = (bookingId) => {
+  setBookings((prev) =>
+    prev.map((b) =>
+      Number(b.id) === Number(bookingId)
+        ? { ...b, cancel_requested: 1 }
+        : b
+    )
+  );
 
-    setCancelTarget(null);
-    alert("Cancellation request submitted. The admin will review your request shortly.");
-  };
+  setCancelTarget(null);
+  alert("Cancellation request submitted. The admin will review your request shortly.");
+};
 
   const handlePayAction = (booking) => {
     const action = getPaymentAction(booking);
@@ -701,7 +630,8 @@ export default function UserProfile() {
                           const pBadge = paymentBadge(b.payment_status);
                           const payAction = getPaymentAction(b);
                           const showCancel = canCancel(b);
-                          const cancelPending = b.cancel_requested;
+                          const cancelPending =
+  Number(b.cancel_requested) === 1 || b.cancel_requested === true;
 
                           return (
                             <tr key={b.id}>
@@ -774,7 +704,7 @@ export default function UserProfile() {
                                         }}
                                       >
                                         Paid: ₱{money(b.amount_paid)} <br />
-                                        Balance: ₱{money(b.total_amount - b.amount_paid)}
+                                        Balance: ₱{money(Math.max(Number(b.total_amount || 0) - Number(b.amount_paid || 0), 0))}
                                       </div>
                                     )}
                                   </>
