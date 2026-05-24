@@ -12,7 +12,7 @@ function badgeLabel(s) {
 }
 
 function money(value) {
-  return Number(value || 0).toLocaleString(undefined, {
+  return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -27,6 +27,14 @@ function proofSrc(path) {
   if (clean.startsWith("/api/")) return clean;
 
   return `/api/${clean.replace(/^\/+/, "")}`;
+}
+
+function cleanStatus(value) {
+  const status = String(value || "pending").toLowerCase();
+
+  if (["pending", "paid", "rejected"].includes(status)) return status;
+
+  return "pending";
 }
 
 export default function AdminPayments() {
@@ -81,8 +89,8 @@ export default function AdminPayments() {
       const nextStatuses = {};
 
       nextPayments.forEach((p) => {
-        nextNotes[p.id] = p.decoded_context?._admin?.note || "";
-        nextStatuses[p.id] = String(p.status || "pending").toLowerCase();
+        nextNotes[p.id] = p.admin_notes || p.decoded_context?._admin?.note || "";
+        nextStatuses[p.id] = cleanStatus(p.status);
       });
 
       setNotes(nextNotes);
@@ -97,6 +105,7 @@ export default function AdminPayments() {
 
   useEffect(() => {
     loadData("pending", "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const applyFilters = async (e) => {
@@ -107,8 +116,23 @@ export default function AdminPayments() {
     await loadData(status, q);
   };
 
-  const handleSave = async (paymentId) => {
-    if (!window.confirm("Save this payment status update?")) return;
+  const handleSave = async (payment) => {
+    const paymentId = Number(payment.id);
+    const currentStatus = cleanStatus(payment.status);
+    const nextStatus = cleanStatus(statuses[paymentId]);
+    const note = notes[paymentId] || "";
+
+    if (currentStatus === "paid" && nextStatus !== "paid") {
+      setErr("Paid payments are locked. Use an adjustment/refund record instead of changing a paid payment back.");
+      return;
+    }
+
+    if (nextStatus === "rejected" && note.trim().length < 5) {
+      setErr("Please add a short reason before rejecting a payment.");
+      return;
+    }
+
+    if (!window.confirm(`Save this payment as ${nextStatus.toUpperCase()}?`)) return;
 
     setSavingId(paymentId);
     setMsg("");
@@ -119,8 +143,8 @@ export default function AdminPayments() {
         action: "set_payment_status",
         csrf_token: csrf,
         payment_id: paymentId,
-        status: statuses[paymentId],
-        admin_note: notes[paymentId] || "",
+        status: nextStatus,
+        admin_note: note,
       });
 
       if (data?.error) {
@@ -128,7 +152,14 @@ export default function AdminPayments() {
         return;
       }
 
-      setMsg(data?.message || "Payment updated.");
+      const booking = data?.booking;
+      const suffix = booking
+        ? ` Booking is now ${String(booking.payment_status || "").toUpperCase()}. Paid: ₱${money(
+            booking.amount_paid
+          )}. Balance: ₱${money(booking.remaining_balance)}.`
+        : "";
+
+      setMsg((data?.message || "Payment updated.") + suffix);
       await loadData(status, q);
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to update payment.");
@@ -237,7 +268,10 @@ export default function AdminPayments() {
         ) : (
           payments.map((p) => {
             const paymentId = Number(p.id);
-            const st = String(p.status || "pending").toLowerCase();
+            const st = cleanStatus(p.status);
+            const selectedStatus = cleanStatus(statuses[paymentId] || st);
+            const isPaidLocked = st === "paid";
+            const isSaving = savingId === paymentId;
 
             const badgeClass =
               st === "paid" ? "paid" : st === "rejected" ? "rejected" : "pending";
@@ -246,7 +280,9 @@ export default function AdminPayments() {
             const paymentChoice = ctx.payment_choice || "";
             const totalAmount = Number(ctx.total_amount || p.total_amount || 0);
             const expectedAmount = Number(ctx.expected_payment_amount || p.amount || 0);
-            const paidAt = ctx._paid_at || "";
+            const amountPaid = Number(p.amount_paid || 0);
+            const remainingBalance = Number(p.remaining_balance || Math.max(totalAmount - amountPaid, 0));
+            const paidAt = ctx._paid_at || p.reviewed_at || "";
             const adminCtx = ctx._admin || null;
 
             let bookingInfo = "";
@@ -263,123 +299,173 @@ export default function AdminPayments() {
               }
             }
 
-        return (
-  <article className="pay-card-react" key={paymentId}>
-    {/* --- HEADER --- */}
-    <div className="p-header-react">
-      <div className="p-header-info">
-        <h4 className="p-title-react">
-          {p.purpose || "Payment"}
-          {p.booking_id ? <span className="p-ref"># {p.booking_id}</span> : ""}
-        </h4>
-        <span className="p-date-react">Submitted: {p.created_at || "N/A"}</span>
-      </div>
-      <span className={`p-badge-react ${badgeClass}`}>
-        {badgeLabel(p.status)}
-      </span>
-    </div>
+            return (
+              <article className="pay-card-react" key={paymentId}>
+                <div className="p-header-react">
+                  <div className="p-header-info">
+                    <h4 className="p-title-react">
+                      {p.purpose || "Payment"}
+                      {p.booking_id ? <span className="p-ref"># {p.booking_id}</span> : ""}
+                    </h4>
+                    <span className="p-date-react">Submitted: {p.created_at || "N/A"}</span>
+                    {paidAt && st === "paid" && (
+                      <span className="p-date-react">Reviewed/Paid: {paidAt}</span>
+                    )}
+                  </div>
 
-    {/* --- DATA GRID (Spreads across the card) --- */}
-    <div className="p-grid-react">
-      <div className="p-data-group">
-        <span className="p-label-sm">Customer</span>
-        <span className="p-value">
-          <strong>{p.user_name || "Unknown"}</strong><br />
-          <span className="p-subtext">{p.user_email || "No email provided"}</span>
-        </span>
-      </div>
+                  <span className={`p-badge-react ${badgeClass}`}>
+                    {badgeLabel(p.status)}
+                  </span>
+                </div>
 
-      <div className="p-data-group">
-        <span className="p-label-sm">Payer & Reference</span>
-        <span className="p-value">
-          Name: {p.payer_name || "-"}<br />
-          <span className="p-subtext">Ref: {p.reference_no || "-"}</span>
-        </span>
-      </div>
+                <div className="p-grid-react">
+                  <div className="p-data-group">
+                    <span className="p-label-sm">Customer</span>
+                    <span className="p-value">
+                      <strong>{p.user_name || "Unknown"}</strong>
+                      <br />
+                      <span className="p-subtext">{p.user_email || "No email provided"}</span>
+                    </span>
+                  </div>
 
-      <div className="p-data-group">
-        <span className="p-label-sm">Booking Info</span>
-        <span className="p-value">
-          {bookingInfo ? bookingInfo : "N/A"} <br />
-          <span className="p-subtext">Token: {p.short_payment_token || "-"}</span>
-        </span>
-      </div>
+                  <div className="p-data-group">
+                    <span className="p-label-sm">Payer & Reference</span>
+                    <span className="p-value">
+                      Name: {p.payer_name || "-"}
+                      <br />
+                      <span className="p-subtext">Ref: {p.reference_no || "-"}</span>
+                    </span>
+                  </div>
 
-      <div className="p-data-group">
-        <span className="p-label-sm">Amount Details</span>
-        <span className="p-value">
-          Expected: <strong style={{color: "var(--green-2)"}}>₱{money(expectedAmount)}</strong><br />
-          <span className="p-subtext">
-            Total: ₱{money(totalAmount)} ({paymentChoice ? paymentChoice.toUpperCase() : "N/A"})
-          </span>
-        </span>
-      </div>
-    </div>
+                  <div className="p-data-group">
+                    <span className="p-label-sm">Booking Info</span>
+                    <span className="p-value">
+                      {bookingInfo ? bookingInfo : "N/A"}
+                      <br />
+                      <span className="p-subtext">Token: {p.short_payment_token || "-"}</span>
+                    </span>
+                  </div>
 
-    {/* --- ADMIN ACTION AREA (Horizontal row at the bottom) --- */}
-    <div className="p-admin-row-react">
-      <div className="p-admin-col">
-        <span className="p-label-sm">Proof of Payment</span>
-        {p.proof_path ? (
-          <a href={proofSrc(p.proof_path)} target="_blank" rel="noopener noreferrer" className="btn-view-proof">
-            🖼️ View Image
-          </a>
-        ) : (
-          <span className="admin-muted-react" style={{padding: '8px 0'}}>No proof attached</span>
-        )}
-      </div>
+                  <div className="p-data-group">
+                    <span className="p-label-sm">Amount Details</span>
+                    <span className="p-value">
+                      This Proof:{" "}
+                      <strong style={{ color: "var(--green-2)" }}>
+                        ₱{money(expectedAmount)}
+                      </strong>
+                      <br />
+                      <span className="p-subtext">
+                        Total: ₱{money(totalAmount)}{" "}
+                        {paymentChoice ? `(${String(paymentChoice).toUpperCase()})` : ""}
+                      </span>
+                      <br />
+                      <span className="p-subtext">
+                        Booking Paid: ₱{money(amountPaid)} • Balance: ₱{money(remainingBalance)}
+                      </span>
+                    </span>
+                  </div>
+                </div>
 
-      <div className="p-admin-col">
-        <label className="p-label-sm" htmlFor={`payment-status-${paymentId}`}>Update Status</label>
-        <select
-          id={`payment-status-${paymentId}`}
-          className="p-select-react"
-          value={statuses[paymentId] || st}
-          onChange={(e) =>
-            setStatuses((prev) => ({
-              ...prev,
-              [paymentId]: e.target.value,
-            }))
-          }
-        >
-          <option value="pending">Pending</option>
-          <option value="paid">Paid</option>
-          <option value="rejected">Rejected</option>
-        </select>
-      </div>
+                {adminCtx?.note && (
+                  <div className="admin-muted-react" style={{ marginTop: 8 }}>
+                    Last admin note: {adminCtx.note}
+                  </div>
+                )}
 
-      <div className="p-admin-col note-col">
-        <label className="p-label-sm" htmlFor={`admin-note-${paymentId}`}>Admin Note</label>
-        {/* Changed to standard input for better horizontal row alignment */}
-        <input
-          type="text"
-          id={`admin-note-${paymentId}`}
-          className="p-input-react"
-          placeholder="Reason for rejection / general note..."
-          value={notes[paymentId] || ""}
-          onChange={(e) =>
-            setNotes((prev) => ({
-              ...prev,
-              [paymentId]: e.target.value,
-            }))
-          }
-        />
-      </div>
+                {isPaidLocked && (
+                  <div className="admin-muted-react" style={{ marginTop: 8 }}>
+                    This payment is locked because it is already paid. Admin notes can still be saved,
+                    but the status should not be reversed.
+                  </div>
+                )}
 
-      <div className="p-admin-col action-col">
-        <button
-          className="admin-btn-react admin-btn-approve-react"
-          type="button"
-          onClick={() => handleSave(paymentId)}
-          disabled={savingId === paymentId}
-          style={{ height: '42px', padding: '0 24px' }}
-        >
-          {savingId === paymentId ? "SAVING..." : "SAVE"}
-        </button>
-      </div>
-    </div>
-  </article>
-);
+                <div className="p-admin-row-react">
+                  <div className="p-admin-col">
+                    <span className="p-label-sm">Proof of Payment</span>
+                    {p.proof_path ? (
+                      <a
+                        href={proofSrc(p.proof_path)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-view-proof"
+                      >
+                        🖼️ View Image
+                      </a>
+                    ) : (
+                      <span className="admin-muted-react" style={{ padding: "8px 0" }}>
+                        No proof attached
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-admin-col">
+                    <label className="p-label-sm" htmlFor={`payment-status-${paymentId}`}>
+                      Update Status
+                    </label>
+
+                    <select
+                      id={`payment-status-${paymentId}`}
+                      className="p-select-react"
+                      value={selectedStatus}
+                      disabled={isSaving}
+                      onChange={(e) =>
+                        setStatuses((prev) => ({
+                          ...prev,
+                          [paymentId]: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="paid">Paid</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  <div className="p-admin-col note-col">
+                    <label className="p-label-sm" htmlFor={`admin-note-${paymentId}`}>
+                      Admin Note
+                    </label>
+
+                    <input
+                      type="text"
+                      id={`admin-note-${paymentId}`}
+                      className="p-input-react"
+                      placeholder="Reason for rejection / general note..."
+                      value={notes[paymentId] || ""}
+                      disabled={isSaving}
+                      onChange={(e) =>
+                        setNotes((prev) => ({
+                          ...prev,
+                          [paymentId]: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="p-admin-col action-col">
+                    <button
+  className="admin-btn-react admin-btn-approve-react"
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleSave(p);
+  }}
+  disabled={isSaving}
+  style={{
+    height: "42px",
+    padding: "0 24px",
+    position: "relative",
+    zIndex: 10,
+    pointerEvents: "auto",
+  }}
+>
+  {isSaving ? "SAVING..." : "SAVE"}
+</button>
+                  </div>
+                </div>
+              </article>
+            );
           })
         )}
       </div>

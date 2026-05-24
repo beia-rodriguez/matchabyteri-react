@@ -18,6 +18,12 @@ function digitsForReader(value = "") {
     .join(" ");
 }
 
+function getSafeStatusClass(status = "") {
+  return String(status)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "-");
+}
+
 const ALLOWED_PURPOSES = ["event_booking", "workshop_booking", "workshop_public"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -52,6 +58,8 @@ export default function GcashPayment() {
   const paymentStatus = String(
     paymentData?.payment_status || "unpaid"
   ).toLowerCase();
+
+  const safePaymentStatusClass = getSafeStatusClass(paymentStatus);
 
   const [paymentChoice, setPaymentChoice] = useState("downpayment");
 
@@ -131,24 +139,50 @@ export default function GcashPayment() {
     return Number(paymentData?.total_amount || 0);
   }, [paymentData]);
 
+  const formSnapshot = useMemo(() => {
+    const snapshotRaw = paymentData?.form_snapshot;
+
+    if (!snapshotRaw) return null;
+
+    try {
+      return typeof snapshotRaw === "string" ? JSON.parse(snapshotRaw) : snapshotRaw;
+    } catch {
+      return null;
+    }
+  }, [paymentData]);
+
+  const bookingBaseRate = useMemo(() => {
+    const snapshotBaseRate = Number(formSnapshot?.base_rate || 0);
+
+    if (Number.isFinite(snapshotBaseRate) && snapshotBaseRate > 0) {
+      return snapshotBaseRate;
+    }
+
+    const contextRaw = paymentData?.context_json;
+
+    if (!contextRaw) return 0;
+
+    try {
+      const context =
+        typeof contextRaw === "string" ? JSON.parse(contextRaw) : contextRaw;
+
+      const contextBaseRate = Number(context?.base_rate || context?.form_snapshot?.base_rate || 0);
+
+      return Number.isFinite(contextBaseRate) && contextBaseRate > 0
+        ? contextBaseRate
+        : 0;
+    } catch {
+      return 0;
+    }
+  }, [formSnapshot, paymentData]);
+
   const downpaymentPercentage = useMemo(() => {
     if (isPublicWorkshop) return 100;
 
-    const snapshotRaw = paymentData?.form_snapshot;
+    const percentage = Number(formSnapshot?.downpayment_percentage || 50);
 
-    if (!snapshotRaw) return 50;
-
-    try {
-      const snapshot =
-        typeof snapshotRaw === "string" ? JSON.parse(snapshotRaw) : snapshotRaw;
-
-      const percentage = Number(snapshot?.downpayment_percentage || 50);
-
-      return percentage > 0 && percentage <= 100 ? percentage : 50;
-    } catch {
-      return 50;
-    }
-  }, [paymentData, isPublicWorkshop]);
+    return percentage > 0 && percentage <= 100 ? percentage : 50;
+  }, [formSnapshot, isPublicWorkshop]);
 
   const downpaymentAmount = useMemo(() => {
     return Number((totalAmount * (downpaymentPercentage / 100)).toFixed(2));
@@ -184,6 +218,10 @@ export default function GcashPayment() {
 
   const readableGcashNumber = digitsForReader(gcash.number);
   const readableTotalAmount = `Total amount is ${money(totalAmount)} pesos.`;
+  const readableBaseRate =
+    bookingBaseRate > 0
+      ? `Base booking rate is ${money(bookingBaseRate)} pesos.`
+      : "No separate base booking rate was found for this booking.";
   const readableAmountToPay = `Amount to pay is ${money(amountToPay)} pesos.`;
 
   const handleProofChange = (e) => {
@@ -260,19 +298,19 @@ export default function GcashPayment() {
 
       <main
         id="readable-content"
-        className="gcash-page"
+        className="gpmt-page"
         aria-label="GCash payment page"
       >
-        <section className="gcash-wrap">
+        <section className="gpmt-wrap">
           <div
-            className="gcash-card voice-readable"
+            className="gpmt-card voice-readable"
             tabIndex="0"
             aria-label="GCash payment form"
           >
-            <header className="gcash-header">
+            <header className="gpmt-header">
               <div>
                 <p
-                  className="gcash-eyebrow voice-readable"
+                  className="gpmt-eyebrow voice-readable"
                   tabIndex="0"
                   aria-label="Secure payment"
                 >
@@ -280,7 +318,7 @@ export default function GcashPayment() {
                 </p>
 
                 <h1
-                  className="gcash-title voice-readable"
+                  className="gpmt-title voice-readable"
                   tabIndex="0"
                   aria-label="Pay via GCash"
                 >
@@ -288,7 +326,7 @@ export default function GcashPayment() {
                 </h1>
 
                 <p
-                  className="gcash-sub voice-readable"
+                  className="gpmt-sub voice-readable"
                   tabIndex="0"
                   aria-label={
                     loading
@@ -308,7 +346,7 @@ export default function GcashPayment() {
 
               {!loading && (
                 <div
-                  className={`gcash-status-pill status-${paymentStatus}`}
+                  className={`gpmt-status-pill gpmt-status-${safePaymentStatusClass}`}
                   tabIndex="0"
                   aria-label={`Payment status is ${paymentStatus}`}
                 >
@@ -319,18 +357,18 @@ export default function GcashPayment() {
 
             {loading ? (
               <div
-                className="gcash-loading voice-readable"
+                className="gpmt-loading voice-readable"
                 tabIndex="0"
                 aria-label="Loading payment details. Please wait."
               >
-                <span className="gcash-loader" aria-hidden="true"></span>
+                <span className="gpmt-loader" aria-hidden="true"></span>
                 Loading payment details...
               </div>
             ) : (
               <>
                 {err && (
                   <div
-                    className="gcash-alert gcash-alert-bad voice-readable"
+                    className="gpmt-alert gpmt-alert-bad voice-readable"
                     role="alert"
                     tabIndex="0"
                     aria-label={`Error. ${err}`}
@@ -339,45 +377,42 @@ export default function GcashPayment() {
                   </div>
                 )}
 
-                <div className="gcash-grid">
-                  <aside className="gcash-left-panel">
+                <div className="gpmt-grid">
+                  <aside className="gpmt-left-panel">
                     <div
-                      className="gcash-qr-card voice-readable"
+                      className="gpmt-qr-card voice-readable"
                       tabIndex="0"
                       aria-label={`Scan the GCash QR code to pay ${money(
                         amountToPay
                       )} pesos.`}
                     >
-                      <div className="gcash-qr-top">
+                      <div className="gpmt-qr-top">
                         <span>Scan to Pay</span>
                       </div>
 
-                      <div className="gcash-qr">
-                        <img
-                          src={gcash.qr}
-                          alt="GCash QR code for payment"
-                        />
+                      <div className="gpmt-qr">
+                        <img src={gcash.qr} alt="GCash QR code for payment" />
                       </div>
                     </div>
 
                     <div
-                      className="gcash-business-card voice-readable"
+                      className="gpmt-business-card voice-readable"
                       tabIndex="0"
                       aria-label={`GCash number ${readableGcashNumber}. Initials or name ${gcash.name}.`}
                     >
-                      <div className="gcash-business-row">
+                      <div className="gpmt-business-row">
                         <span>GCash Number</span>
                         <strong>{gcash.number}</strong>
                       </div>
 
-                      <div className="gcash-business-row">
+                      <div className="gpmt-business-row">
                         <span>Initials/Name</span>
                         <strong>{gcash.name}</strong>
                       </div>
                     </div>
 
                     <div
-                      className="gcash-note-box voice-readable"
+                      className="gpmt-note-box voice-readable"
                       tabIndex="0"
                       aria-label="Reminder. Send payment first using the QR code or GCash number, then upload your proof of payment."
                     >
@@ -386,11 +421,11 @@ export default function GcashPayment() {
                     </div>
                   </aside>
 
-                  <section className="gcash-form-panel">
+                  <section className="gpmt-form-panel">
                     <form onSubmit={handleSubmit} encType="multipart/form-data">
-                      <div className="gcash-summary-grid">
+                      <div className="gpmt-summary-grid">
                         <div
-                          className="gcash-summary-item voice-readable"
+                          className="gpmt-summary-item voice-readable"
                           tabIndex="0"
                           aria-label={readableTotalAmount}
                         >
@@ -398,8 +433,19 @@ export default function GcashPayment() {
                           <strong>₱{money(totalAmount)}</strong>
                         </div>
 
+                        {bookingBaseRate > 0 && (
+                          <div
+                            className="gpmt-summary-item voice-readable"
+                            tabIndex="0"
+                            aria-label={readableBaseRate}
+                          >
+                            <span>Base Booking Rate</span>
+                            <strong>₱{money(bookingBaseRate)}</strong>
+                          </div>
+                        )}
+
                         <div
-                          className="gcash-summary-item voice-readable"
+                          className="gpmt-summary-item voice-readable"
                           tabIndex="0"
                           aria-label={`Payment status is ${paymentStatus}.`}
                         >
@@ -408,10 +454,10 @@ export default function GcashPayment() {
                         </div>
                       </div>
 
-                      <div className="gcash-field">
+                      <div className="gpmt-field">
                         <label
                           className="voice-readable"
-                          htmlFor="payment_choice_group"
+                          htmlFor="gpmt-payment-choice-group"
                           tabIndex="0"
                           aria-label="Payment option"
                         >
@@ -419,14 +465,14 @@ export default function GcashPayment() {
                         </label>
 
                         <div
-                          id="payment_choice_group"
-                          className="gcash-payment-options"
+                          id="gpmt-payment-choice-group"
+                          className="gpmt-payment-options"
                           role="radiogroup"
                           aria-label="Payment option"
                         >
                           {isPublicWorkshop && (
                             <label
-                              className="gcash-radio-option voice-readable"
+                              className="gpmt-radio-option voice-readable"
                               tabIndex="0"
                               aria-label={`Full payment selected. Amount is ${money(
                                 totalAmount
@@ -449,7 +495,7 @@ export default function GcashPayment() {
                           {showInitialOptions && (
                             <>
                               <label
-                                className="gcash-radio-option voice-readable"
+                                className="gpmt-radio-option voice-readable"
                                 tabIndex="0"
                                 aria-label={`Downpayment option. ${money(
                                   downpaymentPercentage
@@ -473,7 +519,7 @@ export default function GcashPayment() {
                               </label>
 
                               <label
-                                className="gcash-radio-option voice-readable"
+                                className="gpmt-radio-option voice-readable"
                                 tabIndex="0"
                                 aria-label={`Full payment option. Amount is ${money(
                                   totalAmount
@@ -496,7 +542,7 @@ export default function GcashPayment() {
 
                           {showRemainingOnly && (
                             <label
-                              className="gcash-radio-option voice-readable"
+                              className="gpmt-radio-option voice-readable"
                               tabIndex="0"
                               aria-label={`Remaining balance selected. Amount is ${money(
                                 remainingAmount
@@ -518,10 +564,10 @@ export default function GcashPayment() {
                         </div>
                       </div>
 
-                      <div className="gcash-field">
+                      <div className="gpmt-field">
                         <label
                           className="voice-readable"
-                          htmlFor="amount"
+                          htmlFor="gpmt-amount"
                           tabIndex="0"
                           aria-label="Amount to pay"
                         >
@@ -530,17 +576,25 @@ export default function GcashPayment() {
 
                         <input
                           type="text"
-                          id="amount"
+                          id="gpmt-amount"
                           value={`₱${money(amountToPay)}`}
                           readOnly
                           aria-label={readableAmountToPay}
                         />
+
+                        <p
+                          className="gpmt-file-hint voice-readable"
+                          tabIndex="0"
+                          aria-label="This amount is based on the total saved when your booking was created."
+                        >
+                          This is based on the saved booking total.
+                        </p>
                       </div>
 
-                      <div className="gcash-field">
+                      <div className="gpmt-field">
                         <label
                           className="voice-readable"
-                          htmlFor="payer_name"
+                          htmlFor="gpmt-payer-name"
                           tabIndex="0"
                           aria-label="Payer name"
                         >
@@ -549,7 +603,7 @@ export default function GcashPayment() {
 
                         <input
                           type="text"
-                          id="payer_name"
+                          id="gpmt-payer-name"
                           value={payerName}
                           onChange={(e) => setPayerName(e.target.value)}
                           placeholder="Enter the GCash account name"
@@ -558,10 +612,10 @@ export default function GcashPayment() {
                         />
                       </div>
 
-                      <div className="gcash-field">
+                      <div className="gpmt-field">
                         <label
                           className="voice-readable"
-                          htmlFor="reference_no"
+                          htmlFor="gpmt-reference-no"
                           tabIndex="0"
                           aria-label="GCash reference number"
                         >
@@ -570,7 +624,7 @@ export default function GcashPayment() {
 
                         <input
                           type="text"
-                          id="reference_no"
+                          id="gpmt-reference-no"
                           value={referenceNo}
                           onChange={(e) => setReferenceNo(e.target.value)}
                           placeholder="Enter your GCash reference number"
@@ -579,10 +633,10 @@ export default function GcashPayment() {
                         />
                       </div>
 
-                      <div className="gcash-field">
+                      <div className="gpmt-field">
                         <label
                           className="voice-readable"
-                          htmlFor="proof"
+                          htmlFor="gpmt-proof"
                           tabIndex="0"
                           aria-label="Upload payment proof"
                         >
@@ -591,7 +645,7 @@ export default function GcashPayment() {
 
                         <input
                           type="file"
-                          id="proof"
+                          id="gpmt-proof"
                           accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                           onChange={handleProofChange}
                           required
@@ -599,7 +653,7 @@ export default function GcashPayment() {
                         />
 
                         <p
-                          className="gcash-file-hint voice-readable"
+                          className="gpmt-file-hint voice-readable"
                           tabIndex="0"
                           aria-label="Accepted files are JPG, PNG, or WEBP. Maximum file size is 5 megabytes."
                         >
@@ -608,7 +662,7 @@ export default function GcashPayment() {
                       </div>
 
                       <button
-                        className="gcash-btn voice-readable"
+                        className="gpmt-btn voice-readable"
                         type="submit"
                         disabled={submitting}
                         aria-label={
@@ -621,7 +675,7 @@ export default function GcashPayment() {
                       </button>
 
                       <div
-                        className="gcash-note voice-readable"
+                        className="gpmt-note voice-readable"
                         tabIndex="0"
                         aria-label="Your payment will be marked pending until admin verification."
                       >
@@ -632,7 +686,7 @@ export default function GcashPayment() {
 
                     <button
                       type="button"
-                      className="gcash-back voice-readable"
+                      className="gpmt-back voice-readable"
                       onClick={() => navigate(-1)}
                       aria-label="Go back to previous page"
                     >

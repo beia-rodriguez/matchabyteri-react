@@ -67,10 +67,29 @@ export default function Login() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, button, img, a, li, .success, .alert"
+      [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "p",
+        "label",
+        "input",
+        "button",
+        "img",
+        "a",
+        "li",
+        ".auth-login-success",
+        ".auth-login-alert",
+        ".auth-login-footer",
+      ].join(", ")
     );
 
     readableElements.forEach((element) => {
+      if (element.closest(".accessibility-bubble-wrapper")) return;
+
       const tagName = element.tagName.toLowerCase();
 
       if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
@@ -105,6 +124,7 @@ export default function Login() {
       }
 
       element.setAttribute("aria-label", textToRead.trim());
+      element.classList.add("voice-readable");
     });
   }, [notice, error, email, password, submitting, showPw]);
 
@@ -144,23 +164,27 @@ export default function Login() {
   };
 
   return (
-    <div className="page" id="readable-content">
-      <div className="shell">
-        <div className="brand">
+    <main
+      className="auth-login-page"
+      id="readable-content"
+      aria-label="Login page"
+    >
+      <div className="auth-login-shell">
+        <section className="auth-login-brand" aria-label="Matcha By Teri brand">
           <img
-            className="brand-logo"
+            className="auth-login-brand-logo"
             src="/images/MBT_white 1.png"
             alt="Matcha By Teri"
           />
-        </div>
+        </section>
 
-        <div className="login-card">
-          <h1>Login</h1>
+        <section className="auth-login-card" aria-label="Login form">
+          <h1 className="auth-login-title">Login</h1>
 
           {notice && (
             <div
               ref={noticeRef}
-              className="success"
+              className="auth-login-success"
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -174,7 +198,7 @@ export default function Login() {
           {error && (
             <div
               ref={errorRef}
-              className="alert"
+              className="auth-login-alert"
               role="alert"
               aria-live="assertive"
               aria-atomic="true"
@@ -185,52 +209,54 @@ export default function Login() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label className="label" htmlFor="email" aria-label="Email">
+          <form className="auth-login-form" onSubmit={handleSubmit}>
+            <div className="auth-login-field">
+              <label
+                className="auth-login-label"
+                htmlFor="auth-login-email"
+                aria-label="Email"
+              >
                 Email
               </label>
 
               <input
-                className="input"
-                id="email"
+                className="auth-login-input"
+                id="auth-login-email"
+                name="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                aria-label={
-                  email.trim()
-                    ? `Email: ${email}`
-                    : "Enter email"
-                }
+                aria-label={email.trim() ? `Email: ${email}` : "Enter email"}
               />
             </div>
 
-            <div className="field">
-              <label className="label" htmlFor="password" aria-label="Password">
+            <div className="auth-login-field">
+              <label
+                className="auth-login-label"
+                htmlFor="auth-login-password"
+                aria-label="Password"
+              >
                 Password
               </label>
 
-              <div className="input-wrap">
+              <div className="auth-login-input-wrap">
                 <input
-                  className="input"
-                  id="password"
+                  className="auth-login-input auth-login-password-input"
+                  id="auth-login-password"
+                  name="password"
                   type={showPw ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  aria-label={
-                    password
-                      ? "Password entered"
-                      : "Enter password"
-                  }
+                  aria-label={password ? "Password entered" : "Enter password"}
                 />
 
                 <button
                   type="button"
-                  className="toggle"
+                  className="auth-login-toggle"
                   onClick={() => setShowPw((prev) => !prev)}
                   aria-label={showPw ? "Hide password" : "Show password"}
                   aria-pressed={showPw}
@@ -244,14 +270,18 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="forgot">
-              <Link to="/forgot-password" aria-label="Forgot Password">
+            <div className="auth-login-forgot">
+              <Link
+                className="auth-login-link"
+                to="/forgot-password"
+                aria-label="Forgot Password"
+              >
                 Forgot Password?
               </Link>
             </div>
 
             <button
-              className="btn"
+              className="auth-login-btn"
               type="submit"
               disabled={submitting}
               aria-label={submitting ? "Logging in" : "Log in"}
@@ -260,14 +290,18 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="login-footer">
+          <div className="auth-login-footer">
             Need an account?{" "}
-            <Link to="/sign-up" aria-label="Sign up">
+            <Link
+              className="auth-login-link auth-login-signup-link"
+              to="/sign-up"
+              aria-label="Sign up"
+            >
               SIGN UP
             </Link>
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

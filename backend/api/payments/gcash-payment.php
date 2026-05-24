@@ -112,7 +112,7 @@ if ($isPublicWorkshop) {
   ];
 } else {
 $stmt = $conn->prepare("
-    SELECT id, user_id, booking_date, start_time, end_time, booking_type, notes, payment_status, total_amount, amount_paid, form_snapshot
+    SELECT id, user_id, booking_date, start_time, end_time, booking_type, status, notes, payment_status, total_amount, amount_paid, form_snapshot
     FROM bookings
     WHERE id = ? LIMIT 1
   ");
@@ -162,6 +162,7 @@ $stmt = $conn->prepare("
     "purpose" => $purpose,
     "booking_id" => $bookingId,
     "booking_type" => $booking["booking_type"],
+    "booking_status" => $booking["status"] ?? "",
     "booking_date" => $booking["booking_date"],
     "start_time" => $booking["start_time"],
     "end_time" => $booking["end_time"],
@@ -191,7 +192,12 @@ if ($isPublicWorkshop) {
 if ($downpaymentPercentage <= 0 || $downpaymentPercentage > 100) {
   $downpaymentPercentage = 50.0;
 }
-$amountPaid = (float)($booking["amount_paid"] ?? 0);
+$amountPaid = 0.0;
+
+if (!$isPublicWorkshop) {
+  $amountPaid = (float)($paymentEntity["amount_paid"] ?? 0);
+}
+
 $downpaymentAmount = round($totalAmount * ($downpaymentPercentage / 100), 2);
 $remainingAmount = round($totalAmount - $amountPaid, 2);
 
@@ -477,7 +483,12 @@ try {
   } else {
     $up = $conn->prepare("
       UPDATE bookings
-      SET payment_status = 'pending'
+      SET
+        payment_status = 'pending',
+        status = CASE
+          WHEN status = 'pending_payment' THEN 'pending'
+          ELSE status
+        END
       WHERE id = ?
         AND user_id = ?
     ");

@@ -101,12 +101,7 @@ export default function AddWorkshopBooking() {
     ? dateParam
     : new Date().toISOString().split("T")[0];
 
-  const dt = new Date(`${date}T00:00:00`);
-  const monthDay = dt.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-  });
-  const year = dt.getFullYear();
+  const headerDate = date;
 
   const [step, setStep] = useState("form");
   const [error, setError] = useState("");
@@ -127,6 +122,7 @@ export default function AddWorkshopBooking() {
 
   const [answers, setAnswers] = useState({});
   const [quantities, setQuantities] = useState({});
+  const [otherAnswers, setOtherAnswers] = useState({});
 
   useEffect(() => {
     if (type !== "workshop") {
@@ -185,7 +181,9 @@ export default function AddWorkshopBooking() {
       });
 
       if (!data.form) {
-        setError("No active private workshop booking form found. Please ask admin to create one.");
+        setError(
+          "No active private workshop booking form found. Please ask admin to create one."
+        );
         return;
       }
 
@@ -202,6 +200,30 @@ export default function AddWorkshopBooking() {
     if (!formSchema?.sections) return [];
     return formSchema.sections.flatMap((section) => section.fields || []);
   }, [formSchema]);
+
+  const baseRate = useMemo(() => {
+    return Math.max(0, Number(formSchema?.base_rate || 0));
+  }, [formSchema]);
+
+  const isOtherOption = (option) => Number(option?.is_other || 0) === 1;
+
+  const otherAnswerKey = (fieldId, optionId) => `${fieldId}_${optionId}`;
+
+  const getOtherAnswer = (fieldId, optionId) => {
+    return otherAnswers[otherAnswerKey(fieldId, optionId)] || "";
+  };
+
+  const selectedOptionNeedsOtherText = (field, value) => {
+    const selectedValues = Array.isArray(value) ? value : [value];
+
+    return selectedValues.some((selectedValue) => {
+      const option = (field.options || []).find(
+        (opt) => String(opt.id) === String(selectedValue)
+      );
+
+      return isOtherOption(option);
+    });
+  };
 
   const selectedCupCount = useMemo(() => {
     for (const field of allFields) {
@@ -254,12 +276,19 @@ export default function AddWorkshopBooking() {
         if (priceType === "per_quantity") lineTotal = price * qty;
         if (priceType === "per_cup") lineTotal = price * selectedCupCount;
 
+        const optionIsOther = isOtherOption(option);
+        const otherValue = optionIsOther
+          ? getOtherAnswer(field.id, option.id).trim()
+          : "";
+
         items.push({
           field_id: field.id,
           field_label: field.label,
           field_name: field.field_name,
           option_id: option.id,
-          option_label: option.label,
+          option_label: optionIsOther && otherValue ? `Other: ${otherValue}` : option.label,
+          option_is_other: optionIsOther ? 1 : 0,
+          other_value: otherValue,
           price,
           price_type: priceType,
           quantity: qty,
@@ -270,26 +299,26 @@ export default function AddWorkshopBooking() {
     }
 
     return items;
-  }, [allFields, answers, quantities, selectedCupCount]);
+  }, [allFields, answers, quantities, selectedCupCount, otherAnswers]);
 
   const totalAmount = useMemo(() => {
-    return selectedItems.reduce(
+    const optionTotal = selectedItems.reduce(
       (sum, item) => sum + Number(item.line_total || 0),
       0
     );
-  }, [selectedItems]);
+
+    return baseRate + optionTotal;
+  }, [baseRate, selectedItems]);
 
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
     if (!readableContent) return;
 
-    readableContent
-      .querySelectorAll("label, .workshop-booking-label")
-      .forEach((element) => {
-        if (!element.classList.contains("workshop-booking-opt")) {
-          element.removeAttribute("tabindex");
-        }
-      });
+    readableContent.querySelectorAll("label, .awb-label").forEach((element) => {
+      if (!element.classList.contains("awb-option")) {
+        element.removeAttribute("tabindex");
+      }
+    });
 
     const isVisible = (element) => {
       const style = window.getComputedStyle(element);
@@ -305,14 +334,14 @@ export default function AddWorkshopBooking() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .workshop-booking-opt, .workshop-booking-date-title, .workshop-booking-year-title, .workshop-booking-title, .workshop-booking-section-title, .workshop-booking-small-note, .workshop-booking-blocked, .workshop-booking-error, .booking-label, .booking-value"
+      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .awb-option, .awb-date-title, .awb-year-title, .awb-title, .awb-section-title, .awb-small-note, .awb-blocked, .awb-error, .awb-summary-label, .awb-summary-value"
     );
 
     readableElements.forEach((element) => {
       const tagName = element.tagName.toLowerCase();
 
       if (
-        !element.classList.contains("workshop-booking-opt") &&
+        !element.classList.contains("awb-option") &&
         tagName !== "button" &&
         tagName !== "a" &&
         tagName !== "input" &&
@@ -333,8 +362,7 @@ export default function AddWorkshopBooking() {
         tagName === "textarea" ||
         tagName === "select"
       ) {
-        const parentDiv =
-          element.closest(".workshop-booking-field") || element.closest("div");
+        const parentDiv = element.closest(".awb-field") || element.closest("div");
         const label = parentDiv?.querySelector("label");
 
         textToRead =
@@ -356,7 +384,7 @@ export default function AddWorkshopBooking() {
       if (!textToRead.trim()) return;
 
       if (
-        !element.classList.contains("workshop-booking-opt") &&
+        !element.classList.contains("awb-option") &&
         tagName !== "button" &&
         tagName !== "a" &&
         tagName !== "input" &&
@@ -380,6 +408,7 @@ export default function AddWorkshopBooking() {
     fixedInfo,
     answers,
     quantities,
+    otherAnswers,
     selectedItems,
     totalAmount,
   ]);
@@ -458,6 +487,14 @@ export default function AddWorkshopBooking() {
   const handleDynamicChange = (field, e) => {
     const { value, checked, type } = e.target;
 
+    if (field.field_type === "checkbox" && !checked) {
+      clearOtherAnswer(field.id, value);
+    }
+
+    if (field.field_type === "radio" || field.field_type === "select") {
+      clearOtherAnswersForField(field);
+    }
+
     setAnswers((prev) => {
       if (field.field_type === "checkbox") {
         const current = Array.isArray(prev[field.field_name])
@@ -495,12 +532,40 @@ export default function AddWorkshopBooking() {
     }));
   };
 
+  const handleOtherAnswerChange = (fieldId, optionId, value) => {
+    setOtherAnswers((prev) => ({
+      ...prev,
+      [otherAnswerKey(fieldId, optionId)]: value,
+    }));
+  };
+
+  const clearOtherAnswer = (fieldId, optionId) => {
+    setOtherAnswers((prev) => {
+      const next = { ...prev };
+      delete next[otherAnswerKey(fieldId, optionId)];
+      return next;
+    });
+  };
+
+  const clearOtherAnswersForField = (field) => {
+    setOtherAnswers((prev) => {
+      const next = { ...prev };
+
+      (field.options || []).forEach((option) => {
+        delete next[otherAnswerKey(field.id, option.id)];
+      });
+
+      return next;
+    });
+  };
+
   const validateForm = () => {
     if (blocked) return blockReason || "This date is not available.";
     if (!fixedInfo.full_name.trim()) return "Full name is required.";
     if (!fixedInfo.phone_number.trim()) return "Phone number is required.";
     if (!fixedInfo.email.trim()) return "Email is required.";
-    if (!fixedInfo.start_time || !fixedInfo.end_time) return "Start time is required.";
+    if (!fixedInfo.start_time || !fixedInfo.end_time)
+      return "Start time is required.";
 
     for (const field of allFields) {
       if (!Number(field.is_required)) continue;
@@ -517,8 +582,27 @@ export default function AddWorkshopBooking() {
       }
     }
 
+    for (const field of allFields) {
+      const value = answers[field.field_name];
+
+      if (!selectedOptionNeedsOtherText(field, value)) continue;
+
+      const selectedValues = Array.isArray(value) ? value : [value];
+      const missingOtherText = selectedValues.some((selectedValue) => {
+        const option = (field.options || []).find(
+          (opt) => String(opt.id) === String(selectedValue)
+        );
+
+        return isOtherOption(option) && !getOtherAnswer(field.id, option.id).trim();
+      });
+
+      if (missingOtherText) {
+        return `Please specify your answer for "${field.label} - Other".`;
+      }
+    }
+
     if (totalAmount <= 0) {
-      return "Please select at least one priced option.";
+      return "Please select at least one priced option or ask admin to set a base booking rate.";
     }
 
     return "";
@@ -584,7 +668,9 @@ export default function AddWorkshopBooking() {
     date,
     booking_type: "workshop",
     dynamic_answers: answers,
+    other_answers: otherAnswers,
     selected_items: selectedItems,
+    base_rate: baseRate,
     total_amount: totalAmount,
   });
 
@@ -596,14 +682,17 @@ export default function AddWorkshopBooking() {
     try {
       const draft = buildDraft();
 
-      const res = await API.post("/bookings/private-workshop/confirm-booking.php", {
-        date,
-        draft,
-        booking_type: "workshop",
-        form_id: formSchema.id,
-        form_snapshot: formSchema,
-        total_amount: totalAmount,
-      });
+      const res = await API.post(
+        "/bookings/private-workshop/confirm-booking.php",
+        {
+          date,
+          draft,
+          booking_type: "workshop",
+          form_id: formSchema.id,
+          form_snapshot: formSchema,
+          total_amount: totalAmount,
+        }
+      );
 
       if (res.data.success || res.data.booking_id) {
         navigate(
@@ -662,43 +751,62 @@ export default function AddWorkshopBooking() {
       );
 
       return (
-        <select
-          value={fieldValue}
-          disabled={readOnly}
-          aria-label={
-            readOnly
-              ? selectedOption
-                ? `${readableText(field.label)}: ${getOptionLabel(selectedOption)}`
-                : `Select ${readableText(field.label)}`
-              : getSelectAriaLabel(field, fieldValue)
-          }
-          onKeyDown={(e) => handleSelectKeyDown(field, e)}
-          onChange={(e) => handleDynamicChange(field, e)}
-        >
-          <option value=""></option>
-          {(field.options || []).map((option) => (
-            <option
-              key={option.id}
-              value={option.id}
-              aria-label={getOptionLabel(option)}
-            >
-              {option.label}
-              {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
-            </option>
-          ))}
-        </select>
+        <>
+          <select
+            value={fieldValue}
+            disabled={readOnly}
+            aria-label={
+              readOnly
+                ? selectedOption
+                  ? `${readableText(field.label)}: ${getOptionLabel(
+                      selectedOption
+                    )}`
+                  : `Select ${readableText(field.label)}`
+                : getSelectAriaLabel(field, fieldValue)
+            }
+            onKeyDown={(e) => handleSelectKeyDown(field, e)}
+            onChange={(e) => handleDynamicChange(field, e)}
+          >
+            <option value=""></option>
+            {(field.options || []).map((option) => (
+              <option
+                key={option.id}
+                value={option.id}
+                aria-label={getOptionLabel(option)}
+              >
+                {option.label}
+                {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
+              </option>
+            ))}
+          </select>
+
+          {selectedOption && isOtherOption(selectedOption) && (
+            <input
+              className="awb-other-input"
+              type="text"
+              readOnly={readOnly}
+              value={getOtherAnswer(field.id, selectedOption.id)}
+              placeholder="Please specify"
+              aria-label={`Please specify other answer for ${readableText(field.label)}`}
+              onChange={(e) =>
+                handleOtherAnswerChange(field.id, selectedOption.id, e.target.value)
+              }
+            />
+          )}
+        </>
       );
     }
 
     if (field.field_type === "radio" || field.field_type === "checkbox") {
       return (
-        <div className="workshop-booking-options">
+        <div className="awb-options">
           {(field.options || []).map((option) => {
             const optionKey = `${field.id}_${option.id}`;
 
             const checked =
               field.field_type === "checkbox"
-                ? Array.isArray(fieldValue) && fieldValue.includes(String(option.id))
+                ? Array.isArray(fieldValue) &&
+                  fieldValue.includes(String(option.id))
                 : String(fieldValue) === String(option.id);
 
             const readableField = readableText(field.label);
@@ -707,7 +815,7 @@ export default function AddWorkshopBooking() {
             return (
               <div key={option.id}>
                 <label
-                  className="workshop-booking-opt"
+                  className="awb-option"
                   tabIndex={readOnly ? -1 : 0}
                   role={field.field_type === "radio" ? "radio" : "checkbox"}
                   aria-checked={checked}
@@ -733,6 +841,20 @@ export default function AddWorkshopBooking() {
                   {option.price_type === "per_cup" ? " per cup" : ""}
                 </label>
 
+                {checked && isOtherOption(option) && (
+                  <input
+                    className="awb-other-input"
+                    type="text"
+                    readOnly={readOnly}
+                    value={getOtherAnswer(field.id, option.id)}
+                    placeholder="Please specify"
+                    aria-label={`Please specify other answer for ${readableField}`}
+                    onChange={(e) =>
+                      handleOtherAnswerChange(field.id, option.id, e.target.value)
+                    }
+                  />
+                )}
+
                 {checked && Number(field.allow_quantity) === 1 && (
                   <input
                     type="number"
@@ -746,7 +868,7 @@ export default function AddWorkshopBooking() {
                       handleQuantityChange(field.id, option.id, e.target.value)
                     }
                     placeholder="Quantity"
-                    className="workshop-booking-custom-location-input"
+                    className="awb-quantity-input"
                   />
                 )}
               </div>
@@ -774,11 +896,11 @@ export default function AddWorkshopBooking() {
     <>
       <Navbar />
 
-      <div className="workshop-booking-page" id="readable-content">
-        <div className="workshop-booking-wrap">
-          <div className="workshop-booking-top">
+      <div className="awb-page" id="readable-content">
+        <div className="awb-wrap">
+          <div className="awb-top">
             <button
-              className="workshop-booking-back"
+              className="awb-back"
               type="button"
               aria-label="Back"
               onClick={() => navigate(`/day?date=${date}&type=workshop`)}
@@ -786,45 +908,36 @@ export default function AddWorkshopBooking() {
               <img src="/images/left-book.png" alt="" aria-hidden="true" />
             </button>
 
-            <div className="workshop-booking-date-title">{monthDay}</div>
-            <div className="workshop-booking-year-title">{year}</div>
+            <div className="awb-date-title">{headerDate}</div>
           </div>
 
-          <div
-            className={`workshop-booking-card ${
-              step === "review" ? "workshop-booking-review" : ""
-            }`}
-          >
+          <div className={`awb-card ${step === "review" ? "awb-review" : ""}`}>
             {blocked && (
               <>
-                <div className="workshop-booking-blocked">
-                  This date is not available.
-                </div>
+                <div className="awb-blocked">This date is not available.</div>
                 {blockReason && (
-                  <div className="workshop-booking-small-note workshop-booking-center">
+                  <div className="awb-small-note awb-center">
                     {blockReason}
                   </div>
                 )}
               </>
             )}
 
-            {error && <div className="workshop-booking-error">{error}</div>}
+            {error && <div className="awb-error">{error}</div>}
 
             {loadingForm ? (
-              <div className="workshop-booking-title">Loading booking form...</div>
+              <div className="awb-title">Loading booking form...</div>
             ) : step === "review" ? (
               <>
-                <div className="workshop-booking-title">
+                <div className="awb-title">
                   Please review your details carefully, before confirmation.
                 </div>
 
                 <form onSubmit={handleConfirm}>
-                  <div className="workshop-booking-section-title">
-                    CONTACT INFORMATION
-                  </div>
+                  <div className="awb-section-title">CONTACT INFORMATION</div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Full Name</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Full Name</label>
                     <input
                       value={fixedInfo.full_name}
                       readOnly
@@ -836,8 +949,8 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Phone Number</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Phone Number</label>
                     <input
                       value={fixedInfo.phone_number}
                       readOnly
@@ -849,8 +962,8 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Email Address</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Email Address</label>
                     <input
                       value={fixedInfo.email}
                       readOnly
@@ -862,39 +975,35 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">
-                      Contact Methods
-                    </label>
+                  <div className="awb-field">
+                    <label className="awb-label">Contact Methods</label>
                     <input
                       value={fixedInfo.contact_methods.join(", ")}
                       readOnly
                       aria-label={
                         fixedInfo.contact_methods.length > 0
-                          ? `Contact Methods: ${fixedInfo.contact_methods.join(", ")}`
+                          ? `Contact Methods: ${fixedInfo.contact_methods.join(
+                              ", "
+                            )}`
                           : "Enter Contact Methods"
                       }
                     />
                   </div>
 
-                  <div className="workshop-booking-section-title">
-                    BOOKING INFORMATION
-                  </div>
+                  <div className="awb-section-title">BOOKING INFORMATION</div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Date</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Date</label>
                     <input
-                      value={`${monthDay}, ${year}`}
+                      value={headerDate}
                       readOnly
-                      aria-label={`Date: ${monthDay}, ${year}`}
+                      aria-label={`Date: ${headerDate}`}
                     />
                   </div>
 
-                  <div className="workshop-booking-two-col">
-                    <div className="workshop-booking-field workshop-booking-field-no-margin">
-                      <label className="workshop-booking-label">
-                        Event Time of Workshop
-                      </label>
+                  <div className="awb-two-col">
+                    <div className="awb-field awb-field-no-margin">
+                      <label className="awb-label">Event Time of Workshop</label>
                       <input
                         type="time"
                         value={fixedInfo.start_time}
@@ -907,8 +1016,8 @@ export default function AddWorkshopBooking() {
                       />
                     </div>
 
-                    <div className="workshop-booking-field workshop-booking-field-no-margin">
-                      <label className="workshop-booking-label">&nbsp;</label>
+                    <div className="awb-field awb-field-no-margin">
+                      <label className="awb-label">&nbsp;</label>
                       <input
                         type="time"
                         value={fixedInfo.end_time}
@@ -922,31 +1031,23 @@ export default function AddWorkshopBooking() {
                     </div>
                   </div>
 
-                  <div className="workshop-booking-small-note">
-                    up to 4 hours operation
-                  </div>
+                  <div className="awb-small-note">up to 4 hours operation</div>
 
                   {(formSchema?.sections || []).map((section) => (
                     <div key={section.id}>
-                      <div className="workshop-booking-section-title">
-                        {section.title}
-                      </div>
+                      <div className="awb-section-title">{section.title}</div>
 
                       {(section.fields || []).map((field) => (
-                        <div className="workshop-booking-field" key={field.id}>
-                          <label className="workshop-booking-label">
-                            {field.label}
-                          </label>
+                        <div className="awb-field" key={field.id}>
+                          <label className="awb-label">{field.label}</label>
                           {renderDynamicField(field, true)}
                         </div>
                       ))}
                     </div>
                   ))}
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">
-                      Other Request
-                    </label>
+                  <div className="awb-field">
+                    <label className="awb-label">Other Request</label>
                     <input
                       value={fixedInfo.other_request || ""}
                       readOnly
@@ -958,32 +1059,43 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="booking-summary">
+                  <div className="awb-summary">
+                    {baseRate > 0 && (
+                      <div className="awb-summary-row">
+                        <span className="awb-summary-label">Base Booking Rate</span>
+                        <span className="awb-summary-value">
+                          ₱{money(baseRate)}
+                        </span>
+                      </div>
+                    )}
+
                     {selectedItems.map((item) => (
                       <div
-                        className="booking-row"
+                        className="awb-summary-row"
                         key={`${item.field_id}_${item.option_id}`}
                       >
-                        <span className="booking-label">
+                        <span className="awb-summary-label">
                           {readableText(item.field_label)}:{" "}
                           {readableText(item.option_label)}
                         </span>
-                        <span className="booking-value">
+                        <span className="awb-summary-value">
                           ₱{money(item.line_total)}
                         </span>
                       </div>
                     ))}
 
-                    <div className="booking-row">
-                      <span className="booking-label">Total Amount</span>
-                      <span className="booking-value">₱{money(totalAmount)}</span>
+                    <div className="awb-summary-row">
+                      <span className="awb-summary-label">Total Amount</span>
+                      <span className="awb-summary-value">
+                        ₱{money(totalAmount)}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="workshop-booking-actions">
+                  <div className="awb-actions">
                     <button
                       type="button"
-                      className="workshop-booking-btn workshop-booking-btn-edit"
+                      className="awb-btn awb-btn-edit"
                       aria-label="Edit"
                       onClick={() => setStep("form")}
                     >
@@ -992,7 +1104,7 @@ export default function AddWorkshopBooking() {
 
                     <button
                       type="submit"
-                      className="workshop-booking-btn workshop-booking-btn-confirm"
+                      className="awb-btn awb-btn-confirm"
                       aria-label="Confirm"
                       disabled={blocked}
                     >
@@ -1003,17 +1115,15 @@ export default function AddWorkshopBooking() {
               </>
             ) : (
               <>
-                <div className="workshop-booking-title">
+                <div className="awb-title">
                   {formSchema?.title || "Book your workshop now!"}
                 </div>
 
                 <form onSubmit={handleNext}>
-                  <div className="workshop-booking-section-title">
-                    CONTACT INFORMATION
-                  </div>
+                  <div className="awb-section-title">CONTACT INFORMATION</div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Full Name</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Full Name</label>
                     <input
                       type="text"
                       name="full_name"
@@ -1028,8 +1138,8 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Phone Number</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Phone Number</label>
                     <input
                       type="text"
                       name="phone_number"
@@ -1044,8 +1154,8 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Email Address</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Email Address</label>
                     <input
                       name="email"
                       value={fixedInfo.email}
@@ -1058,12 +1168,12 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">
+                  <div className="awb-field">
+                    <label className="awb-label">
                       Are you available to contact in the following:
                     </label>
 
-                    <div className="workshop-booking-options">
+                    <div className="awb-options">
                       {CONTACT_METHODS.map((method) => {
                         const checked = fixedInfo.contact_methods.includes(
                           method.value
@@ -1072,7 +1182,7 @@ export default function AddWorkshopBooking() {
                         return (
                           <label
                             key={method.value}
-                            className="workshop-booking-opt"
+                            className="awb-option"
                             tabIndex="0"
                             role="checkbox"
                             aria-checked={checked}
@@ -1100,24 +1210,20 @@ export default function AddWorkshopBooking() {
                     </div>
                   </div>
 
-                  <div className="workshop-booking-section-title">
-                    BOOKING INFORMATION
-                  </div>
+                  <div className="awb-section-title">BOOKING INFORMATION</div>
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">Date</label>
+                  <div className="awb-field">
+                    <label className="awb-label">Date</label>
                     <input
-                      value={`${monthDay}, ${year}`}
+                      value={headerDate}
                       readOnly
-                      aria-label={`Date: ${monthDay}, ${year}`}
+                      aria-label={`Date: ${headerDate}`}
                     />
                   </div>
 
-                  <div className="workshop-booking-two-col">
-                    <div className="workshop-booking-field workshop-booking-field-no-margin">
-                      <label className="workshop-booking-label">
-                        Event Time of Workshop
-                      </label>
+                  <div className="awb-two-col">
+                    <div className="awb-field awb-field-no-margin">
+                      <label className="awb-label">Event Time of Workshop</label>
                       <input
                         type="time"
                         name="start_time"
@@ -1132,8 +1238,8 @@ export default function AddWorkshopBooking() {
                       />
                     </div>
 
-                    <div className="workshop-booking-field workshop-booking-field-no-margin">
-                      <label className="workshop-booking-label">&nbsp;</label>
+                    <div className="awb-field awb-field-no-margin">
+                      <label className="awb-label">&nbsp;</label>
                       <input
                         type="time"
                         name="end_time"
@@ -1149,19 +1255,15 @@ export default function AddWorkshopBooking() {
                     </div>
                   </div>
 
-                  <div className="workshop-booking-small-note">
-                    up to 4 hours operation
-                  </div>
+                  <div className="awb-small-note">up to 4 hours operation</div>
 
                   {(formSchema?.sections || []).map((section) => (
                     <div key={section.id}>
-                      <div className="workshop-booking-section-title">
-                        {section.title}
-                      </div>
+                      <div className="awb-section-title">{section.title}</div>
 
                       {(section.fields || []).map((field) => (
-                        <div className="workshop-booking-field" key={field.id}>
-                          <label className="workshop-booking-label">
+                        <div className="awb-field" key={field.id}>
+                          <label className="awb-label">
                             {field.label}
                             {Number(field.is_required) === 1 ? " *" : ""}
                           </label>
@@ -1172,8 +1274,8 @@ export default function AddWorkshopBooking() {
                     </div>
                   ))}
 
-                  <div className="workshop-booking-field">
-                    <label className="workshop-booking-label">
+                  <div className="awb-field">
+                    <label className="awb-label">
                       Other Request (Optional)
                     </label>
                     <input
@@ -1189,17 +1291,28 @@ export default function AddWorkshopBooking() {
                     />
                   </div>
 
-                  <div className="booking-summary">
-                    <div className="booking-row">
-                      <span className="booking-label">Total</span>
-                      <span className="booking-value">₱{money(totalAmount)}</span>
+                  <div className="awb-summary">
+                    {baseRate > 0 && (
+                      <div className="awb-summary-row">
+                        <span className="awb-summary-label">Base Booking Rate</span>
+                        <span className="awb-summary-value">
+                          ₱{money(baseRate)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="awb-summary-row">
+                      <span className="awb-summary-label">Total</span>
+                      <span className="awb-summary-value">
+                        ₱{money(totalAmount)}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="workshop-booking-actions">
+                  <div className="awb-actions">
                     <button
                       type="button"
-                      className="workshop-booking-btn workshop-booking-btn-cancel"
+                      className="awb-btn awb-btn-cancel"
                       aria-label="Cancel"
                       onClick={() => navigate(`/day?date=${date}&type=workshop`)}
                     >
@@ -1208,7 +1321,7 @@ export default function AddWorkshopBooking() {
 
                     <button
                       type="submit"
-                      className="workshop-booking-btn workshop-booking-btn-next"
+                      className="awb-btn awb-btn-next"
                       aria-label="Next"
                       disabled={blocked}
                     >

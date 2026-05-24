@@ -1,388 +1,663 @@
-.workshop-booking-page{
-  --green:#2f5a2b;
-  --green-2:#37664c;
-  --yellow:#ffd95a;
-  --ink:#1f3b26;
-  --muted:#6b7a62;
-  --field:#e9ece7;
-  --line:#d8dfda;
-  --white:#ffffff;
+.awb-page {
+  --awb-green: #2f5a2b;
+  --awb-green-2: #37664c;
+  --awb-green-dark: #1f3b26;
+  --awb-green-soft: #f3f7f1;
+  --awb-yellow: #ffd95a;
+  --awb-yellow-2: #f1c93d;
+  --awb-ink: #1f3b26;
+  --awb-muted: #6b7a62;
+  --awb-field: #edf0ea;
+  --awb-field-hover: #f7faf5;
+  --awb-line: #d8dfda;
+  --awb-line-strong: #b8c9bd;
+  --awb-danger: #b00020;
+  --awb-danger-bg: #fff1f3;
+  --awb-shadow-card: 0 18px 50px rgba(31, 59, 38, 0.12);
+  --awb-shadow-soft: 0 10px 28px rgba(31, 59, 38, 0.08);
+  --awb-shadow-button: 0 12px 26px rgba(47, 90, 43, 0.18);
 
-  font-family:"Bricolage Grotesque", system-ui, sans-serif;
-  background-image:url(../images/about-bg.png);
-  background-size:cover;
-  background-position:center top;
-  background-repeat:no-repeat;
-  background-attachment:fixed;
-  color:var(--ink);
-  min-height:100vh;
+  width: 100%;
+  min-height: 100vh;
+  color: var(--awb-ink);
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    url(../images/about-bg.png);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
-.workshop-booking-page *{
-  box-sizing:border-box;
-  margin:0;
-  padding:0;
+.awb-page * {
+  box-sizing: border-box;
 }
 
-.workshop-booking-wrap{
-  width:min(900px, 96%);
-  margin:0 auto;
-  padding:24px 0 60px;
+.awb-wrap {
+  width: min(940px, 94%);
+  margin: 0 auto;
+  padding: 28px 0 72px;
 }
 
-.workshop-booking-top{
-  display:grid;
-  grid-template-columns:56px 1fr 1fr;
-  align-items:center;
-  gap:12px;
-  margin:10px 0 14px;
+.awb-top {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  align-items: center;
+  gap: 14px;
+  margin: 12px 0 18px;
 }
 
-.workshop-booking-back{
-  width:48px;
-  height:48px;
-  border:none;
-  background:transparent;
-  cursor:pointer;
-  display:grid;
-  place-items:center;
+.awb-back {
+  width: 52px;
+  height: 52px;
+  border: 1.5px solid rgba(55, 102, 76, 0.28);
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  justify-self: start;
+  border-radius: 999px;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-.workshop-booking-back img{
-  width:22px;
-  height:22px;
-  opacity:.7;
+.awb-back img {
+  width: 25px;
+  height: 25px;
+  opacity: 0.8;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
-.workshop-booking-date-title,
-.workshop-booking-year-title{
-  font-weight:900;
-  color:var(--green-2);
-  font-size:clamp(2.1rem, 4vw, 3.2rem);
-  line-height:1;
+.awb-back:hover {
+  background: var(--awb-green-soft);
+  border-color: var(--awb-green-2);
+  transform: translateY(-1px);
+  box-shadow: var(--awb-shadow-soft);
 }
 
-.workshop-booking-date-title{
-  justify-self:start;
+.awb-back:hover img {
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
-.workshop-booking-year-title{
-  justify-self:end;
+.awb-date-title {
+  grid-column: 2;
+  justify-self: center;
+  color: var(--awb-green-2);
+  font-size: clamp(2.1rem, 4.6vw, 3.8rem);
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  text-align: center;
 }
 
-.workshop-booking-card{
-  width:100%;
-  background:rgba(246,247,246,.94);
-  border:1px solid rgba(47,90,43,.08);
-  border-radius:28px;
-  padding:32px 30px 36px;
-  box-shadow:0 10px 30px rgba(0,0,0,.04);
-  backdrop-filter:blur(2px);
+.awb-year-title {
+  display: none;
 }
 
-.workshop-booking-title{
-  color:var(--green);
-  font-weight:900;
-  font-size:1.15rem;
-  margin-bottom:18px;
-  text-align:center;
-  ;
+.awb-card {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(246, 247, 246, 0.98)),
+    rgba(246, 247, 246, 0.94);
+  border: 1px solid rgba(216, 223, 218, 0.9);
+  border-radius: 28px;
+  padding: 34px 30px 38px;
+  box-shadow: var(--awb-shadow-card);
+  backdrop-filter: blur(8px);
 }
 
-.workshop-booking-section-title{
-  color:var(--green);
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.4px;
-  font-size:1rem;
-  margin:22px 0 12px;
-  text-align:center;
+.awb-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 7px;
+  background: linear-gradient(
+    90deg,
+    var(--awb-green),
+    var(--awb-yellow),
+    var(--awb-green)
+  );
 }
 
-.workshop-booking-field{
-  width:min(520px, 100%);
-  margin:8px auto;
+.awb-card form {
+  width: 100%;
+  display: block;
 }
 
-.workshop-booking-field-no-margin{
-  width:100%;
-  margin:0;
+.awb-title {
+  width: min(760px, 100%);
+  margin: 0 auto 22px;
+  color: var(--awb-green);
+  font-family: "Brasika Display Regular", serif;
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
-.workshop-booking-label{
-  font-size:.75rem;
-  font-weight:800;
-  color:var(--green-2);
-  text-transform:uppercase;
-  letter-spacing:.4px;
-  margin-bottom:6px;
-  display:block;
-  text-align:left;
+.awb-section-title {
+  width: min(560px, 100%);
+  margin: 28px auto 14px;
+  color: var(--awb-green);
+  font-size: 0.86rem;
+  font-weight: 950;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
 }
 
-.workshop-booking-page input,
-.workshop-booking-page select,
-.workshop-booking-page textarea{
-  width:100%;
-  border:1px solid #cfd6cf;
-  background:#edf0ea;
-  padding:12px 14px;
-  border-radius:12px;
-  outline:none;
-  font-size:.92rem;
-  color:var(--ink);
-  font-family:inherit;
-  transition:border-color .2s ease, background .2s ease, box-shadow .2s ease;
+.awb-field {
+  width: min(560px, 100%);
+  margin: 12px auto;
 }
 
-.workshop-booking-page input:focus,
-.workshop-booking-page select:focus,
-.workshop-booking-page textarea:focus{
-  border-color:var(--green-2);
-  background:#ffffff;
-  box-shadow:0 0 0 3px rgba(55,102,76,.10);
+.awb-field-no-margin {
+  width: 100%;
+  margin: 0;
 }
 
-.workshop-booking-page input[readonly],
-.workshop-booking-page select:disabled,
-.workshop-booking-page input:disabled{
-  opacity:.92;
-  cursor:not-allowed;
+.awb-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--awb-green-2);
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.25;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
 }
 
-.workshop-booking-page textarea{
-  resize:vertical;
-  min-height:80px;
+.awb-page input,
+.awb-page select,
+.awb-page textarea {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid var(--awb-line);
+  border-radius: 15px;
+  outline: none;
+  background: var(--awb-field);
+  color: var(--awb-ink);
+  padding: 13px 15px;
+  font-family: inherit;
+  font-size: 0.96rem;
+  font-weight: 760;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-.workshop-booking-two-col{
-  width:min(520px, 100%);
-  margin:8px auto;
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:12px;
+.awb-page input:hover,
+.awb-page select:hover,
+.awb-page textarea:hover {
+  background: var(--awb-field-hover);
+  border-color: var(--awb-line-strong);
 }
 
-.workshop-booking-options{
-  width:min(520px, 100%);
-  margin:8px auto 2px;
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px 18px;
-  align-items:center;
-  justify-content:center;
+.awb-page input:focus,
+.awb-page select:focus,
+.awb-page textarea:focus {
+  border-color: var(--awb-green-2);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(55, 102, 76, 0.13);
 }
 
-.workshop-booking-options > div{
-  background:rgba(255,255,255,.55);
-  border:1px solid rgba(47,90,43,.08);
-  border-radius:12px;
-  padding:10px 12px;
+.awb-page input[readonly],
+.awb-page select:disabled,
+.awb-page textarea[readonly],
+.awb-page input:disabled {
+  background: #f8faf7;
+  color: var(--awb-green-dark);
+  cursor: default;
+  opacity: 0.92;
 }
 
-.workshop-booking-options-single{
-  grid-template-columns:1fr;
+.awb-page input[type="file"] {
+  min-height: auto;
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.76);
+  cursor: pointer;
 }
 
-.workshop-booking-opt{
-  display:flex;
-  align-items:flex-start;
-  gap:10px;
-  font-weight:700;
-  color:var(--green-2);
-  font-size:.88rem;
-  line-height:1.4;
+.awb-page textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
-.workshop-booking-opt-top{
-  align-items:flex-start;
+.awb-two-col {
+  width: min(560px, 100%);
+  margin: 12px auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-.workshop-booking-opt-center{
-  justify-content:center;
+.awb-small-note {
+  width: min(560px, 100%);
+  margin: 4px auto 0;
+  color: var(--awb-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: left;
 }
 
-.workshop-booking-page input[type="radio"],
-.workshop-booking-page input[type="checkbox"]{
-  width:16px;
-  height:16px;
-  accent-color:var(--green-2);
-  flex:0 0 auto;
-  margin-top:2px;
+.awb-center {
+  text-align: center;
 }
 
-.workshop-booking-page input[type="number"]{
-  margin-top:8px;
+.awb-options {
+  width: min(560px, 100%);
+  margin: 10px auto 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
 }
 
-.workshop-booking-small-note{
-  width:min(520px, 100%);
-  margin:0 auto;
-  text-align:left;
-  color:var(--muted);
-  font-size:.72rem;
-  font-weight:700;
+.awb-options > div {
+  min-width: 0;
 }
 
-.workshop-booking-small-note-spacing{
-  margin-bottom:6px;
+.awb-option {
+  min-height: 50px;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  border: 1px solid rgba(47, 90, 43, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--awb-green-2);
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-.workshop-booking-center{
-  text-align:center;
+.awb-option:hover {
+  background: #ffffff;
+  border-color: var(--awb-green-2);
+  transform: translateY(-1px);
+  box-shadow: var(--awb-shadow-soft);
 }
 
-.workshop-booking-actions{
-  width:min(520px, 100%);
-  margin:20px auto 0;
-  display:flex;
-  justify-content:flex-end;
-  gap:12px;
+.awb-option:has(input:checked) {
+  background: linear-gradient(135deg, #ffffff, var(--awb-green-soft));
+  border-color: var(--awb-green-2);
+  box-shadow: 0 0 0 4px rgba(55, 102, 76, 0.1);
 }
 
-.workshop-booking-btn{
-  border:none;
-  cursor:pointer;
-  border-radius:999px;
-  padding:10px 22px;
-  font-weight:900;
-  letter-spacing:.3px;
-  font-size:.85rem;
-  transition:transform .18s ease, opacity .18s ease;
+.awb-page input[type="radio"],
+.awb-page input[type="checkbox"] {
+  width: 17px;
+  min-width: 17px;
+  height: 17px;
+  min-height: 17px;
+  margin-top: 2px;
+  padding: 0;
+  accent-color: var(--awb-green-2);
+  flex: 0 0 auto;
 }
 
-.workshop-booking-btn:hover{
-  transform:translateY(-1px);
+.awb-page input[type="number"] {
+  margin-top: 8px;
 }
 
-.workshop-booking-btn:active{
-  transform:translateY(0);
+.awb-quantity-input {
+  margin-top: 8px;
 }
 
-.workshop-booking-btn-cancel,
-.workshop-booking-btn-edit{
-  background:transparent;
-  color:var(--green-2);
-  border:2px solid var(--green-2);
+.awb-actions {
+  width: min(560px, 100%);
+  margin: 26px auto 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
-.workshop-booking-btn-next,
-.workshop-booking-btn-confirm{
-  background:var(--yellow);
-  color:#1f3b26;
+.awb-btn {
+  min-width: 118px;
+  min-height: 46px;
+  border: none;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
 }
 
-.workshop-booking-btn:disabled{
-  opacity:.55;
-  cursor:not-allowed;
-  transform:none;
+.awb-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--awb-shadow-soft);
 }
 
-.workshop-booking-error{
-  width:min(520px, 100%);
-  margin:0 auto 10px;
-  color:#b00020;
-  font-weight:800;
-  font-size:.9rem;
-  text-align:center;
-  background:rgba(255,255,255,.65);
-  padding:10px 12px;
-  border-radius:12px;
+.awb-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
-.workshop-booking-blocked{
-  width:min(520px, 100%);
-  margin:0 auto 10px;
-  color:var(--green);
-  font-weight:900;
-  text-align:center;
+.awb-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.workshop-booking-review input,
-.workshop-booking-review select,
-.workshop-booking-review textarea{
-  opacity:.95;
+.awb-btn-cancel,
+.awb-btn-edit {
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--awb-green-2);
+  border: 2px solid var(--awb-green-2);
 }
 
-.workshop-booking-custom-location-wrap{
-  margin-left:26px;
-  margin-top:-6px;
+.awb-btn-cancel:hover:not(:disabled),
+.awb-btn-edit:hover:not(:disabled) {
+  background: var(--awb-green-soft);
 }
 
-.workshop-booking-custom-location-input:disabled{
-  opacity:.6;
+.awb-btn-next,
+.awb-btn-confirm {
+  background: linear-gradient(135deg, var(--awb-yellow), var(--awb-yellow-2));
+  color: var(--awb-green-dark);
+  border: 2px solid transparent;
+  box-shadow: 0 12px 24px rgba(242, 201, 61, 0.22);
 }
 
-.booking-summary{
-  width:min(520px, 100%);
-  margin:18px auto;
-  background:#f6f7f6;
-  border-radius:18px;
-  border:1px solid rgba(47,90,43,.08);
-  padding:20px;
-  box-shadow:0 4px 16px rgba(0,0,0,.05);
+.awb-btn-next:hover:not(:disabled),
+.awb-btn-confirm:hover:not(:disabled) {
+  box-shadow: 0 16px 30px rgba(242, 201, 61, 0.3);
 }
 
-.booking-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:16px;
-  padding:10px 0;
-  border-bottom:1px solid rgba(47,90,43,.08);
+.awb-error {
+  width: min(560px, 100%);
+  margin: 0 auto 14px;
+  border: 1px solid rgba(176, 0, 32, 0.18);
+  border-radius: 14px;
+  background: var(--awb-danger-bg);
+  color: var(--awb-danger);
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1.4;
+  text-align: center;
 }
 
-.booking-row:last-child{
-  border-bottom:none;
+.awb-blocked {
+  width: min(560px, 100%);
+  margin: 0 auto 14px;
+  border: 1px solid rgba(47, 90, 43, 0.13);
+  border-radius: 14px;
+  background: var(--awb-green-soft);
+  color: var(--awb-green);
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-weight: 950;
+  line-height: 1.4;
+  text-align: center;
 }
 
-.booking-label{
-  color:var(--green-2);
-  font-weight:800;
-  font-size:.88rem;
+.awb-review input,
+.awb-review select,
+.awb-review textarea {
+  opacity: 0.95;
 }
 
-.booking-value{
-  color:var(--green);
-  font-weight:900;
-  font-size:.9rem;
-  text-align:right;
+.awb-summary {
+  width: min(560px, 100%);
+  margin: 22px auto;
+  border: 1px solid rgba(47, 90, 43, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.74);
+  padding: 18px 20px;
+  box-shadow: var(--awb-shadow-soft);
 }
 
-@media (max-width:640px){
-  .workshop-booking-page{
-    background-attachment:scroll;
-    background-position:center top;
+.awb-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(47, 90, 43, 0.1);
+}
+
+.awb-summary-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.awb-summary-row:last-child .awb-summary-label,
+.awb-summary-row:last-child .awb-summary-value {
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.awb-summary-label {
+  min-width: 0;
+  color: var(--awb-green-2);
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.awb-summary-value {
+  flex: 0 0 auto;
+  color: var(--awb-green);
+  font-size: 0.92rem;
+  font-weight: 950;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.awb-back:focus-visible,
+.awb-date-title:focus-visible,
+.awb-year-title:focus-visible,
+.awb-title:focus-visible,
+.awb-section-title:focus-visible,
+.awb-small-note:focus-visible,
+.awb-error:focus-visible,
+.awb-blocked:focus-visible,
+.awb-option:focus-visible,
+.awb-btn:focus-visible,
+.awb-summary:focus-visible,
+.awb-summary-label:focus-visible,
+.awb-summary-value:focus-visible,
+.awb-page input:focus-visible,
+.awb-page select:focus-visible,
+.awb-page textarea:focus-visible {
+  outline: 3px solid var(--awb-yellow);
+  outline-offset: 4px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 6px rgba(47, 90, 43, 0.15);
+}
+
+body.screen-reader-on #readable-content .awb-back:focus,
+body.screen-reader-on #readable-content .awb-date-title:focus,
+body.screen-reader-on #readable-content .awb-year-title:focus,
+body.screen-reader-on #readable-content .awb-title:focus,
+body.screen-reader-on #readable-content .awb-section-title:focus,
+body.screen-reader-on #readable-content .awb-small-note:focus,
+body.screen-reader-on #readable-content .awb-error:focus,
+body.screen-reader-on #readable-content .awb-blocked:focus,
+body.screen-reader-on #readable-content .awb-option:focus,
+body.screen-reader-on #readable-content .awb-btn:focus,
+body.screen-reader-on #readable-content .awb-summary:focus,
+body.screen-reader-on #readable-content .awb-summary-label:focus,
+body.screen-reader-on #readable-content .awb-summary-value:focus {
+  outline: 3px solid var(--awb-yellow);
+  outline-offset: 4px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 6px rgba(47, 90, 43, 0.15);
+}
+
+@media (max-width: 760px) {
+  .awb-page {
+    background-attachment: scroll;
+    background-position: center top;
   }
 
-  .workshop-booking-top{
-    grid-template-columns:56px 1fr;
+  .awb-wrap {
+    width: min(100% - 26px, 940px);
+    padding: 22px 0 54px;
   }
 
-  .workshop-booking-date-title{
-    justify-self:start;
+  .awb-top {
+    display: grid;
+    grid-template-columns: 64px 1fr 64px;
+    align-items: center;
+    gap: 14px;
+    margin: 12px 0 18px;
   }
 
-  .workshop-booking-year-title{
-    grid-column:2;
-    justify-self:start;
+  .awb-card {
+    padding: 28px 20px 30px;
   }
 
-  .workshop-booking-two-col,
-  .workshop-booking-options{
-    grid-template-columns:1fr;
+  .awb-two-col,
+  .awb-options {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .awb-two-col,
+  .awb-options {
+    grid-template-columns: 1fr;
   }
 
-  .workshop-booking-actions{
-    justify-content:space-between;
+  .awb-actions {
+    flex-direction: column-reverse;
   }
 
-  .booking-row{
-    flex-direction:column;
-    gap:4px;
+  .awb-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .awb-wrap {
+    width: min(100% - 18px, 940px);
   }
 
-  .booking-value{
-    text-align:left;
+  .awb-card {
+    padding: 24px 16px 26px;
+  }
+
+  .awb-summary-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .awb-summary-value {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awb-back,
+  .awb-back img,
+  .awb-option,
+  .awb-btn,
+  .awb-page input,
+  .awb-page select,
+  .awb-page textarea {
+    transition: none;
+  }
+
+  .awb-back:hover,
+  .awb-option:hover,
+  .awb-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ── Safe fixes: equal time fields, Other input spacing, compact form width ── */
+
+.awb-wrap {
+  width: min(860px, 94%);
+}
+
+.awb-card {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.awb-two-col {
+  align-items: start;
+}
+
+.awb-two-col .awb-field,
+.awb-two-col .awb-field-no-margin {
+  width: 100%;
+  margin: 0;
+}
+
+.awb-two-col input[type="time"],
+.awb-two-col input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+}
+
+.awb-page input[type="time"] {
+  padding-right: 42px;
+}
+
+.awb-other-input {
+  width: 100%;
+  display: block;
+  margin-top: 10px;
+}
+
+.awb-quantity-input,
+.awb-page input[type="number"] {
+  width: 100%;
+  display: block;
+}
+
+.awb-options {
+  overflow: visible;
+}
+
+.awb-option {
+  height: auto;
+}
+
+.awb-summary {
+  clear: both;
+}
+
+@media (max-width: 560px) {
+  .awb-wrap {
+    width: min(100% - 18px, 860px);
   }
 }

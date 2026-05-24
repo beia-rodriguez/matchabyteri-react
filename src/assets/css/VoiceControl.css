@@ -27,12 +27,35 @@ body.access-text-scaled {
   right: max(24px, env(safe-area-inset-right));
 }
 
+.accessibility-bubble-wrapper.position-right {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: auto !important;
+  height: auto !important;
+  z-index: 9999;
+}
+
 .accessibility-bubble-wrapper.position-left {
   left: max(24px, env(safe-area-inset-left));
   right: auto;
   align-items: flex-start;
 }
 
+.accessibility-bubble-wrapper {
+  pointer-events: none !important;
+}
+
+/* But keep the actual floating accessibility button clickable */
+.accessibility-bubble-wrapper button,
+.accessibility-bubble-wrapper a,
+.accessibility-bubble-wrapper [role="button"],
+.accessibility-bubble-wrapper .accessibility-bubble,
+.accessibility-bubble-wrapper .accessibility-button,
+.accessibility-bubble-wrapper .bubble,
+.accessibility-bubble-wrapper .fab {
+  pointer-events: auto !important;
+}
 .accessibility-main-button {
   width: 64px;
   height: 64px;
@@ -648,5 +671,72 @@ body.screen-reader-on *:focus {
   .accessibility-main-button:hover,
   .accessibility-option:hover {
     transform: none !important;
+  }
+}
+
+/* ── Accessibility closed-menu click-block fix ─────────────────────────────
+   When the panel is closed, its hidden menu buttons must not sit over the page.
+   The main round button remains clickable; invisible menu/tool items do not. */
+
+.accessibility-bubble-wrapper {
+  width: auto !important;
+  height: auto !important;
+  max-width: 72px;
+  max-height: 72px;
+  pointer-events: none !important;
+}
+
+.accessibility-bubble-wrapper .accessibility-main-button {
+  pointer-events: auto !important;
+}
+
+.accessibility-menu {
+  position: absolute;
+  right: 0;
+  bottom: 76px;
+  width: max-content;
+  max-width: calc(100vw - 48px);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none !important;
+}
+
+.accessibility-menu * {
+  pointer-events: none !important;
+}
+
+.accessibility-menu.show {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto !important;
+}
+
+.accessibility-menu.show button,
+.accessibility-menu.show a,
+.accessibility-menu.show [role="button"],
+.accessibility-menu.show .accessibility-option,
+.accessibility-menu.show .accessibility-shortcuts-toggle {
+  pointer-events: auto !important;
+}
+
+.accessibility-tools-side {
+  pointer-events: auto !important;
+}
+
+.accessibility-tools-side button,
+.accessibility-tools-side a,
+.accessibility-tools-side [role="button"] {
+  pointer-events: auto !important;
+}
+
+.position-left .accessibility-menu {
+  left: 0;
+  right: auto;
+}
+
+@media (max-width: 600px) {
+  .accessibility-menu {
+    bottom: 72px;
+    max-width: calc(100vw - 32px);
   }
 }

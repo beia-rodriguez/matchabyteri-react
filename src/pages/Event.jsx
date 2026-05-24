@@ -45,11 +45,11 @@ export default function Event() {
     <>
       <Navbar />
 
-      <div id="readable-content">
-        <section className="book-section-text">
+      <div id="readable-content" className="event-page">
+        <section className="event-page__book-section-text">
           <p>Book a private event with us!</p>
 
-          <div className="event-image">
+          <div className="event-page__image-grid">
             <img
               src="/images/about-matcha-2.png"
               alt="Matcha preparation for private event"
@@ -66,13 +66,13 @@ export default function Event() {
             />
           </div>
 
-          <p className="event-text">
+          <p className="event-page__event-text">
             After the success of our Pop Up Event with Safe Space Club Pilates,
             we can’t wait to help you host your own unforgettable experience—BOOK NOW!
           </p>
         </section>
 
-        <section className="details-section">
+        <section className="event-page__details-section">
           <h1>Details:</h1>
 
           <ul>
@@ -89,7 +89,7 @@ export default function Event() {
             </li>
           </ul>
 
-          <div className="book-button">
+          <div className="event-page__book-button">
             <Link to="/calendar?type=event" aria-label="Book private event">
               <button type="button">BOOK HERE</button>
             </Link>

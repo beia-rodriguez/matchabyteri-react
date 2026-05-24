@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "../assets/css/admin-workshop-edit.css";
 
 function toTimeInput(value) {
   if (!value) return "";
@@ -23,6 +24,20 @@ function posterSrc(path) {
   return `/${clean}`;
 }
 
+function normalizeMoneyInput(value) {
+  if (value === "" || value === null || value === undefined) return "0.00";
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : "0.00";
+}
+
+function formatPeso(value) {
+  const amount = Number(value || 0);
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function buildFormFromWorkshop(w) {
   return {
     title: w?.title || "",
@@ -34,7 +49,9 @@ function buildFormFromWorkshop(w) {
     description: w?.description || "",
     register_points: w?.register_points || "",
     standard_points: w?.standard_points || "",
+    standard_price: w?.standard_price ?? "",
     premium_points: w?.premium_points || "",
+    premium_price: w?.premium_price ?? "",
     max_slots: String(w?.max_slots ?? "0"),
   };
 }
@@ -62,9 +79,13 @@ export default function AdminWorkshopEdit() {
     description: "",
     register_points: "",
     standard_points: "",
+    standard_price: "",
     premium_points: "",
+    premium_price: "",
     max_slots: "0",
   });
+
+  const [originalForm, setOriginalForm] = useState(null);
 
   const loadWorkshop = async () => {
     setErr("");
@@ -86,7 +107,9 @@ export default function AdminWorkshopEdit() {
       setRegCount(Number(data.regCount || 0));
 
       if (w) {
-        setForm(buildFormFromWorkshop(w));
+        const nextForm = buildFormFromWorkshop(w);
+        setForm(nextForm);
+        setOriginalForm(nextForm);
       }
     } catch (e) {
       const message = e.response?.data?.error || "Failed to load workshop.";
@@ -100,12 +123,14 @@ export default function AdminWorkshopEdit() {
 
   useEffect(() => {
     loadWorkshop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const previewPoster = useMemo(() => {
     if (posterFile) {
       return URL.createObjectURL(posterFile);
     }
+
     return posterSrc(workshop?.poster_path || "");
   }, [posterFile, workshop]);
 
@@ -119,29 +144,113 @@ export default function AdminWorkshopEdit() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "standard_price" || name === "premium_price") {
+      if (value === "" || /^\d*(\.\d{0,2})?$/.test(value)) {
+        setForm((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      }
+
+      return;
+    }
+
+    if (name === "max_slots") {
+      setForm((prev) => ({
+        ...prev,
+        [name]: value === "" ? "" : String(Math.max(0, Number(value || 0))),
+      }));
+
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
+  const handleMoneyBlur = (name) => {
+    setForm((prev) => ({
+      ...prev,
+      [name]: normalizeMoneyInput(prev[name]),
+    }));
+  };
+
+  const getChangedFields = () => {
+    if (!originalForm) return [];
+
+    const labels = {
+      title: "Title",
+      workshop_date: "Date",
+      location: "Location",
+      start_time: "Start time",
+      end_time: "End time",
+      is_active: "Status",
+      description: "Description",
+      register_points: "Register page points",
+      standard_points: "Standard inclusions",
+      standard_price: "Standard price",
+      premium_points: "Premium inclusions",
+      premium_price: "Premium price",
+      max_slots: "Max slots",
+    };
+
+    return Object.keys(labels).filter(
+      (key) => String(form[key] ?? "") !== String(originalForm[key] ?? "")
+    ).map((key) => labels[key]);
+  };
+
+  const hasUnsavedChanges = () => {
+    return getChangedFields().length > 0 || Boolean(posterFile);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+
+    const changedFields = getChangedFields();
+
+    if (posterFile) {
+      changedFields.push("Poster image");
+    }
+
+    if (changedFields.length === 0) {
+      setMsg("");
+      setErr("No changes detected.");
+      return;
+    }
+
+    const confirmMessage = [
+      "Save these workshop changes?",
+      "",
+      "Changed:",
+      ...changedFields.map((field) => `• ${field}`),
+      "",
+      "Customers will see these updates on the public workshop page."
+    ].join("\n");
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
     setMsg("");
     setErr("");
     setSaving(true);
 
     try {
       const fd = new FormData();
+
       fd.append("id", id);
       fd.append("csrf_token", csrf);
       fd.append("action", "update_workshop");
-
       fd.append("title", form.title);
       fd.append("description", form.description);
       fd.append("register_points", form.register_points);
       fd.append("standard_points", form.standard_points);
+      fd.append("standard_price", normalizeMoneyInput(form.standard_price));
       fd.append("premium_points", form.premium_points);
+      fd.append("premium_price", normalizeMoneyInput(form.premium_price));
       fd.append("workshop_date", form.workshop_date);
       fd.append("start_time", form.start_time);
       fd.append("end_time", form.end_time);
@@ -167,7 +276,9 @@ export default function AdminWorkshopEdit() {
         if (data.workshop) {
           const w = data.workshop;
           setWorkshop(w);
-          setForm(buildFormFromWorkshop(w));
+          const nextForm = buildFormFromWorkshop(w);
+          setForm(nextForm);
+          setOriginalForm(nextForm);
         }
 
         setRegCount(Number(data.regCount || 0));
@@ -181,7 +292,14 @@ export default function AdminWorkshopEdit() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Delete this workshop? This cannot be undone.")) return;
+    const confirmMessage = [
+      "Delete this workshop?",
+      "",
+      "This cannot be undone.",
+      "If customers may still need to see this workshop history, choose Hidden instead."
+    ].join("\n");
+
+    if (!window.confirm(confirmMessage)) return;
 
     setMsg("");
     setErr("");
@@ -189,6 +307,7 @@ export default function AdminWorkshopEdit() {
 
     try {
       const fd = new FormData();
+
       fd.append("id", id);
       fd.append("csrf_token", csrf);
       fd.append("action", "delete_workshop");
@@ -214,7 +333,7 @@ export default function AdminWorkshopEdit() {
   };
 
   const topbarRight = (
-    <Link className="admin-pill-react" to="/admin/workshops">
+    <Link className="awe-back-link" to="/admin/workshops">
       Back to Workshops
     </Link>
   );
@@ -227,280 +346,370 @@ export default function AdminWorkshopEdit() {
       {msg ? <div className="admin-notice-react ok">{msg}</div> : null}
       {err ? <div className="admin-notice-react bad">{err}</div> : null}
 
-      <div className="admin-panel-react">
-        <h3>Workshop Details</h3>
+      <section className="awe-panel">
+        <header className="awe-section-header">
+          <h3 className="awe-section-title">Workshop Details</h3>
+        </header>
 
-        <div className="poster-preview-react" style={{ marginBottom: 12 }}>
-          {previewPoster ? (
-            <img
-              src={previewPoster}
-              alt="Poster"
-              style={{
-                width: 180,
-                height: 180,
-                objectFit: "cover",
-                borderRadius: 12,
-                border: "1px solid var(--line)",
-                background: "#fff",
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 180,
-                height: 180,
-                border: "1px solid var(--line)",
-                borderRadius: 12,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--muted)",
-                fontWeight: 800,
-                background: "#fff",
-              }}
-            >
-              No Poster
-            </div>
-          )}
+        <div className="awe-summary-card">
+          <div className="awe-poster-frame">
+            {previewPoster ? (
+              <img className="awe-poster-image" src={previewPoster} alt="Poster" />
+            ) : (
+              <div className="awe-poster-empty">No Poster</div>
+            )}
+          </div>
 
-          <div className="poster-meta-react">
-            <div className="title-react">{workshop?.title || ""}</div>
-            <div className="muted-react">
-              Date: {workshop?.workshop_date || ""}
-              <br />
-              Time: {toTimeInput(workshop?.start_time)}
-              {workshop?.end_time ? ` - ${toTimeInput(workshop?.end_time)}` : ""}
-              <br />
-              Location: {workshop?.location || ""}
-              <br />
-              Status:{" "}
-              <strong>
-                {Number(workshop?.is_active || 0) === 1 ? "Active" : "Hidden"}
-              </strong>
-              <br />
-              Max Slots: <strong>{Number(workshop?.max_slots || 0)}</strong>
-              <br />
-              Registrations: <strong>{Number(regCount)}</strong>
-            </div>
+          <div className="awe-summary-meta">
+            <h4 className="awe-workshop-title">{workshop?.title || "Untitled Workshop"}</h4>
 
-            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link className="admin-pill-react" to={`/public-workshops/${Number(id)}`}>
+            <dl className="awe-meta-list">
+              <div>
+                <dt>Date</dt>
+                <dd>{workshop?.workshop_date || "—"}</dd>
+              </div>
+
+              <div>
+                <dt>Time</dt>
+                <dd>
+                  {toTimeInput(workshop?.start_time) || "—"}
+                  {workshop?.end_time ? ` - ${toTimeInput(workshop?.end_time)}` : ""}
+                </dd>
+              </div>
+
+              <div>
+                <dt>Location</dt>
+                <dd>{workshop?.location || "—"}</dd>
+              </div>
+
+              <div>
+                <dt>Status</dt>
+                <dd>
+                  <strong>{Number(workshop?.is_active || 0) === 1 ? "Active" : "Hidden"}</strong>
+                </dd>
+              </div>
+
+              <div>
+                <dt>Standard Price</dt>
+                <dd>
+                  <strong>₱{formatPeso(workshop?.standard_price)}</strong>
+                </dd>
+              </div>
+
+              <div>
+                <dt>Premium Price</dt>
+                <dd>
+                  <strong>₱{formatPeso(workshop?.premium_price)}</strong>
+                </dd>
+              </div>
+
+              <div>
+                <dt>Max Slots</dt>
+                <dd>
+                  <strong>{Number(workshop?.max_slots || 0)}</strong>
+                </dd>
+              </div>
+
+              <div>
+                <dt>Registrations</dt>
+                <dd>
+                  <strong>{Number(regCount)}</strong>
+                </dd>
+              </div>
+            </dl>
+
+            <div className="awe-link-row">
+              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}`}>
                 View
               </Link>
-              <Link className="admin-pill-react" to={`/public-workshops/${Number(id)}/register`}>
+              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/register`}>
                 Register Page
               </Link>
-              <Link className="admin-pill-react" to={`/public-workshops/${Number(id)}/standard`}>
+              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/standard`}>
                 Standard
               </Link>
-              <Link className="admin-pill-react" to={`/public-workshops/${Number(id)}/premium`}>
+              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/premium`}>
                 Premium
               </Link>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSave}>
-          <div
-            className="admin-form-row-react"
-            style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
-          >
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>Title</div>
-              <input
-                className="admin-input-react"
-                type="text"
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>Date</div>
-              <input
-                className="admin-input-react"
-                type="date"
-                name="workshop_date"
-                value={form.workshop_date}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>Location</div>
-              <input
-                className="admin-input-react"
-                type="text"
-                name="location"
-                value={form.location}
-                onChange={handleChange}
-                required
-              />
-            </div>
+        {hasUnsavedChanges() ? (
+          <div className="awe-warning-box" role="status" aria-live="polite">
+            You have unsaved changes. Click Save Changes and confirm before they are applied.
           </div>
+        ) : null}
 
-          <div
-            className="admin-form-row-react"
-            style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}
-          >
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>Start Time</div>
-              <input
-                className="admin-input-react"
-                type="time"
-                name="start_time"
-                value={form.start_time}
-                onChange={handleChange}
-                required
-              />
-            </div>
+        <form className="awe-form" onSubmit={handleSave}>
+          <section className="awe-card">
+            <h4 className="awe-card-title">Basic Information</h4>
 
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>End Time (optional)</div>
-              <input
-                className="admin-input-react"
-                type="time"
-                name="end_time"
-                value={form.end_time}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>Max Slots</div>
-              <input
-                className="admin-input-react"
-                type="number"
-                min="0"
-                step="1"
-                name="max_slots"
-                value={form.max_slots}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>Status</div>
-              <select
-                className="admin-input-react"
-                name="is_active"
-                value={form.is_active}
-                onChange={handleChange}
-              >
-                <option value="1">Active</option>
-                <option value="0">Hidden</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ margin: "10px 0 12px" }}>
-            <div className="admin-muted-react" style={{ marginBottom: 6 }}>
-              Description (public workshop view)
-            </div>
-            <textarea
-              className="admin-input-react"
-              name="description"
-              rows="4"
-              style={{ width: "100%", resize: "vertical" }}
-              value={form.description}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div style={{ margin: "10px 0 12px" }}>
-            <div className="admin-muted-react" style={{ marginBottom: 6 }}>
-              Register Page Points
-            </div>
-            <textarea
-              className="admin-input-react"
-              name="register_points"
-              rows="4"
-              style={{ width: "100%", resize: "vertical" }}
-              placeholder={"- Bullet 1\n- Bullet 2"}
-              value={form.register_points}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div
-            className="admin-form-row-react"
-            style={{ gridTemplateColumns: "1fr 1fr" }}
-          >
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>
-                STANDARD inclusions
+            <div className="awe-grid awe-grid-3">
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-title">
+                  Title
+                </label>
+                <input
+                  id="awe-title"
+                  className="awe-input"
+                  type="text"
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  required
+                />
               </div>
-              <textarea
-                className="admin-input-react"
-                name="standard_points"
-                rows="4"
-                style={{ width: "100%", resize: "vertical" }}
-                value={form.standard_points}
-                onChange={handleChange}
-              />
-            </div>
 
-            <div>
-              <div className="admin-muted-react" style={{ marginBottom: 6 }}>
-                PREMIUM inclusions
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-date">
+                  Date
+                </label>
+                <input
+                  id="awe-date"
+                  className="awe-input"
+                  type="date"
+                  name="workshop_date"
+                  value={form.workshop_date}
+                  onChange={handleChange}
+                  required
+                />
               </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-location">
+                  Location
+                </label>
+                <input
+                  id="awe-location"
+                  className="awe-input"
+                  type="text"
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="awe-grid awe-grid-4">
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-start-time">
+                  Start Time
+                </label>
+                <input
+                  id="awe-start-time"
+                  className="awe-input"
+                  type="time"
+                  name="start_time"
+                  value={form.start_time}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-end-time">
+                  End Time <span className="awe-label-muted">(optional)</span>
+                </label>
+                <input
+                  id="awe-end-time"
+                  className="awe-input"
+                  type="time"
+                  name="end_time"
+                  value={form.end_time}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-max-slots">
+                  Max Slots
+                </label>
+                <input
+                  id="awe-max-slots"
+                  className="awe-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  name="max_slots"
+                  value={form.max_slots}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-status">
+                  Status
+                </label>
+                <select
+                  id="awe-status"
+                  className="awe-input"
+                  name="is_active"
+                  value={form.is_active}
+                  onChange={handleChange}
+                >
+                  <option value="1">Active</option>
+                  <option value="0">Hidden</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+
+          <section className="awe-card">
+            <h4 className="awe-card-title">Pricing</h4>
+
+            <div className="awe-grid awe-grid-2">
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-standard-price">
+                  Standard Price (₱)
+                </label>
+                <input
+                  id="awe-standard-price"
+                  className="awe-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  name="standard_price"
+                  value={form.standard_price}
+                  onChange={handleChange}
+                  onBlur={() => handleMoneyBlur("standard_price")}
+                />
+              </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-premium-price">
+                  Premium Price (₱)
+                </label>
+                <input
+                  id="awe-premium-price"
+                  className="awe-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  name="premium_price"
+                  value={form.premium_price}
+                  onChange={handleChange}
+                  onBlur={() => handleMoneyBlur("premium_price")}
+                />
+              </div>
+            </div>
+
+            <p className="awe-help-text">
+              These are the amounts customers pay when they choose the Standard or Premium workshop package.
+            </p>
+          </section>
+
+          <section className="awe-card">
+            <h4 className="awe-card-title">Content & Media</h4>
+
+            <div className="awe-field">
+              <label className="awe-label" htmlFor="awe-description">
+                Description <span className="awe-label-muted">(public workshop view)</span>
+              </label>
               <textarea
-                className="admin-input-react"
-                name="premium_points"
+                id="awe-description"
+                className="awe-textarea"
+                name="description"
                 rows="4"
-                style={{ width: "100%", resize: "vertical" }}
-                value={form.premium_points}
+                value={form.description}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="awe-field">
+              <label className="awe-label" htmlFor="awe-register-points">
+                Register Page Points
+              </label>
+              <textarea
+                id="awe-register-points"
+                className="awe-textarea"
+                name="register_points"
+                rows="4"
+                placeholder={"- Bullet 1\n- Bullet 2"}
+                value={form.register_points}
                 onChange={handleChange}
               />
             </div>
-          </div>
 
-          <div style={{ margin: "10px 0 14px" }}>
-            <div className="admin-muted-react" style={{ marginBottom: 6 }}>
-              Replace Poster (optional)
+            <div className="awe-grid awe-grid-2">
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-standard-points">
+                  Standard Inclusions
+                </label>
+                <textarea
+                  id="awe-standard-points"
+                  className="awe-textarea"
+                  name="standard_points"
+                  rows="4"
+                  value={form.standard_points}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-premium-points">
+                  Premium Inclusions
+                </label>
+                <textarea
+                  id="awe-premium-points"
+                  className="awe-textarea"
+                  name="premium_points"
+                  rows="4"
+                  value={form.premium_points}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
-            <input
-              className="admin-input-react"
-              type="file"
-              name="poster"
-              accept="image/*"
-              onChange={(e) => setPosterFile(e.target.files?.[0] || null)}
-            />
-          </div>
 
-          <button
-            className="admin-btn-react admin-btn-approve-react"
-            type="submit"
-            style={{ padding: "15px 14px" }}
-            disabled={saving}
-          >
-            {saving ? "SAVING CHANGES..." : "SAVE CHANGES"}
-          </button>
+            <div className="awe-field">
+              <label className="awe-label" htmlFor="awe-poster">
+                Replace Poster <span className="awe-label-muted">(optional)</span>
+              </label>
+              <input
+                id="awe-poster"
+                className="awe-input awe-file-input"
+                type="file"
+                name="poster"
+                accept="image/*"
+                onChange={(e) => setPosterFile(e.target.files?.[0] || null)}
+              />
+            </div>
+          </section>
+
+          <div className="awe-actions">
+            <button
+              className="awe-save-button"
+              type="submit"
+              disabled={saving}
+            >
+              {saving ? "SAVING CHANGES..." : "SAVE CHANGES"}
+            </button>
+          </div>
         </form>
-      </div>
+      </section>
 
-      <div className="admin-panel-react">
-        <h3>Delete Workshop</h3>
+      <section className="awe-panel awe-danger-panel">
+        <h3 className="awe-section-title">Delete Workshop</h3>
 
         {regCount > 0 ? (
           <div className="admin-notice-react bad">
-            This workshop has {Number(regCount)} registration(s). Deleting is disabled. Set it to Hidden instead.
+            This workshop has {Number(regCount)} registration(s). Deleting is disabled.
+            Set it to Hidden instead.
           </div>
         ) : null}
 
         <button
-          className="admin-btn-react admin-btn-cancel-react"
+          className="awe-delete-button"
           type="button"
           onClick={handleDelete}
           disabled={regCount > 0 || deleting}
         >
           {deleting ? "DELETING..." : "DELETE WORKSHOP"}
         </button>
-      </div>
+      </section>
     </AdminLayout>
   );
 }

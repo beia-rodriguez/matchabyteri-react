@@ -16,6 +16,11 @@ function can_approve_payment_status($paymentStatus) {
   return in_array($paymentStatus, ["partial", "paid"], true);
 }
 
+function json_response($data) {
+  echo json_encode($data);
+  exit();
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   $raw = file_get_contents("php://input");
   $data = json_decode($raw, true);
@@ -30,11 +35,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $booking_id = (int)($data["booking_id"] ?? 0);
     $new_status = strtolower(trim($data["new_status"] ?? ""));
 
-    $allowed = ["approved", "cancelled"];
+    $allowed = ["approved", "cancelled", "completed", "rejected"];
 
     if ($booking_id <= 0 || !in_array($new_status, $allowed, true)) {
-      echo json_encode(["error" => "Invalid booking update."]);
-      exit();
+      json_response(["error" => "Invalid booking update."]);
     }
 
     $approved_by = (int)($_SESSION["user_id"] ?? 0);
@@ -43,7 +47,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     try {
       $stmt = $conn->prepare("
-        SELECT id, status, payment_status
+        SELECT 
+          id, 
+          status, 
+          payment_status,
+          cancel_requested
         FROM bookings
         WHERE id = ?
         LIMIT 1
@@ -57,29 +65,57 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       $stmt->execute();
 
       $booking = $stmt->get_result()->fetch_assoc();
-
       $stmt->close();
 
       if (!$booking) {
         throw new Exception("Booking not found.");
       }
 
-      if ($booking["status"] !== "pending") {
-        throw new Exception("Only pending bookings can be updated here.");
+      $current_status = strtolower((string)$booking["status"]);
+      $payment_status = strtolower((string)$booking["payment_status"]);
+
+      if (in_array($current_status, ["cancelled", "completed", "rejected"], true)) {
+        throw new Exception("This booking is already closed and can no longer be updated.");
       }
 
-      if (
-        $new_status === "approved" &&
-        !can_approve_payment_status($booking["payment_status"] ?? "unpaid")
-      ) {
-        throw new Exception("Booking cannot be approved until payment is partial or paid.");
+      if ($new_status === "approved") {
+        if ($current_status !== "pending") {
+          throw new Exception("Only pending bookings can be approved.");
+        }
+
+        if (!can_approve_payment_status($payment_status)) {
+          throw new Exception("Booking cannot be approved until payment is partial or paid.");
+        }
+      }
+
+      if ($new_status === "cancelled") {
+        if (!in_array($current_status, ["pending", "approved"], true)) {
+          throw new Exception("Only pending or approved bookings can be cancelled.");
+        }
+      }
+
+      if ($new_status === "completed") {
+        if ($current_status !== "approved") {
+          throw new Exception("Only approved bookings can be marked as completed.");
+        }
+      }
+
+      if ($new_status === "rejected") {
+        if ($current_status !== "pending") {
+          throw new Exception("Only pending bookings can be rejected.");
+        }
       }
 
       $stmt = $conn->prepare("
         UPDATE bookings
-        SET status = ?, approved_by = ?, updated_at = NOW()
+        SET 
+          status = ?, 
+          approved_by = CASE 
+            WHEN ? = 'approved' THEN ?
+            ELSE approved_by
+          END,
+          updated_at = NOW()
         WHERE id = ?
-          AND status = 'pending'
         LIMIT 1
       ");
 
@@ -87,73 +123,98 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         throw new Exception("Failed to prepare booking update.");
       }
 
-      $stmt->bind_param("sii", $new_status, $approved_by, $booking_id);
+      $stmt->bind_param("ssii", $new_status, $new_status, $approved_by, $booking_id);
 
       if (!$stmt->execute()) {
         throw new Exception($stmt->error);
       }
 
       if ($stmt->affected_rows < 1) {
-        throw new Exception("Booking was already updated.");
+        throw new Exception("Booking was not updated.");
       }
 
       $stmt->close();
 
       $conn->commit();
 
-      echo json_encode([
+      $message = "Booking updated.";
+
+      if ($new_status === "approved") {
+        $message = "Booking approved.";
+      } elseif ($new_status === "cancelled") {
+        $message = "Booking cancelled.";
+      } elseif ($new_status === "completed") {
+        $message = "Booking marked as completed.";
+      } elseif ($new_status === "rejected") {
+        $message = "Booking rejected.";
+      }
+
+      json_response([
         "success" => true,
-        "message" => $new_status === "approved"
-          ? "Booking approved."
-          : "Booking cancelled."
+        "message" => $message
       ]);
-      exit();
 
     } catch (Exception $e) {
       $conn->rollback();
 
       error_log("admin-reservations update error: " . $e->getMessage());
 
-      echo json_encode([
+      json_response([
         "error" => $e->getMessage()
       ]);
-      exit();
     }
   }
 
-  echo json_encode(["error" => "Invalid action."]);
-  exit();
+  json_response(["error" => "Invalid action."]);
 }
 
-$pending = [];
+$bookings = [];
 
 $stmt = $conn->prepare("
   SELECT
     b.id,
+    b.user_id,
+    b.time_slot_id,
     b.booking_date,
     b.start_time,
     b.end_time,
     b.booking_type,
     b.status,
-    b.payment_status,
-    b.total_amount,
     b.notes,
-    b.form_snapshot,
+    b.admin_notes,
+    b.approved_by,
     b.created_at,
+    b.updated_at,
+    b.total_amount,
+    b.amount_paid,
+    b.payment_status,
+    b.form_id,
+    b.form_snapshot,
+    b.cancel_requested,
+    b.cancel_reason,
+    b.cancel_requested_at,
     u.name AS user_name,
     u.email AS user_email
   FROM bookings b
   LEFT JOIN users u ON b.user_id = u.id
-  WHERE b.status = 'pending'
-  ORDER BY b.booking_date DESC, b.start_time ASC
-  LIMIT 80
+  WHERE b.status IN ('pending_payment', 'pending', 'approved', 'cancelled', 'completed', 'rejected')
+  ORDER BY 
+    CASE 
+      WHEN b.cancel_requested = 1 AND b.status IN ('pending', 'approved') THEN 0
+      WHEN b.status = 'pending_payment' THEN 1
+      WHEN b.status = 'pending' THEN 2
+      WHEN b.status = 'approved' THEN 3
+      ELSE 3
+    END,
+    b.booking_date DESC,
+    b.start_time ASC
+  LIMIT 300
 ");
 
 if (!$stmt) {
-  echo json_encode([
-    "error" => "Failed to load pending bookings."
+  json_response([
+    "error" => "Failed to load reservations."
   ]);
-  exit();
 }
 
 $stmt->execute();
@@ -170,13 +231,20 @@ while ($r = $res->fetch_assoc()) {
   $r["dynamic_answers"] = $notes["dynamic_answers"] ?? [];
   $r["selected_items"] = $notes["selected_items"] ?? [];
 
-  $pending[] = $r;
+  $r["total_amount"] = (float)($r["total_amount"] ?? 0);
+  $r["amount_paid"] = (float)($r["amount_paid"] ?? 0);
+
+  $r["cancel_requested"] = (int)($r["cancel_requested"] ?? 0);
+  $r["cancel_reason"] = $r["cancel_reason"] ?? "";
+  $r["cancel_requested_at"] = $r["cancel_requested_at"] ?? null;
+
+  $bookings[] = $r;
 }
 
 $stmt->close();
 
-echo json_encode([
+json_response([
   "success" => true,
   "csrf" => $csrf,
-  "pending" => $pending
+  "bookings" => $bookings
 ]);

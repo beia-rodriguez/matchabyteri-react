@@ -11,6 +11,22 @@ function clean_time($s){
   return preg_match("/^\d{2}:\d{2}$/", $s) ? $s : "";
 }
 
+function clean_money($value){
+  $value = trim((string)$value);
+
+  if ($value === "") {
+    return 0.00;
+  }
+
+  if (!preg_match("/^\d+(\.\d{1,2})?$/", $value)) {
+    return null;
+  }
+
+  $amount = (float)$value;
+
+  return $amount >= 0 ? round($amount, 2) : null;
+}
+
 function time_to_db($hhmm){
   return ($hhmm === "") ? null : ($hhmm . ":00");
 }
@@ -193,6 +209,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $register_points = trim($_POST["register_points"] ?? "");
     $standard_points = trim($_POST["standard_points"] ?? "");
     $premium_points  = trim($_POST["premium_points"] ?? "");
+    $standard_price = clean_money($_POST["standard_price"] ?? "0");
+    $premium_price = clean_money($_POST["premium_price"] ?? "0");
 
     $workshop_date = clean_date($_POST["workshop_date"] ?? "");
     $start_time = clean_time($_POST["start_time"] ?? "");
@@ -204,6 +222,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if ($title === "" || $description === "" || $workshop_date === "" || $start_time === "" || $location === "") {
       echo json_encode([
         "error" => "Please fill in Title, Description, Date, Start Time, and Location."
+      ]);
+      exit();
+    }
+
+    if ($standard_price === null || $premium_price === null) {
+      echo json_encode([
+        "error" => "Prices must be valid non-negative amounts with up to 2 decimal places."
+      ]);
+      exit();
+    }
+
+    if ($is_active === 1 && $standard_price <= 0 && $premium_price <= 0) {
+      echo json_encode([
+        "error" => "Active workshops must have at least one paid package price. Set the workshop to Hidden if pricing is not ready."
       ]);
       exit();
     }
@@ -224,6 +256,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $start_db = time_to_db($start_time);
     $end_db = ($end_time === "") ? null : time_to_db($end_time);
+
+    if ($is_active === 1 && $end_db !== null) {
+      $overlapStmt = $conn->prepare("
+        SELECT id, title
+        FROM workshops_public
+        WHERE id <> ?
+          AND is_active = 1
+          AND workshop_date = ?
+          AND start_time < ?
+          AND COALESCE(end_time, start_time) > ?
+        LIMIT 1
+      ");
+
+      if ($overlapStmt) {
+        $overlapStmt->bind_param("isss", $id, $workshop_date, $end_db, $start_db);
+        $overlapStmt->execute();
+        $overlap = $overlapStmt->get_result()->fetch_assoc();
+        $overlapStmt->close();
+
+        if ($overlap) {
+          echo json_encode([
+            "error" => "This active workshop overlaps with another active workshop: " . $overlap["title"]
+          ]);
+          exit();
+        }
+      }
+    }
 
     $oldPoster = (string)($workshop["poster_path"] ?? "");
     $newPosterPath = $oldPoster;
@@ -246,19 +305,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $stmt = $conn->prepare("
       UPDATE workshops_public
-      SET title=?, description=?, register_points=?, standard_points=?, premium_points=?,
-          poster_path=?, workshop_date=?, start_time=?, end_time=?, location=?, max_slots=?, is_active=?
+      SET title=?, description=?, register_points=?, standard_points=?, standard_price=?,
+          premium_points=?, premium_price=?, poster_path=?, workshop_date=?, start_time=?,
+          end_time=?, location=?, max_slots=?, is_active=?
       WHERE id=?
       LIMIT 1
     ");
 
     $stmt->bind_param(
-      "ssssssssssiii",
+      "ssssdsdsssssiii",
       $title,
       $description,
       $register_points,
       $standard_points,
+      $standard_price,
       $premium_points,
+      $premium_price,
       $newPosterPath,
       $workshop_date,
       $start_db,

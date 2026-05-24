@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . "/admin-common-api.php";
 
+header("Content-Type: application/json; charset=utf-8");
+
 $type = $_GET["type"] ?? "";
 
 if (!in_array($type, ["event", "workshop"], true)) {
@@ -16,6 +18,13 @@ $stmt = $conn->prepare("
   ORDER BY id DESC
   LIMIT 1
 ");
+
+if (!$stmt) {
+  http_response_code(500);
+  echo json_encode(["error" => "Failed to prepare form lookup"]);
+  exit();
+}
+
 $stmt->bind_param("s", $type);
 $stmt->execute();
 $form = $stmt->get_result()->fetch_assoc();
@@ -39,6 +48,13 @@ $stmt = $conn->prepare("
   WHERE form_id = ?
   ORDER BY sort_order ASC, id ASC
 ");
+
+if (!$stmt) {
+  http_response_code(500);
+  echo json_encode(["error" => "Failed to prepare section lookup"]);
+  exit();
+}
+
 $stmt->bind_param("i", $formId);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -63,6 +79,12 @@ if (!empty($sections)) {
     ORDER BY sort_order ASC, id ASC
   ");
 
+  if (!$fieldsRes) {
+    http_response_code(500);
+    echo json_encode(["error" => "Failed to load form fields"]);
+    exit();
+  }
+
   $fields = [];
 
   while ($field = $fieldsRes->fetch_assoc()) {
@@ -85,10 +107,17 @@ if (!empty($sections)) {
       ORDER BY sort_order ASC, id ASC
     ");
 
+    if (!$optRes) {
+      http_response_code(500);
+      echo json_encode(["error" => "Failed to load form options"]);
+      exit();
+    }
+
     while ($option = $optRes->fetch_assoc()) {
       $option["id"] = (int)$option["id"];
       $option["field_id"] = (int)$option["field_id"];
       $option["price"] = (float)$option["price"];
+      $option["is_other"] = isset($option["is_other"]) ? (int)$option["is_other"] : 0;
       $option["sort_order"] = (int)$option["sort_order"];
 
       $fields[(int)$option["field_id"]]["options"][] = $option;
@@ -101,6 +130,7 @@ if (!empty($sections)) {
 }
 
 $form["id"] = (int)$form["id"];
+$form["base_rate"] = isset($form["base_rate"]) ? (float)$form["base_rate"] : 0.0;
 $form["downpayment_percentage"] = (float)$form["downpayment_percentage"];
 $form["is_active"] = (int)$form["is_active"];
 $form["sections"] = array_values($sections);

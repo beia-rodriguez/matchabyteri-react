@@ -1,0 +1,1012 @@
+/* AdminForms.css
+   Page-only CSS for AdminForms.jsx.
+   This file is intentionally scoped under .admin-forms-page-react so Booking Forms
+   no longer depends on or fights with unrelated admin page CSS.
+*/
+
+.admin-forms-page-react {
+  --afc-green: var(--green, #2f5a2b);
+  --afc-green-2: var(--green-2, #37664c);
+  --afc-yellow: var(--yellow, #ffd95a);
+  --afc-ink: var(--ink, #1f3b26);
+  --afc-muted: var(--muted, #6b7a62);
+  --afc-panel: var(--panel, #f6f7f6);
+  --afc-line: var(--line, #d8dfda);
+  color: var(--afc-ink);
+}
+
+.admin-forms-page-react *,
+.admin-forms-page-react *::before,
+.admin-forms-page-react *::after {
+  box-sizing: border-box;
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(31, 59, 38, 0.4);
+  backdrop-filter: blur(3px);
+}
+
+.admin-forms-page-react .afc-modal {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid var(--afc-line);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.admin-forms-page-react .afc-modal-title {
+  margin: 0 0 12px;
+  color: var(--afc-green-2);
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-modal-body {
+  margin: 0 0 24px;
+  color: var(--afc-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.admin-forms-page-react .afc-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-btn-primary,
+.admin-forms-page-react .afc-btn-secondary,
+.admin-forms-page-react .afc-btn-danger {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 900;
+  cursor: pointer;
+  border: none;
+  transition: 0.15s ease;
+}
+
+.admin-forms-page-react .afc-btn-primary {
+  background: var(--afc-green-2);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(55, 102, 76, 0.2);
+}
+
+.admin-forms-page-react .afc-btn-primary:hover:not(:disabled) {
+  background: var(--afc-ink);
+  transform: translateY(-1px);
+}
+
+.admin-forms-page-react .afc-btn-secondary {
+  background: #fff;
+  border: 2px solid var(--afc-line);
+  color: var(--afc-green-2);
+}
+
+.admin-forms-page-react .afc-btn-secondary:hover:not(:disabled) {
+  border-color: rgba(55, 102, 76, 0.4);
+}
+
+.admin-forms-page-react .afc-btn-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-forms-page-react .afc-btn-danger:hover:not(:disabled) {
+  background: #fca5a5;
+}
+
+.admin-forms-page-react button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Toolbar ───────────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--afc-line);
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.admin-forms-page-react .afc-toolbar-left,
+.admin-forms-page-react .afc-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-forms-page-react .afc-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--afc-panel);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.admin-forms-page-react .afc-tab {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--afc-muted);
+  font-family: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.admin-forms-page-react .afc-tab.active {
+  background: #fff;
+  color: var(--afc-green-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Main split layout ─────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-forms-page-react .afc-split.with-preview {
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+}
+
+.admin-forms-page-react .afc-editor {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Settings card ─────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-settings-card {
+  background: var(--afc-panel);
+  border: 1px solid var(--afc-line);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.admin-forms-page-react .afc-settings-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.admin-forms-page-react .afc-settings-field {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-forms-page-react .afc-settings-field--sm {
+  flex: 0 0 150px;
+}
+
+.admin-forms-page-react .afc-label {
+  color: var(--afc-green-2);
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-forms-page-react .afc-label-hint {
+  color: var(--afc-muted);
+  text-transform: none;
+  font-weight: 700;
+}
+
+.admin-forms-page-react .afc-input {
+  width: 100%;
+  border: 1px solid var(--afc-line);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  color: var(--afc-ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.admin-forms-page-react .afc-input:focus {
+  border-color: var(--afc-green);
+  box-shadow: 0 0 0 3px rgba(47, 90, 43, 0.1);
+}
+
+.admin-forms-page-react .afc-downpayment-preview {
+  color: var(--afc-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-section {
+  background: #fff;
+  border: 1px solid var(--afc-line);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.025);
+}
+
+.admin-forms-page-react .afc-section-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--afc-line);
+}
+
+.admin-forms-page-react .afc-section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  white-space: nowrap;
+  border-radius: 8px;
+  padding: 4px 10px;
+  background: var(--afc-green-2);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-forms-page-react .afc-section-title-input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f9fbf9;
+  color: var(--afc-ink);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  outline: none;
+  transition: 0.15s ease;
+}
+
+.admin-forms-page-react .afc-section-title-input:focus,
+.admin-forms-page-react .afc-section-title-input:hover {
+  border-color: var(--afc-line);
+  background: #fff;
+}
+
+.admin-forms-page-react .afc-section-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.admin-forms-page-react .afc-section-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-height: 34px;
+  border: 1px solid var(--afc-line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-add-section-btn,
+.admin-forms-page-react .afc-add-field-btn {
+  width: 100%;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--afc-line);
+  border-radius: 12px;
+  padding: 14px;
+  background: transparent;
+  color: var(--afc-muted);
+  font-family: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.admin-forms-page-react .afc-add-section-btn:hover,
+.admin-forms-page-react .afc-add-field-btn:hover {
+  border-color: var(--afc-green-2);
+  color: var(--afc-green-2);
+  background: rgba(55, 102, 76, 0.03);
+}
+
+.admin-forms-page-react .afc-add-field-btn {
+  margin-top: 12px;
+}
+
+/* ── Field cards ───────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-field-card {
+  position: relative;
+  margin-bottom: 16px;
+  border: 1px solid var(--afc-line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-forms-page-react .afc-field-card:focus-within {
+  border-color: var(--afc-green);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.admin-forms-page-react .afc-field-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-forms-page-react .afc-field-drag-handle {
+  color: #b7bfb7;
+  display: inline-flex;
+}
+
+.admin-forms-page-react .afc-type-pill {
+  border: 1px solid var(--afc-line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: var(--afc-panel);
+  color: var(--afc-ink);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-forms-page-react .afc-field-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.admin-forms-page-react .afc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px;
+  background: transparent;
+  color: var(--afc-muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.admin-forms-page-react .afc-icon-btn:hover:not(:disabled) {
+  background: #f0f3f0;
+  color: var(--afc-ink);
+}
+
+.admin-forms-page-react .afc-remove-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-forms-page-react .afc-field-label-input {
+  width: 100%;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f9fbf9;
+  color: var(--afc-ink);
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  outline: none;
+}
+
+.admin-forms-page-react .afc-field-label-input:focus {
+  border-color: var(--afc-line);
+  background: #fff;
+}
+
+/* Type picker */
+.admin-forms-page-react .afc-type-picker-popup {
+  position: absolute;
+  top: 52px;
+  left: 40px;
+  z-index: 20;
+  width: 320px;
+  border: 1px solid var(--afc-line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.admin-forms-page-react .afc-type-picker-title {
+  margin-bottom: 12px;
+  color: var(--afc-muted);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.admin-forms-page-react .afc-type-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid var(--afc-line);
+  border-radius: 8px;
+  padding: 10px;
+  background: transparent;
+  color: var(--afc-ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-forms-page-react .afc-type-card:hover,
+.admin-forms-page-react .afc-type-card.active {
+  border-color: var(--afc-green-2);
+  background: rgba(55, 102, 76, 0.06);
+  color: var(--afc-green-2);
+}
+
+.admin-forms-page-react .afc-type-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+/* Options */
+.admin-forms-page-react .afc-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.admin-forms-page-react .afc-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-forms-page-react .afc-option-bullet {
+  width: 20px;
+  color: #9aa39a;
+  text-align: center;
+}
+
+.admin-forms-page-react .afc-option-input {
+  flex: 2;
+  min-width: 180px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--afc-line);
+  border-radius: 6px 6px 0 0;
+  padding: 9px 12px;
+  background: #fff;
+  color: var(--afc-ink);
+  font-family: inherit;
+  outline: none;
+}
+
+.admin-forms-page-react .afc-option-input:focus,
+.admin-forms-page-react .afc-option-input:hover {
+  border-bottom-color: var(--afc-green-2);
+  background: #f9fbf9;
+}
+
+.admin-forms-page-react .afc-option-price-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--afc-line);
+  border-radius: 8px;
+  padding-left: 8px;
+  background: #fff;
+}
+
+.admin-forms-page-react .afc-option-currency {
+  color: var(--afc-muted);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-option-price {
+  width: 90px;
+  border: 0;
+  padding: 9px;
+  background: transparent;
+  color: var(--afc-ink);
+  font-family: inherit;
+  outline: none;
+}
+
+.admin-forms-page-react .afc-option-ptype {
+  min-height: 38px;
+  border: 1px solid var(--afc-line);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  color: var(--afc-muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.admin-forms-page-react .afc-add-option-btn {
+  align-self: flex-start;
+  border: 0;
+  background: transparent;
+  color: var(--afc-green-2);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-forms-page-react .afc-add-option-btn:hover {
+  text-decoration: underline;
+}
+
+/* Toggles */
+.admin-forms-page-react .afc-field-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-top: 1px dashed var(--afc-line);
+  padding-top: 16px;
+}
+
+.admin-forms-page-react .afc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--afc-ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-forms-page-react .afc-toggle input {
+  display: none;
+}
+
+.admin-forms-page-react .afc-toggle-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: #c9cfc9;
+  transition: 0.15s ease;
+}
+
+.admin-forms-page-react .afc-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  transition: 0.15s ease;
+}
+
+.admin-forms-page-react .afc-toggle input:checked + .afc-toggle-track {
+  background: var(--afc-green-2);
+}
+
+.admin-forms-page-react .afc-toggle input:checked + .afc-toggle-track::after {
+  transform: translateX(16px);
+}
+
+.admin-forms-page-react .afc-toggle-label {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.admin-forms-page-react .afc-toggle-hint {
+  color: var(--afc-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ── Preview ───────────────────────────────────────────────────────────── */
+
+.admin-forms-page-react .afc-preview-pane {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 8px solid var(--afc-line);
+  border-radius: 24px;
+  background: #e9ece7;
+}
+
+.admin-forms-page-react .afc-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--afc-line);
+}
+
+.admin-forms-page-react .afc-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #fff;
+  color: var(--afc-ink);
+  font-size: 0.7rem;
+  font-weight: 900;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.admin-forms-page-react .afc-preview-hint {
+  color: var(--afc-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.admin-forms-page-react .afp-root {
+  min-height: 100%;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-direction: column;
+  padding: 32px 20px;
+}
+
+.admin-forms-page-react .afp-isolated-scope {
+  --green: #2f5a2b;
+  --green-2: #37664c;
+  --yellow: #ffd95a;
+  --ink: #1f3b26;
+  --muted: #6b7a62;
+  --field: #e9ece7;
+  --line: #d8dfda;
+  width: 100%;
+  max-width: 600px;
+}
+
+.admin-forms-page-react .afp-isolated-scope .card {
+  width: 100%;
+  background: #f6f7f6;
+  border-radius: 18px;
+  padding: 28px 26px 26px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+.admin-forms-page-react .afp-isolated-scope .title,
+.admin-forms-page-react .afp-isolated-scope .section-title {
+  color: var(--green);
+  font-weight: 900;
+  text-align: center;
+}
+
+.admin-forms-page-react .afp-isolated-scope .section-title {
+  margin: 22px 0 16px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 8px;
+  font-size: 0.85rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.admin-forms-page-react .afp-isolated-scope .field {
+  width: 100%;
+  margin: 12px auto 20px;
+}
+
+.admin-forms-page-react .afp-isolated-scope .label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--green-2);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.admin-forms-page-react .afp-isolated-scope input:not([type="radio"]):not([type="checkbox"]),
+.admin-forms-page-react .afp-isolated-scope select,
+.admin-forms-page-react .afp-isolated-scope textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--field);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.admin-forms-page-react .afp-isolated-scope textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.admin-forms-page-react .afp-isolated-scope .options {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+  margin: 8px auto 2px;
+}
+
+.admin-forms-page-react .afp-isolated-scope .options > div {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(47, 90, 43, 0.15);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.admin-forms-page-react .afp-isolated-scope .opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--green-2);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.4;
+  cursor: not-allowed;
+}
+
+.admin-forms-page-react .afp-isolated-scope input[type="radio"],
+.admin-forms-page-react .afp-isolated-scope input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  accent-color: var(--green-2);
+}
+
+.admin-forms-page-react .afp-isolated-scope .btn-confirm {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 22px;
+  background: var(--yellow);
+  color: #1f3b26;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+  .admin-forms-page-react .afc-split.with-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-forms-page-react .afc-preview-pane {
+    position: static;
+    height: auto;
+    max-height: 80vh;
+    border-width: 6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-forms-page-react .afc-toolbar,
+  .admin-forms-page-react .afc-toolbar-left,
+  .admin-forms-page-react .afc-toolbar-right {
+    align-items: stretch;
+  }
+
+  .admin-forms-page-react .afc-toolbar-right,
+  .admin-forms-page-react .afc-toolbar-right button,
+  .admin-forms-page-react .afc-tabs,
+  .admin-forms-page-react .afc-tab {
+    width: 100%;
+  }
+
+  .admin-forms-page-react .afc-settings-row,
+  .admin-forms-page-react .afc-option-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-forms-page-react .afc-settings-field--sm,
+  .admin-forms-page-react .afc-option-price-wrap,
+  .admin-forms-page-react .afc-option-ptype {
+    width: 100%;
+    flex: auto;
+  }
+
+  .admin-forms-page-react .afc-section-header {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-forms-page-react .afc-section-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-forms-page-react .afc-section-action-btn {
+    flex: 1 1 auto;
+  }
+
+  .admin-forms-page-react .afc-field-header,
+  .admin-forms-page-react .afc-field-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-forms-page-react .afc-field-actions {
+    margin-left: 0;
+  }
+
+  .admin-forms-page-react .afc-type-picker-popup {
+    position: static;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .admin-forms-page-react .afc-type-grid,
+  .admin-forms-page-react .afp-isolated-scope .options {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ── Base rate + Google Forms-like Other option ─────────────────────────── */
+
+.admin-forms-page-react .afc-settings-row {
+  align-items: end;
+}
+
+.admin-forms-page-react .afc-option-row-other {
+  background: #f9fbf9;
+  border: 1px dashed var(--afc-line);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.admin-forms-page-react .afc-option-row-other .afc-option-input {
+  color: var(--afc-green-2);
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-option-other-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--afc-muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-forms-page-react .afc-option-other-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--afc-green-2);
+}
+
+.admin-forms-page-react .afc-option-other-toggle span {
+  line-height: 1;
+}
+
+@media (max-width: 980px) {
+  .admin-forms-page-react .afc-settings-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-forms-page-react .afc-option-other-toggle {
+    width: 100%;
+  }
+}
+
+
+/* ── Customer preview pricing/summary fix ──────────────────────────────── */
+
+.admin-forms-page-react .afp-price-note {
+  margin: 0 auto 22px;
+  max-width: 520px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-forms-page-react .afp-preview-section {
+  margin-bottom: 28px;
+}
+
+.admin-forms-page-react .afp-booking-summary {
+  margin: 24px 0 18px;
+  padding: 18px 20px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(31, 59, 38, 0.06);
+}
+
+.admin-forms-page-react .afp-booking-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  color: var(--green-2);
+  font-weight: 800;
+}
+
+.admin-forms-page-react .afp-booking-row + .afp-booking-row {
+  border-top: 1px dashed var(--line);
+}
+
+.admin-forms-page-react .afp-booking-row strong {
+  color: var(--green);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-forms-page-react .afp-booking-row-total {
+  font-size: 1.05rem;
+}

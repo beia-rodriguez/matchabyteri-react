@@ -17,21 +17,35 @@ export default function Calendar() {
 
   const [view, setView] = useState(new Date());
   const [monthStatus, setMonthStatus] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   const pad = (n) => String(n).padStart(2, "0");
 
   const ymd = (date) =>
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )}`;
 
   const startOfToday = () => {
-    const t = new Date();
-    t.setHours(0, 0, 0, 0);
-    return t;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
   };
 
   const formatDateOnly = (date) => {
@@ -72,14 +86,31 @@ export default function Calendar() {
       } ${readableDay}.`;
     }
 
-    if (info?.status === "OPEN" && info.count > 0) {
+    if (info?.status === "OPEN" && Number(info.count) > 0) {
       return `${readableDate}. Available. ${info.count} out of ${info.max} booked. ${readableDay}.`;
     }
 
     return `${readableDate}. Available. ${readableDay}.`;
   };
 
+  const goToPreviousMonth = () => {
+    setView((current) => {
+      return new Date(current.getFullYear(), current.getMonth() - 1, 1);
+    });
+  };
+
+  const goToNextMonth = () => {
+    setView((current) => {
+      return new Date(current.getFullYear(), current.getMonth() + 1, 1);
+    });
+  };
+
   useEffect(() => {
+    let isMounted = true;
+
+    setLoading(true);
+    setError("");
+
     API.get("/calendar/calendar_status.php", {
       params: {
         year: view.getFullYear(),
@@ -87,12 +118,29 @@ export default function Calendar() {
         type: bookingType,
       },
     })
-      .then((res) => setMonthStatus(res.data))
+      .then((res) => {
+        if (!isMounted) return;
+        setMonthStatus(res.data || {});
+      })
       .catch((err) => {
+        if (!isMounted) return;
+
         if (err.response?.status === 401) {
           navigate("/login?redirect=/calendar");
+          return;
         }
+
+        setMonthStatus({});
+        setError("Sorry, calendar availability could not be loaded.");
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, [view, bookingType, navigate]);
 
   useEffect(() => {
@@ -114,15 +162,13 @@ export default function Calendar() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "button, img, .cell"
+      "button, img, .voice-readable"
     );
 
     readableElements.forEach((element) => {
-      const tagName = element.tagName.toLowerCase();
+      if (element.closest(".accessibility-bubble-wrapper")) return;
 
-      if (tagName !== "button") {
-        element.removeAttribute("tabindex");
-      }
+      const tagName = element.tagName.toLowerCase();
 
       if (!isVisible(element)) return;
 
@@ -144,148 +190,127 @@ export default function Calendar() {
         element.setAttribute("tabindex", "0");
       }
 
+      element.classList.add("voice-readable");
+
       if (!element.getAttribute("aria-label")) {
         element.setAttribute("aria-label", textToRead.trim());
       }
     });
-  }, [view, monthStatus, bookingType]);
+  }, [view, monthStatus, bookingType, loading, error]);
 
   const renderCells = () => {
-    const y = view.getFullYear();
-    const m = view.getMonth();
+    const year = view.getFullYear();
+    const month = view.getMonth();
 
-    const first = new Date(y, m, 1);
-    const startDay = first.getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const startDay = firstDayOfMonth.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const totalCells = 42;
-    let dayNum = 1;
-    const today0 = startOfToday();
+    const today = startOfToday();
     const cells = [];
 
-    for (let i = 0; i < totalCells; i++) {
-      if (i < startDay) {
-        const prevMonthDate = new Date(y, m, 1 - (startDay - i));
-        prevMonthDate.setHours(0, 0, 0, 0);
+    let dayNum = 1;
 
-        const isPast = prevMonthDate < today0;
-
+    for (let index = 0; index < totalCells; index += 1) {
+      if (index < startDay) {
         cells.push(
           <div
-            key={i}
-            className="cell is-empty"
-            role="button"
-            aria-disabled="true"
-            aria-label={getCellLabel(prevMonthDate, isPast, null, true)}
+            key={`previous-${index}`}
+            className="cal-cell cal-cell-empty"
+            aria-hidden="true"
           />
         );
-
         continue;
       }
 
       if (dayNum > daysInMonth) {
-        const nextMonthDay = dayNum - daysInMonth;
-        const nextMonthDate = new Date(y, m + 1, nextMonthDay);
-        nextMonthDate.setHours(0, 0, 0, 0);
-
-        const isPast = nextMonthDate < today0;
-
         cells.push(
           <div
-            key={i}
-            className="cell is-empty"
-            role="button"
-            aria-disabled="true"
-            aria-label={getCellLabel(nextMonthDate, isPast, null, true)}
+            key={`next-${index}`}
+            className="cal-cell cal-cell-empty"
+            aria-hidden="true"
           />
         );
 
-        dayNum++;
+        dayNum += 1;
         continue;
       }
 
-      const d = new Date(y, m, dayNum);
-      d.setHours(0, 0, 0, 0);
-      const key = ymd(d);
+      const date = new Date(year, month, dayNum);
+      date.setHours(0, 0, 0, 0);
 
-      const isPast = d < today0;
-      const info = monthStatus[key];
+      const dateKey = ymd(date);
+      const isPast = date < today;
+      const info = monthStatus[dateKey];
 
-      let className = "cell";
+      const isBlocked = info?.status === "BLOCKED";
+      const isFull = info?.status === "FULL";
+      const isDisabled = isPast || isBlocked || isFull;
+      const hasMeta =
+        isBlocked ||
+        isFull ||
+        (info?.status === "OPEN" && Number(info.count) > 0);
+
+      let className = "cal-cell";
+
       if (isPast) className += " is-past";
-      if (info && (info.status === "BLOCKED" || info.status === "FULL")) {
-        className += " is-disabled";
-      }
+      if (isBlocked || isFull) className += " is-disabled";
+      if (!isDisabled) className += " is-open";
+      if (hasMeta) className += " has-meta";
 
       const handleClick = async () => {
-        if (isPast) return;
-        if (info && (info.status === "BLOCKED" || info.status === "FULL")) return;
+        if (isDisabled) return;
 
         try {
           await API.get("/auth/check-auth.php");
-          navigate(`/day?date=${key}&type=${bookingType}`);
+          navigate(`/day?date=${dateKey}&type=${bookingType}`);
         } catch (err) {
           navigate(
             `/login?redirect=${encodeURIComponent(
-              `/day?date=${key}&type=${bookingType}`
+              `/day?date=${dateKey}&type=${bookingType}`
             )}`
           );
         }
       };
 
-      const handleKeyDown = (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleClick();
-        }
-      };
-
       cells.push(
-        <div
-          key={i}
+        <button
+          key={dateKey}
+          type="button"
           className={className}
           onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          role="button"
-          aria-label={getCellLabel(d, isPast, info)}
-          aria-disabled={
-            isPast || (info && (info.status === "BLOCKED" || info.status === "FULL"))
-              ? "true"
-              : "false"
-          }
+          disabled={isDisabled}
+          aria-label={getCellLabel(date, isPast, info)}
         >
-          <div className="num">{dayNum}</div>
+          <span className="cal-num">{dayNum}</span>
 
-          {info?.status === "BLOCKED" && (
-            <>
-              {info.reason && <div className="reason">{info.reason}</div>}
-              <div className="badge" aria-label="Unavailable">
-                UNAVAILABLE
-              </div>
-            </>
-          )}
+          <span className="cal-meta">
+            {isBlocked && info?.reason && (
+              <span className="cal-reason">{info.reason}</span>
+            )}
 
-          {info?.status === "FULL" && (
-            <>
-              {info.reason && <div className="reason">{info.reason}</div>}
-              <div className="badge" aria-label="Fully booked">
-                FULLY BOOKED
-              </div>
-            </>
-          )}
+            {isBlocked && <span className="cal-badge">Unavailable</span>}
 
-          {info?.status === "OPEN" && info.count > 0 && (
-            <div
-              className="slots"
-              aria-label={`${info.count} out of ${info.max} booked`}
-            >
-              {info.count}/{info.max} booked
-            </div>
-          )}
-        </div>
+            {isFull && info?.reason && (
+              <span className="cal-reason">{info.reason}</span>
+            )}
+
+            {isFull && <span className="cal-badge">Fully Booked</span>}
+
+            {info?.status === "OPEN" && Number(info.count) > 0 && (
+              <span
+                className="cal-slots"
+                aria-label={`${info.count} out of ${info.max} booked`}
+              >
+                {info.count}/{info.max} booked
+              </span>
+            )}
+          </span>
+        </button>
       );
 
-      dayNum++;
+      dayNum += 1;
     }
 
     return cells;
@@ -295,40 +320,72 @@ export default function Calendar() {
     <>
       <Navbar />
 
-      <div className="cal-page" id="readable-content">
-        <div className="cal-top">
+      <main
+        className="cal-page"
+        id="readable-content"
+        aria-label="Booking calendar page"
+      >
+        <section className="cal-top" aria-label="Calendar month navigation">
           <button
-            className="nav-btn"
+            type="button"
+            className="nav-btn cal-prev-btn"
             aria-label="Previous month"
-            onClick={() =>
-              setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))
-            }
+            onClick={goToPreviousMonth}
           >
             <img src="/images/left-book.png" alt="" aria-hidden="true" />
           </button>
 
-          <div className="month-title">
+          <h1
+            className="month-title voice-readable"
+            tabIndex="0"
+            aria-label={`Month ${monthNames[view.getMonth()]}`}
+          >
             {monthNames[view.getMonth()]}
-          </div>
+          </h1>
 
-          <div className="year-title">
+          <div
+            className="year-title voice-readable"
+            tabIndex="0"
+            aria-label={`Year ${view.getFullYear()}`}
+          >
             {view.getFullYear()}
           </div>
 
           <button
-            className="nav-btn"
+            type="button"
+            className="nav-btn cal-next-btn"
             aria-label="Next month"
-            onClick={() =>
-              setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))
-            }
+            onClick={goToNextMonth}
           >
             <img src="/images/right-book.png" alt="" aria-hidden="true" />
           </button>
-        </div>
+        </section>
 
-        <div className="cal-wrap">
+        {loading && (
+          <div
+            className="cal-alert voice-readable"
+            role="status"
+            tabIndex="0"
+            aria-label="Loading calendar availability"
+          >
+            Loading calendar availability...
+          </div>
+        )}
+
+        {error && (
+          <div
+            className="cal-alert cal-alert-error voice-readable"
+            role="alert"
+            tabIndex="0"
+            aria-label={error}
+          >
+            {error}
+          </div>
+        )}
+
+        <section className="cal-wrap" aria-label="Calendar">
           <div className="cal">
-            <div className="dow">
+            <div className="cal-dow" aria-hidden="true">
               <div>SUN</div>
               <div>MON</div>
               <div>TUE</div>
@@ -338,12 +395,10 @@ export default function Calendar() {
               <div>SAT</div>
             </div>
 
-            <div className="grid">
-              {renderCells()}
-            </div>
+            <div className="cal-grid">{renderCells()}</div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </>
   );
 }

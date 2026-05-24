@@ -1,164 +1,366 @@
-.admin-section-label {
-  margin-bottom: 6px;
-}
+/* AdminWorkshops.css
+   CSS-only fix for AdminWorkshops.jsx.
+   Do not edit AdminWorkshops.jsx.
+   This file intentionally uses stronger selectors than admin-panel.css because
+   the page is rendered inside .admin-panel-react, and admin-panel.css has rules
+   like .admin-panel-react h3 that otherwise override your workshop headings.
+*/
 
-.admin-panel-no-top-margin {
-  margin-top: 0;
-}
+/* ─────────────────────────────────────────────────────────────
+   Isolate AdminWorkshops Add tab from generic admin-panel styles
+   ───────────────────────────────────────────────────────────── */
 
-.admin-heading-with-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.admin-form-row-three {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-.admin-form-row-two {
-  grid-template-columns: 1fr 1fr;
-}
-
-.admin-edit-row-top {
-  grid-template-columns: 1.2fr 160px 190px 160px;
-}
-
-.admin-block-spacing {
-  margin: 10px 0 12px;
-}
-
-.admin-poster-upload-block {
-  margin: 10px 0 14px;
-}
-
-.admin-file-selected {
-  margin-top: 8px;
-}
-
-.admin-inline-file-selected {
-  margin-top: 6px;
-}
-
-.admin-save-workshop-btn {
-  padding: 15px 14px;
-}
-
-.admin-textarea-full {
-  width: 100%;
-  min-width: 100%; /* Forces expansion */
+.admin-panel-react .aw-add-workshop,
+.admin-panel-react .aw-add-workshop * {
   box-sizing: border-box;
 }
 
-/* Ensure form containers stretch */
-.admin-form-row-react {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
+/* Reset generic admin-panel heading styling inside this isolated section */
+.admin-panel-react .aw-add-workshop h1,
+.admin-panel-react .aw-add-workshop h2,
+.admin-panel-react .aw-add-workshop h3,
+.admin-panel-react .aw-add-workshop h4,
+.admin-panel-react .aw-add-workshop h5,
+.admin-panel-react .aw-add-workshop h6,
+.admin-panel-react .aw-add-workshop p {
+  margin-top: 0;
+}
+
+/* Prevent global form-grid rules from affecting this form */
+.admin-panel-react .aw-add-workshop .aw-add-form {
   width: 100%;
+  margin: 0 !important;
+  display: block !important;
 }
 
-.admin-workshops-toolbar {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+/* ─────────────────────────────────────────────────────────────
+   Empty/loading state
+   ───────────────────────────────────────────────────────────── */
+
+.aw-empty-state {
+  padding: 30px;
+  text-align: center;
+  background: #f9fbf9;
+  border-radius: 12px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-weight: 800;
 }
 
-.admin-existing-workshops-title {
-  margin: 0;
-  font-size: 27.88px;
+/* ─────────────────────────────────────────────────────────────
+   Add Workshop layout
+   ───────────────────────────────────────────────────────────── */
+
+.admin-panel-react .aw-add-workshop {
+  width: 100%;
+  padding: 20px 0 26px;
 }
 
-.admin-workshops-toolbar-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.admin-search-wrap {
-  position: relative;
-}
-
-.admin-search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.65;
-}
-
-.admin-search-input {
-  padding-left: 36px;
-  min-width: 220px;
-}
-
-.admin-workshop-table-cell {
+/* Header */
+.admin-panel-react .aw-add-header {
+  display: block;
+  margin: 0 0 22px;
   padding: 0;
+  text-align: center;
+  background: transparent;
+  border: 0;
 }
 
-.admin-workshop-inner {
-  padding: 14px;
+.admin-panel-react .aw-add-title {
+  margin: 0 0 8px !important;
+  color: var(--green-2) !important;
+  font-size: 1.15rem !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  text-align: center;
 }
 
-.admin-workshop-header {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+.admin-panel-react .aw-add-subtitle {
+  margin: 0 auto;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
 }
 
-.admin-workshop-header-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+/* Main layout like AdminWorkshopEdit: stacked full-width cards */
+.admin-panel-react .aw-add-layout {
+  width: 100%;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 20px;
+  align-items: start;
 }
 
-.admin-icon-inline {
-  margin-right: 6px;
+.admin-panel-react .aw-add-column {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
 }
 
-.admin-inline-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
+/* Cards */
+.admin-panel-react .aw-form-card {
+  width: 100%;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: clamp(18px, 1.4vw, 24px);
+  box-shadow: none;
+}
+
+.admin-panel-react .aw-content-card {
+  height: auto;
+}
+
+.admin-panel-react .aw-form-card-title {
+  margin: 0 0 18px !important;
+  color: var(--green) !important;
+  font-size: 1rem !important;
+  font-weight: 900 !important;
+  line-height: 1.25 !important;
+}
+
+/* Labels */
+.admin-panel-react .aw-field-label {
+  display: block;
+  margin: 0 0 7px;
+  color: var(--green-2);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  line-height: 1.2;
+}
+
+/* Fields and grids */
+.admin-panel-react .aw-field {
+  min-width: 0;
+  margin: 0 0 16px;
+}
+
+.admin-panel-react .aw-field:last-child {
+  margin-bottom: 0;
+}
+
+.admin-panel-react .aw-grid {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.admin-panel-react .aw-grid:last-child {
+  margin-bottom: 0;
+}
+
+.admin-panel-react .aw-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-panel-react .aw-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Basic Information card: full-width layout similar to edit page */
+.admin-panel-react .aw-add-column:first-child .aw-form-card:first-child {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:first-child .aw-form-card-title {
+  grid-column: 1 / -1;
+  margin-bottom: 0 !important;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:first-child > .aw-field {
+  margin-bottom: 0;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:first-child > .aw-grid {
+  display: contents;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:first-child > .aw-grid > .aw-field {
+  margin-bottom: 0;
+}
+
+/* Pricing card: clean 3-column row */
+.admin-panel-react .aw-add-column:first-child .aw-form-card:nth-child(2) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:nth-child(2) .aw-form-card-title {
+  grid-column: 1 / -1;
+  margin-bottom: 0 !important;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:nth-child(2) > .aw-grid {
+  display: contents;
+}
+
+.admin-panel-react .aw-add-column:first-child .aw-form-card:nth-child(2) .aw-field {
+  margin-bottom: 0;
+}
+
+/* Content card spacing */
+.admin-panel-react .aw-content-card > .aw-field {
+  margin-bottom: 18px;
+}
+
+.admin-panel-react .aw-content-card .aw-grid-2 {
+  align-items: start;
+}
+
+/* Inputs */
+.admin-panel-react .aw-input,
+.admin-panel-react .aw-textarea {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-panel-react .aw-input {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.admin-panel-react .aw-textarea {
+  min-height: 130px;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.admin-panel-react .aw-textarea-large {
+  min-height: 150px;
+}
+
+.admin-panel-react .aw-input:hover,
+.admin-panel-react .aw-textarea:hover {
+  border-color: rgba(55, 102, 76, 0.38);
+}
+
+.admin-panel-react .aw-input:focus,
+.admin-panel-react .aw-textarea:focus {
+  border-color: rgba(55, 102, 76, 0.65);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(55, 102, 76, 0.1);
+}
+
+/* Poster */
+.admin-panel-react .aw-file-box {
+  padding: 16px;
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.admin-panel-react .aw-file-input {
+  width: 100%;
+  display: block;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.admin-panel-react .aw-file-name,
+.admin-panel-react .aw-file-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+/* Submit button */
+.admin-panel-react .aw-create-actions {
+  width: 100%;
+  display: flex !important;
   justify-content: flex-end;
-}
-
-.admin-top-gap-sm {
-  margin-top: 10px;
-}
-
-.admin-pill-offset-left {
-  margin-left: 8px;
-}
-
-.admin-nowrap {
-  white-space: nowrap;
-}
-
-.admin-reg-action-btn {
-  padding: 7px 12px;
-}
-
-.admin-reg-action-btn-right {
-  margin-right: 8px;
-}
-
-.admin-registrations-header {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  margin-top: 20px;
 }
 
-.admin-table-scroll-wrap {
-  overflow: auto;
-  margin-top: 10px;
+.admin-panel-react .aw-create-button {
+  width: auto !important;
+  min-width: 220px;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px !important;
+  padding: 0 28px !important;
+  background: var(--yellow);
+  color: #1f3b26;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.admin-panel-react .aw-create-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(31, 59, 38, 0.12);
+}
+
+.admin-panel-react .aw-create-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .admin-panel-react .aw-add-column:first-child .aw-form-card:first-child,
+  .admin-panel-react .aw-add-column:first-child .aw-form-card:nth-child(2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-panel-react .aw-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-panel-react .aw-add-workshop {
+    padding-top: 16px;
+  }
+
+  .admin-panel-react .aw-add-column:first-child .aw-form-card:first-child,
+  .admin-panel-react .aw-add-column:first-child .aw-form-card:nth-child(2),
+  .admin-panel-react .aw-grid-2,
+  .admin-panel-react .aw-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-panel-react .aw-create-actions {
+    justify-content: stretch;
+  }
+
+  .admin-panel-react .aw-create-button {
+    width: 100% !important;
+  }
 }

@@ -1,4 +1,6 @@
 <?php
+session_start();
+
 header("Content-Type: application/json");
 
 require_once "../../config/db.php";
@@ -32,6 +34,13 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     respond("error", "Invalid email address.");
 }
 
+$sessionKey = "password_reset_last_sent_" . hash("sha256", $email);
+$lastSent = (int)($_SESSION[$sessionKey] ?? 0);
+
+if ($lastSent > 0 && (time() - $lastSent) < 60) {
+    respond("error", "Please wait before requesting another code.");
+}
+
 $stmt = $conn->prepare("
     SELECT id, name, email, status
     FROM users
@@ -52,17 +61,20 @@ $result = $stmt->get_result();
   Generic success prevents people from checking which emails exist.
 */
 if ($result->num_rows !== 1) {
-    respond("success", "If that email exists, a password reset link has been sent.");
+    $_SESSION[$sessionKey] = time();
+    respond("success", "If that email exists, a password reset code has been sent.");
 }
 
 $user = $result->fetch_assoc();
 
 if ($user["status"] !== "active") {
-    respond("success", "If that email exists, a password reset link has been sent.");
+    $_SESSION[$sessionKey] = time();
+    respond("success", "If that email exists, a password reset code has been sent.");
 }
 
-$token = bin2hex(random_bytes(32));
-$expires = date("Y-m-d H:i:s", strtotime("+1 hour"));
+$otp = (string)random_int(100000, 999999);
+$otpHash = hash("sha256", $otp);
+$expires = date("Y-m-d H:i:s", strtotime("+10 minutes"));
 
 $update = $conn->prepare("
     UPDATE users
@@ -74,20 +86,22 @@ if (!$update) {
     respond("error", "Server error.");
 }
 
-$update->bind_param("ssi", $token, $expires, $user["id"]);
+$update->bind_param("ssi", $otpHash, $expires, $user["id"]);
 
 if (!$update->execute()) {
-    respond("error", "Could not create password reset link.");
+    respond("error", "Could not create password reset code.");
 }
 
-$emailSent = sendPasswordResetEmail($email, $user["name"], $token);
+$emailSent = sendPasswordResetOtpEmail($email, $user["name"], $otp);
 
 if (!$emailSent) {
     respond("error", "Could not send password reset email. Please try again.");
 }
 
+$_SESSION[$sessionKey] = time();
+
 $stmt->close();
 $update->close();
 $conn->close();
 
-respond("success", "If that email exists, a password reset link has been sent.");
+respond("success", "If that email exists, a password reset code has been sent.");
