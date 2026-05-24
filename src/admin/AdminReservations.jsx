@@ -60,7 +60,7 @@ function isCancellationRequested(booking) {
 
 function canCancelBooking(booking) {
   const s = String(booking.status || "").toLowerCase();
-  return ["pending", "approved"].includes(s);
+  return ["pending_payment", "pending", "approved"].includes(s);
 }
 
 function canCompleteBooking(booking) {
@@ -116,7 +116,7 @@ function getTabCount(bookings, tab) {
     return bookings.filter(
       (b) =>
         isCancellationRequested(b) &&
-        ["pending", "approved"].includes(String(b.status || "").toLowerCase())
+        ["pending_payment", "pending", "approved"].includes(String(b.status || "").toLowerCase())
     ).length;
   }
 
@@ -168,7 +168,7 @@ export default function AdminReservations() {
       return bookings.filter(
         (b) =>
           isCancellationRequested(b) &&
-          ["pending", "approved"].includes(String(b.status || "").toLowerCase())
+          ["pending_payment", "pending", "approved"].includes(String(b.status || "").toLowerCase())
       );
     }
 

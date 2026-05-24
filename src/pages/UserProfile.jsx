@@ -27,6 +27,65 @@ function readableText(text = "") {
     .trim();
 }
 
+
+function profilePictureSrc(path, fallback = "/pics/default-avatar.png") {
+  if (!path || !String(path).trim()) return fallback;
+
+  const clean = String(path).trim();
+
+  if (/^blob:/i.test(clean) || /^https?:\/\//i.test(clean)) return clean;
+  if (clean.startsWith("/api/")) return clean;
+
+  return `/api/${clean.replace(/^\/+/, "")}`;
+}
+
+function buildProfileForm(userData = {}) {
+  return {
+    name: userData.name || "",
+    phone_number: formatPhoneForInput(userData.phone_number || ""),
+    birthdate: userData.birthdate || "",
+    profile_picture: null,
+  };
+}
+
+function normalizePhoneNumber(value = "") {
+  const clean = String(value).replace(/\s+/g, "").trim();
+
+  if (!clean) return "";
+
+  if (/^09\d{9}$/.test(clean)) {
+    return `+63${clean.slice(1)}`;
+  }
+
+  if (/^\+639\d{9}$/.test(clean)) {
+    return clean;
+  }
+
+  if (/^9\d{9}$/.test(clean)) {
+    return `+63${clean}`;
+  }
+
+  return clean;
+}
+
+function formatPhoneForInput(value = "") {
+  const clean = String(value).replace(/\s+/g, "").trim();
+
+  if (/^\+639\d{9}$/.test(clean)) {
+    return clean.slice(3);
+  }
+
+  if (/^09\d{9}$/.test(clean)) {
+    return clean.slice(1);
+  }
+
+  if (/^9\d{9}$/.test(clean)) {
+    return clean;
+  }
+
+  return clean.replace(/^\+?63/, "");
+}
+
 function paymentBadge(status) {
   switch ((status || "unpaid").toLowerCase()) {
     case "paid":
@@ -88,7 +147,7 @@ function CancelModal({ booking, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -316,6 +375,10 @@ export default function UserProfile() {
     profile_picture: null,
   });
 
+  const [originalForm, setOriginalForm] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [notice, setNotice] = useState({ type: "", message: "" });
+
   useEffect(() => {
     Promise.all([
       API.get("/user/get-profile.php"),
@@ -328,12 +391,9 @@ export default function UserProfile() {
         setUnreadReplies(userData.unreadReplies || 0);
         setBookings(bookingRes.data.privateBookings || []);
 
-        setForm({
-          name: userData.name || "",
-          phone_number: userData.phone_number || "",
-          birthdate: userData.birthdate || "",
-          profile_picture: null,
-        });
+        const nextForm = buildProfileForm(userData);
+        setForm(nextForm);
+        setOriginalForm(nextForm);
       })
       .catch((err) => {
         if (err.response?.status === 401) {
@@ -428,53 +488,148 @@ export default function UserProfile() {
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
+    setNotice({ type: "", message: "" });
+
     if (name === "profile_picture") {
-      const file = files[0];
+      const file = files?.[0] || null;
+
+      if (!file) {
+        setForm((prev) => ({ ...prev, profile_picture: null }));
+        setPreview(null);
+        return;
+      }
+
+      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+      if (!allowedTypes.includes(file.type)) {
+        setNotice({
+          type: "bad",
+          message: "Please choose a JPG, PNG, GIF, or WEBP image.",
+        });
+        e.target.value = "";
+        return;
+      }
+
+      if (file.size > 3 * 1024 * 1024) {
+        setNotice({
+          type: "bad",
+          message: "Profile photo must be less than 3MB.",
+        });
+        e.target.value = "";
+        return;
+      }
 
       setForm((prev) => ({ ...prev, profile_picture: file }));
 
-      if (file) setPreview(URL.createObjectURL(file));
-    } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      setPreview((oldPreview) => {
+        if (oldPreview) URL.revokeObjectURL(oldPreview);
+        return URL.createObjectURL(file);
+      });
+
+      return;
     }
+
+    if (name === "phone_number") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+
+      setForm((prev) => ({ ...prev, phone_number: digitsOnly }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
 const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (!form.name.trim()) {
-    alert("Please enter your name.");
+  if (savingProfile) return;
+
+  const cleanName = form.name.trim();
+  const phoneDigits = String(form.phone_number || "").replace(/\D/g, "");
+  const cleanPhone = phoneDigits ? normalizePhoneNumber(phoneDigits) : "";
+  const cleanBirthdate = form.birthdate || "";
+
+  if (!cleanName) {
+    window.alert("Name is required.");
+    return;
+  }
+
+  if (phoneDigits && !/^9\d{9}$/.test(phoneDigits)) {
+    window.alert("Contact number must be a Philippine mobile number. Example: +63 912 345 6789.");
+    return;
+  }
+
+  if (cleanBirthdate) {
+    const selectedDate = new Date(`${cleanBirthdate}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (Number.isNaN(selectedDate.getTime()) || selectedDate > today) {
+      window.alert("Birthdate must be a valid date and cannot be in the future.");
+      return;
+    }
+  }
+
+  const changed =
+    !originalForm ||
+    cleanName !== String(originalForm.name || "").trim() ||
+    phoneDigits !== String(originalForm.phone_number || "").replace(/\D/g, "") ||
+    cleanBirthdate !== String(originalForm.birthdate || "") ||
+    Boolean(form.profile_picture);
+
+  if (!changed) {
+    window.alert("No profile changes detected.");
     return;
   }
 
   const formData = new FormData();
 
-  formData.append("name", form.name);
-  formData.append("phone_number", form.phone_number);
-  formData.append("birthdate", form.birthdate);
+  // Send all current values so the backend can preserve unchanged fields safely.
+  formData.append("name", cleanName);
+  formData.append("phone_number", cleanPhone);
+  formData.append("birthdate", cleanBirthdate);
 
   if (form.profile_picture) {
     formData.append("profile_picture", form.profile_picture);
   }
 
+  setSavingProfile(true);
+
   try {
-    const res = await API.post("/user/update-profile.php", formData);
+    const res = await API.post("/user/update-profile.php", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
 
-    if (res.data.success) {
-      setUser((prev) => ({
-        ...prev,
-        profile_picture: res.data.profile_picture,
-        name: form.name,
-      }));
+    if (res.data?.success) {
+      const updatedProfile = {
+        ...user,
+        name: res.data.name ?? cleanName,
+        phone_number: res.data.phone_number ?? cleanPhone,
+        birthdate: res.data.birthdate ?? cleanBirthdate,
+        profile_picture: res.data.profile_picture ?? user.profile_picture,
+      };
 
+      const nextForm = buildProfileForm(updatedProfile);
+
+      setUser(updatedProfile);
+      setForm(nextForm);
+      setOriginalForm(nextForm);
       setPreview(null);
-      alert("Profile updated successfully");
+
+      window.alert(res.data.message || "Profile updated successfully.");
     } else {
-      alert(res.data.error || "Update failed");
+      window.alert(res.data?.error || "Update failed.");
     }
   } catch (err) {
-    console.error("Upload error:", err);
-    alert("Error updating profile. Please try again.");
+    console.error("Profile update error:", err);
+
+    window.alert(
+      err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Error updating profile. Please try again."
+    );
+  } finally {
+    setSavingProfile(false);
   }
 };
 
@@ -543,22 +698,17 @@ const handleCancelSuccess = (bookingId) => {
               <div className="profile-pic-container">
                 <img
                   className="profile-pic"
-                  src={
-                    preview
-                      ? preview
-                      : user.profile_picture && user.profile_picture.trim() !== ""
-                      ? `/api/${user.profile_picture}`
-                      : "/pics/default-avatar.png"
-                  }
+                  src={profilePictureSrc(preview || user.profile_picture)}
                   alt="Profile picture"
                 />
 
-                <label className="btn-upload-photo">
+                <label className="btn-upload-photo" htmlFor="profile-picture-input">
                   Change Photo
                   <input
+                    id="profile-picture-input"
                     type="file"
                     name="profile_picture"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
                     aria-label="Change Profile Photo"
                     onChange={handleChange}
                     hidden
@@ -631,6 +781,8 @@ const handleCancelSuccess = (bookingId) => {
                 type="text"
                 name="name"
                 value={form.name}
+                maxLength={120}
+                autoComplete="name"
                 aria-label={
                   form.name.trim()
                     ? `Name: ${form.name}`
@@ -647,6 +799,8 @@ const handleCancelSuccess = (bookingId) => {
                 type="date"
                 name="birthdate"
                 value={form.birthdate || ""}
+                max={new Date().toISOString().slice(0, 10)}
+                autoComplete="bday"
                 aria-label={
                   form.birthdate
                     ? `Birthdate: ${form.birthdate}`
@@ -657,19 +811,38 @@ const handleCancelSuccess = (bookingId) => {
             </div>
 
             <div className="field">
-              <label>Contact Number</label>
-              <input
-                type="text"
-                name="phone_number"
-                value={form.phone_number}
-                aria-label={
-                  form.phone_number.trim()
-                    ? `Contact Number: ${form.phone_number}`
-                    : "Enter Contact Number"
-                }
-                onChange={handleChange}
-                placeholder="09XXXXXXXXX"
-              />
+              <label htmlFor="profile-phone-number">Contact Number</label>
+
+              <div className="ph-phone-input">
+                <span
+                  className="ph-phone-prefix"
+                  aria-hidden="true"
+                  title="Philippines"
+                >
+                  🇵🇭 +63
+                </span>
+
+                <input
+                  id="profile-phone-number"
+                  type="tel"
+                  name="phone_number"
+                  value={form.phone_number}
+                  inputMode="numeric"
+                  maxLength={10}
+                  autoComplete="tel-national"
+                  aria-label={
+                    form.phone_number.trim()
+                      ? `Philippine contact number: plus 63 ${form.phone_number}`
+                      : "Enter Philippine mobile number after plus 63"
+                  }
+                  onChange={handleChange}
+                  placeholder="9123456789"
+                />
+              </div>
+
+              <p className="profile-field-hint">
+                Philippines only. Enter 10 digits after +63, for example 9123456789.
+              </p>
             </div>
 
             {/* ── BOOKINGS SECTION ────────────────────────────────────────── */}
@@ -852,9 +1025,10 @@ const handleCancelSuccess = (bookingId) => {
               <button
                 type="submit"
                 className="btn btn-save"
-                aria-label="Save Changes"
+                aria-label={savingProfile ? "Saving Profile Changes" : "Save Changes"}
+                disabled={savingProfile}
               >
-                Save Changes
+                {savingProfile ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </form>

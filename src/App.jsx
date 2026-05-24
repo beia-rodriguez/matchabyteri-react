@@ -27,7 +27,8 @@ import VerifyEmail from "./pages/VerifyEmail";
 import VerificationSuccess from "./pages/VerificationSuccess";
 import VerificationInvalid from "./pages/VerificationInvalid";
 import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
+import ResetPasswordOtp from "./pages/ResetPasswordOtp";
+
 
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminCalendar from "./admin/AdminCalendar";
@@ -74,7 +75,7 @@ function App() {
         <Route path="/verification-success" element={<VerificationSuccess />} />
         <Route path="/verification-invalid" element={<VerificationInvalid />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password" element={<ResetPasswordOtp />} />
 
         {/* Protected user routes */}
         <Route path="/add-booking" element={

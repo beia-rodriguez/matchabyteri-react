@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import "../assets/css/forgot-password.css";
 import "../assets/css/universal.css";
 
+const RESEND_SECONDS = 60;
+
 export default function ForgotPassword() {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,11 +76,10 @@ export default function ForgotPassword() {
         element.setAttribute("aria-label", textToRead.trim());
       }
     });
-  }, [message, error, submitting]);
+  }, [error, submitting]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
     setError("");
 
     const cleanEmail = email.trim().toLowerCase();
@@ -95,13 +97,22 @@ export default function ForgotPassword() {
       });
 
       if (res.data.status === "success") {
-        setMessage(res.data.message);
-        setEmail("");
+        navigate(`/reset-password?email=${encodeURIComponent(cleanEmail)}`, {
+          state: {
+            email: cleanEmail,
+            justSent: true,
+            cooldownUntil: Date.now() + RESEND_SECONDS * 1000,
+          },
+        });
       } else {
-        setError(res.data.message || "Could not send reset link.");
+        setError(res.data.message || "Could not send reset code.");
       }
-    } catch {
-      setError("Server error. Please try again.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          "Server error. Please try again."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -124,7 +135,7 @@ export default function ForgotPassword() {
           </h1>
 
           <p className="fp-helper-text" id="fp-instructions">
-            Enter your email and we’ll send you a password reset link.
+            Enter your email and we’ll send a 6-digit password reset code.
           </p>
 
           {error && (
@@ -135,17 +146,6 @@ export default function ForgotPassword() {
               tabIndex={0}
             >
               {error}
-            </div>
-          )}
-
-          {message && (
-            <div
-              className="fp-alert fp-alert--success"
-              role="status"
-              aria-live="polite"
-              tabIndex={0}
-            >
-              {message}
             </div>
           )}
 
@@ -172,9 +172,9 @@ export default function ForgotPassword() {
               className="fp-submit-button"
               type="submit"
               disabled={submitting}
-              aria-label={submitting ? "Sending password reset link" : "Send reset link"}
+              aria-label={submitting ? "Sending password reset code" : "Send reset code"}
             >
-              {submitting ? "SENDING..." : "SEND RESET LINK"}
+              {submitting ? "SENDING..." : "SEND CODE"}
             </button>
           </form>
 

@@ -833,3 +833,133 @@ input:focus {
   background: var(--yellow);
   color: #1f3b26;
 }
+
+
+/* ── Profile update feedback and safe form fixes ───────────────────────── */
+
+.profile-alert {
+  grid-column: 1 / -1;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 900;
+  line-height: 1.4;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.profile-alert--ok {
+  color: #145020;
+  background: #f0faf0;
+  border-color: #c3e6cb;
+}
+
+.profile-alert--bad {
+  color: var(--danger);
+  background: #fff0f2;
+  border-color: #f8c9c9;
+}
+
+.btn:disabled,
+.action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-upload-photo:focus-within,
+.btn-upload-photo:focus-visible,
+.profile-form input:focus-visible,
+.profile-form button:focus-visible,
+.profile-alert:focus-visible {
+  outline: 4px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.profile-form input[type="text"],
+.profile-form input[type="date"] {
+  min-height: 48px;
+}
+
+.profile-form input[aria-invalid="true"] {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+}
+
+@media (max-width: 768px) {
+  .profile-alert {
+    margin-bottom: 12px;
+  }
+}
+
+
+/* ── Philippines-only phone input ───────────────────────────────────────── */
+
+.ph-phone-input {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #e9ece7;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ph-phone-input:focus-within {
+  border-color: rgba(55, 102, 76, .55);
+  box-shadow: 0 0 0 4px rgba(55, 102, 76, .10);
+}
+
+.ph-phone-prefix {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-right: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ph-phone-input input[type="tel"] {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 12px 14px;
+  border-radius: 0;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.ph-phone-input input[type="tel"]:focus {
+  box-shadow: none;
+  transform: none;
+}
+
+.profile-field-hint {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+@media (max-width: 420px) {
+  .ph-phone-input {
+    grid-template-columns: 1fr;
+  }
+
+  .ph-phone-prefix {
+    justify-content: flex-start;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}

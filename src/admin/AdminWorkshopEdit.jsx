@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "../assets/css/admin-workshop-edit.css";
 
 function toTimeInput(value) {
   if (!value) return "";
@@ -23,6 +24,20 @@ function posterSrc(path) {
   return `/${clean}`;
 }
 
+function normalizeMoneyInput(value) {
+  if (value === "" || value === null || value === undefined) return "0.00";
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : "0.00";
+}
+
+function formatPeso(value) {
+  const amount = Number(value || 0);
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function buildFormFromWorkshop(w) {
   return {
     title: w?.title || "",
@@ -34,7 +49,9 @@ function buildFormFromWorkshop(w) {
     description: w?.description || "",
     register_points: w?.register_points || "",
     standard_points: w?.standard_points || "",
+    standard_price: w?.standard_price ?? "",
     premium_points: w?.premium_points || "",
+    premium_price: w?.premium_price ?? "",
     max_slots: String(w?.max_slots ?? "0"),
   };
 }
@@ -62,9 +79,13 @@ export default function AdminWorkshopEdit() {
     description: "",
     register_points: "",
     standard_points: "",
+    standard_price: "",
     premium_points: "",
+    premium_price: "",
     max_slots: "0",
   });
+
+  const [originalForm, setOriginalForm] = useState(null);
 
   const loadWorkshop = async () => {
     setErr("");
@@ -86,7 +107,9 @@ export default function AdminWorkshopEdit() {
       setRegCount(Number(data.regCount || 0));
 
       if (w) {
-        setForm(buildFormFromWorkshop(w));
+        const nextForm = buildFormFromWorkshop(w);
+        setForm(nextForm);
+        setOriginalForm(nextForm);
       }
     } catch (e) {
       const message = e.response?.data?.error || "Failed to load workshop.";
@@ -122,14 +145,95 @@ export default function AdminWorkshopEdit() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
+    if (name === "standard_price" || name === "premium_price") {
+      if (value === "" || /^\d*(\.\d{0,2})?$/.test(value)) {
+        setForm((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      }
+
+      return;
+    }
+
+    if (name === "max_slots") {
+      setForm((prev) => ({
+        ...prev,
+        [name]: value === "" ? "" : String(Math.max(0, Number(value || 0))),
+      }));
+
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
+  const handleMoneyBlur = (name) => {
+    setForm((prev) => ({
+      ...prev,
+      [name]: normalizeMoneyInput(prev[name]),
+    }));
+  };
+
+  const getChangedFields = () => {
+    if (!originalForm) return [];
+
+    const labels = {
+      title: "Title",
+      workshop_date: "Date",
+      location: "Location",
+      start_time: "Start time",
+      end_time: "End time",
+      is_active: "Status",
+      description: "Description",
+      register_points: "Register page points",
+      standard_points: "Standard inclusions",
+      standard_price: "Standard price",
+      premium_points: "Premium inclusions",
+      premium_price: "Premium price",
+      max_slots: "Max slots",
+    };
+
+    return Object.keys(labels).filter(
+      (key) => String(form[key] ?? "") !== String(originalForm[key] ?? "")
+    ).map((key) => labels[key]);
+  };
+
+  const hasUnsavedChanges = () => {
+    return getChangedFields().length > 0 || Boolean(posterFile);
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+
+    const changedFields = getChangedFields();
+
+    if (posterFile) {
+      changedFields.push("Poster image");
+    }
+
+    if (changedFields.length === 0) {
+      setMsg("");
+      setErr("No changes detected.");
+      return;
+    }
+
+    const confirmMessage = [
+      "Save these workshop changes?",
+      "",
+      "Changed:",
+      ...changedFields.map((field) => `• ${field}`),
+      "",
+      "Customers will see these updates on the public workshop page."
+    ].join("\n");
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
     setMsg("");
     setErr("");
     setSaving(true);
@@ -144,7 +248,9 @@ export default function AdminWorkshopEdit() {
       fd.append("description", form.description);
       fd.append("register_points", form.register_points);
       fd.append("standard_points", form.standard_points);
+      fd.append("standard_price", normalizeMoneyInput(form.standard_price));
       fd.append("premium_points", form.premium_points);
+      fd.append("premium_price", normalizeMoneyInput(form.premium_price));
       fd.append("workshop_date", form.workshop_date);
       fd.append("start_time", form.start_time);
       fd.append("end_time", form.end_time);
@@ -170,7 +276,9 @@ export default function AdminWorkshopEdit() {
         if (data.workshop) {
           const w = data.workshop;
           setWorkshop(w);
-          setForm(buildFormFromWorkshop(w));
+          const nextForm = buildFormFromWorkshop(w);
+          setForm(nextForm);
+          setOriginalForm(nextForm);
         }
 
         setRegCount(Number(data.regCount || 0));
@@ -184,7 +292,14 @@ export default function AdminWorkshopEdit() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Delete this workshop? This cannot be undone.")) return;
+    const confirmMessage = [
+      "Delete this workshop?",
+      "",
+      "This cannot be undone.",
+      "If customers may still need to see this workshop history, choose Hidden instead."
+    ].join("\n");
+
+    if (!window.confirm(confirmMessage)) return;
 
     setMsg("");
     setErr("");
@@ -275,6 +390,20 @@ export default function AdminWorkshopEdit() {
               </div>
 
               <div>
+                <dt>Standard Price</dt>
+                <dd>
+                  <strong>₱{formatPeso(workshop?.standard_price)}</strong>
+                </dd>
+              </div>
+
+              <div>
+                <dt>Premium Price</dt>
+                <dd>
+                  <strong>₱{formatPeso(workshop?.premium_price)}</strong>
+                </dd>
+              </div>
+
+              <div>
                 <dt>Max Slots</dt>
                 <dd>
                   <strong>{Number(workshop?.max_slots || 0)}</strong>
@@ -305,6 +434,12 @@ export default function AdminWorkshopEdit() {
             </div>
           </div>
         </div>
+
+        {hasUnsavedChanges() ? (
+          <div className="awe-warning-box" role="status" aria-live="polite">
+            You have unsaved changes. Click Save Changes and confirm before they are applied.
+          </div>
+        ) : null}
 
         <form className="awe-form" onSubmit={handleSave}>
           <section className="awe-card">
@@ -419,6 +554,51 @@ export default function AdminWorkshopEdit() {
                 </select>
               </div>
             </div>
+          </section>
+
+
+          <section className="awe-card">
+            <h4 className="awe-card-title">Pricing</h4>
+
+            <div className="awe-grid awe-grid-2">
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-standard-price">
+                  Standard Price (₱)
+                </label>
+                <input
+                  id="awe-standard-price"
+                  className="awe-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  name="standard_price"
+                  value={form.standard_price}
+                  onChange={handleChange}
+                  onBlur={() => handleMoneyBlur("standard_price")}
+                />
+              </div>
+
+              <div className="awe-field">
+                <label className="awe-label" htmlFor="awe-premium-price">
+                  Premium Price (₱)
+                </label>
+                <input
+                  id="awe-premium-price"
+                  className="awe-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  name="premium_price"
+                  value={form.premium_price}
+                  onChange={handleChange}
+                  onBlur={() => handleMoneyBlur("premium_price")}
+                />
+              </div>
+            </div>
+
+            <p className="awe-help-text">
+              These are the amounts customers pay when they choose the Standard or Premium workshop package.
+            </p>
           </section>
 
           <section className="awe-card">

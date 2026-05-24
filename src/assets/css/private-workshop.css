@@ -1,33 +1,53 @@
+/* private-workshop.css
+   Scoped only to PublicWorkshop.jsx via .pw-wrapper.
+   No :root, no global *, no generic selectors outside .pw-wrapper.
+*/
+
 .pw-wrapper {
+  --pw-green: #1f6b2d;
+  --pw-yellow: #ffd95a;
+  --pw-text: #1f3b26;
+
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow-x: hidden;
   font-family: "Bricolage Grotesque", system-ui, sans-serif;
-  color: #1f3b26;
+  color: var(--pw-text);
+}
+
+.pw-wrapper::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image: url("/images/about-bg.png");
   background-size: cover;
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
-  background-attachment: fixed;
-  min-height: 100vh;
 }
 
 /* TOP */
-.pw-book-section-text {
+
+.pw-wrapper .pw-book-section-text {
   margin: 30px auto 0;
   text-align: center;
 }
 
-.pw-book-section-text > p:first-child {
+.pw-wrapper .pw-book-section-text > p:first-child {
   font-family: "Brasika Display Regular", serif;
-  font-size: 1.8rem;
-  color: #1f6b2d;
-  margin-bottom: 26px;
+  font-size: 1.55rem;
+  color: var(--pw-green);
+  margin: 0 0 26px;
   padding: 0 20px;
 }
 
-.pw-workshop-image {
+.pw-wrapper .pw-workshop-image {
   margin: 0 auto 26px;
 }
 
-.pw-workshop-image img {
+.pw-wrapper .pw-workshop-image img {
   width: 100%;
   height: auto;
   object-fit: cover;
@@ -35,58 +55,59 @@
   border-radius: 4px;
 }
 
-.pw-workshop-text {
+.pw-wrapper .pw-workshop-text {
   max-width: 1400px;
   margin: 0 auto;
-  font-size: 1.7rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: #1f6b2d;
+  color: var(--pw-green);
   line-height: 1.5;
 }
 
 /* DETAILS */
-.pw-details-section {
+
+.pw-wrapper .pw-details-section {
   margin-top: 36px;
   padding-bottom: 80px;
 }
 
-.pw-details-section h1 {
-  font-size: 1.8rem;
+.pw-wrapper .pw-details-section h1 {
+  font-size: 1.45rem;
   font-weight: 700;
-  color: #1f6b2d;
-  margin-bottom: 18px;
-  margin-left: 15%;
+  color: var(--pw-green);
+  margin: 0 0 18px 15%;
 }
 
-.pw-details-section ul {
+.pw-wrapper .pw-details-section ul {
   list-style: none;
   padding: 0;
   width: fit-content;
   margin: 0 auto;
 }
 
-.pw-details-section li {
+.pw-wrapper .pw-details-section li {
   position: relative;
   padding-left: 26px;
   margin-bottom: 10px;
-  font-size: 1.7rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: #1f6b2d;
+  color: var(--pw-green);
   line-height: 1.35;
   max-width: 60ch;
 }
 
-.pw-details-section li::before {
+.pw-wrapper .pw-details-section li::before {
   content: "•";
   position: absolute;
   left: 0;
   top: -1px;
   font-size: 1.5rem;
-  color: #1f6b2d;
+  color: var(--pw-green);
 }
 
 /* WORKSHOP TIERS */
-.pw-workshop-tier {
+
+.pw-wrapper .pw-workshop-tier {
   max-width: 1200px;
   margin: 0 auto 60px;
   padding: 0 40px;
@@ -95,8 +116,8 @@
   gap: 200px;
 }
 
-.pw-standard-tier,
-.pw-premium-tier {
+.pw-wrapper .pw-standard-tier,
+.pw-wrapper .pw-premium-tier {
   background-image: url("/images/green-bg.png");
   background-size: cover;
   background-position: center;
@@ -107,15 +128,15 @@
   min-height: 500px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 18px 40px rgba(0,0,0,.25);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
 }
 
-.pw-standard-button button,
-.pw-premium-button button {
-  background: #ffd95a;
+.pw-wrapper .pw-standard-button button,
+.pw-wrapper .pw-premium-button button {
+  background: var(--pw-yellow);
   color: #1f3b26;
   font-weight: 900;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   padding: 10px 38px;
   border: none;
   border-radius: 999px;
@@ -123,31 +144,33 @@
   display: block;
 }
 
-.pw-standard-desc p,
-.pw-premium-desc p {
+.pw-wrapper .pw-standard-desc p,
+.pw-wrapper .pw-premium-desc p {
   text-align: center;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   line-height: 1.45;
-  margin-bottom: 24px;
-  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  margin: 0 0 24px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
-.pw-workshop-tier-list {
+.pw-wrapper .pw-workshop-tier-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
-.pw-workshop-tier-list li {
+.pw-wrapper .pw-workshop-tier-list li {
   position: relative;
   padding-left: 26px;
   margin-bottom: 14px;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #ffffff;
+  line-height: 1.4;
 }
 
-.pw-workshop-tier-list li::before {
+.pw-wrapper .pw-workshop-tier-list li::before {
   content: "•";
   position: absolute;
   left: 0;
@@ -155,33 +178,65 @@
 }
 
 /* BOOK BUTTON */
-.pw-book-button {
+
+.pw-wrapper .pw-book-button {
   display: flex;
   justify-content: center;
   margin: 2% 0 80px;
 }
 
-.pw-book-button button {
-  background: #ffd95a;
+.pw-wrapper .pw-book-button a {
+  text-decoration: none;
+}
+
+.pw-wrapper .pw-book-button button {
+  background: var(--pw-yellow);
   color: #1f3b26;
   font-weight: 900;
-  font-size: 1.6rem;
+  font-size: 1.35rem;
   padding: 12px 44px;
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.pw-book-button button:hover {
+.pw-wrapper .pw-book-button button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.15);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+}
+
+.pw-wrapper .pw-book-button button:focus-visible,
+.pw-wrapper .pw-standard-button button:focus-visible,
+.pw-wrapper .pw-premium-button button:focus-visible,
+.pw-wrapper [tabindex="0"]:focus-visible {
+  outline: 4px solid var(--pw-yellow);
+  outline-offset: 4px;
+  border-radius: 10px;
 }
 
 /* MOBILE */
+
 @media (max-width: 900px) {
-  .pw-workshop-tier {
+  .pw-wrapper .pw-workshop-tier {
     grid-template-columns: 1fr;
     gap: 40px;
+  }
+
+  .pw-wrapper .pw-book-section-text > p:first-child {
+    font-size: 1.35rem;
+  }
+
+  .pw-wrapper .pw-workshop-text,
+  .pw-wrapper .pw-details-section li {
+    font-size: 1.1rem;
+  }
+
+  .pw-wrapper .pw-details-section h1 {
+    font-size: 1.25rem;
+  }
+
+  .pw-wrapper .pw-book-button button {
+    font-size: 1.15rem;
   }
 }
