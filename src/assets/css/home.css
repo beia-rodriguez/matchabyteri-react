@@ -1,33 +1,50 @@
 .image-wrap {
-    width: 100%;
-    height: 70vh;
-    background-image: url("/images/mamachacha 1.png");
-    background-size: cover;
-    background-position: center;
-    align-items: center;
-    position: relative;
+  width: 100%;
+  height: 70vh;
+  min-height: 560px;
+  background-image: url("/images/mamachacha 1.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 40px 20px;
 }
 
 .image-wrap img {
-    display: block;
-    margin: 0 auto;
-    width: 1000px;
+  display: block;
+  width: min(1000px, 82vw);
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
 }
 
 .text-box {
-    position: absolute;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: white;
-    z-index: 3;
-    text-align: center;
+  color: white;
+  text-align: center;
+  width: min(90%, 900px);
+  padding: 0 16px;
+  margin-top: clamp(16px, 2vw, 28px);
 }
 
 .text-box p {
-    margin-top: 5px;
-    font-size: 1.5rem;
-    font-family:"Bricolage Grotesque", system-ui, sans-serif;
+  margin-top: 5px;
+  font-size: clamp(1rem, 2.4vw, 1.5rem);
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  line-height: 1.35;
+}
+
+.image-wrap > img,
+.image-wrap > .text-box {
+  position: relative;
+  z-index: 2;
+}
+
+.image-wrap {
+  grid-template-rows: auto auto;
+  align-content: center;
 }
 
 :root {
@@ -43,7 +60,7 @@
 }
 
 .welcome-section {
-  padding: 20px;
+  padding: clamp(20px, 4vw, 40px) 20px;
 }
 
 .welcome-pill {
@@ -53,44 +70,47 @@
   border-radius: 999px;
   background: var(--matcha-green);
   color: #ffffff;
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
   text-align: center;
   line-height: 1.4;
 }
 
 .welcome-inner {
-  max-width: none;
+  max-width: 1400px;
   width: 80%;
-  margin: 0 auto;
+  margin: 0 auto 50px;
   padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 80px;   
-  margin-bottom: 50px;
+  gap: clamp(30px, 6vw, 80px);
 }
 
 .welcome-text {
   max-width: none;
-  width: 100%;  
+  width: 100%;
   transform: translateX(-70px);
 }
 
 .welcome-text h2 {
   font-family: "Brasika Display Regular", serif;
-  font-size: 4rem;
+  font-size: clamp(2.5rem, 6vw, 4rem);
   color: var(--matcha-green-dark);
+  line-height: 1.1;
 }
 
 .welcome-text p {
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 2.3vw, 1.5rem);
   line-height: 1.7;
   color: var(--text-body);
   margin-bottom: 24px;
-  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
 }
 
 .welcome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 12px 40px;
   border-radius: 999px;
   border: none;
@@ -99,10 +119,15 @@
   font-size: 1rem;
   cursor: pointer;
   box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .welcome-btn:hover {
   background: var(--matcha-green-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.2);
 }
 
 .welcome-image-wrap {
@@ -112,39 +137,45 @@
 }
 
 .welcome-image {
-  width: 650px;
+  width: min(650px, 42vw);
   height: auto;
   transform: translateX(70px);
 }
 
-.m-w{
-    font-family: "Brasika Display Regular", serif;
-    font-size: 4rem;
-    color: #37664c;
-    font-weight: 700;
-    margin: 0 auto;
-    justify-content: center;
-    align-items: center;
-    display: flex;
-    padding-bottom: 5%;
+.m-w {
+  font-family: "Brasika Display Regular", serif;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  color: #37664c;
+  font-weight: 700;
+  margin: 0 auto;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  padding-bottom: 5%;
+  text-align: center;
+  line-height: 1.1;
+  width: min(90%, 1100px);
 }
 
 .services-section {
-  padding: 60px 0 80px;
+  padding: clamp(40px, 7vw, 60px) 0 clamp(50px, 8vw, 80px);
 }
 
 .workshop-inner {
-  max-width: none;
+  max-width: 1400px;
   width: 80%;
-  margin: 0 auto;
+  margin: 0 auto 50px;
   padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 80px;
+  gap: clamp(30px, 6vw, 80px);
 }
 
 .workshop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 12px 40px;
   border-radius: 999px;
   border: none;
@@ -153,10 +184,15 @@
   font-size: 1rem;
   cursor: pointer;
   box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .workshop-btn:hover {
   background: var(--matcha-green-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.2);
 }
 
 .workshop-image-wrap {
@@ -166,54 +202,247 @@
 }
 
 .workshop-image {
-  width: 500px;
+  width: min(500px, 38vw);
   height: auto;
   transform: translateX(-70px);
 }
 
 .workshop-text {
   max-width: none;
-  width: 100%;    
+  width: 100%;
   text-align: right;
 }
 
 .workshop-text h2 {
   font-family: "Brasika Display Regular", serif;
-  font-size: 4rem;
+  font-size: clamp(2.5rem, 6vw, 4rem);
   color: var(--matcha-green-dark);
+  line-height: 1.1;
 }
 
 .workshop-text p {
-  font-size: 1.5rem;
+  font-size: clamp(1rem, 2.3vw, 1.5rem);
   line-height: 1.7;
   color: var(--text-body);
   margin-bottom: 24px;
-  font-family:"Bricolage Grotesque", system-ui, sans-serif;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
 }
 
 #matcha {
   font-family: "Brasika Display Regular", serif;
-  font-size: 90px;
+  font-size: clamp(3.5rem, 9vw, 90px);
+  line-height: 0.95;
 }
 
 #creations {
   font-family: "Brasika Display Regular", serif;
-  font-size: 80px;
+  font-size: clamp(3rem, 8vw, 80px);
   color: black;
   padding: 0%;
+  line-height: 1;
 }
 
-.last-image{
-  width: 500px;
+.last-image {
+  width: min(500px, 38vw);
   height: auto;
   border: 4px solid #5f8c3c;
   border-radius: 50%;
   padding: 10px;
 }
 
-.black-text{
+.black-text {
   font-family: "Brasika Display Regular", serif;
   color: black;
 }
 
+/* Large laptop / small desktop */
+@media (max-width: 1200px) {
+  .welcome-inner,
+  .workshop-inner {
+    width: 90%;
+    gap: 45px;
+  }
 
+  .welcome-text,
+  .welcome-image,
+  .workshop-image {
+    transform: none;
+  }
+
+  .welcome-image {
+    width: min(520px, 40vw);
+  }
+
+  .workshop-image,
+  .last-image {
+    width: min(430px, 38vw);
+  }
+}
+
+/* Tablet */
+@media (max-width: 900px) {
+  .image-wrap {
+    height: 60vh;
+    min-height: 480px;
+    padding: 35px 18px;
+  }
+
+  .image-wrap img {
+    width: min(720px, 86vw);
+  }
+
+  .text-box {
+    margin-top: 18px;
+  }
+
+  .welcome-inner,
+  .workshop-inner {
+    width: 94%;
+    flex-direction: column;
+    text-align: center;
+    gap: 30px;
+    margin-bottom: 60px;
+  }
+
+  .welcome-text,
+  .workshop-text {
+    transform: none;
+    text-align: center;
+    order: 1;
+  }
+
+  .welcome-image-wrap,
+  .workshop-image-wrap {
+    width: 100%;
+    justify-content: center;
+    order: 2;
+  }
+
+  .welcome-image,
+  .workshop-image,
+  .last-image {
+    width: min(430px, 80vw);
+    transform: none;
+  }
+
+  .welcome-pill {
+    border-radius: 28px;
+    padding: 16px 22px;
+  }
+
+  .m-w {
+    padding-bottom: 45px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .image-wrap {
+    height: 55vh;
+    min-height: 420px;
+    background-position: center;
+    padding: 30px 14px;
+  }
+
+  .image-wrap img {
+    width: 88vw;
+  }
+
+  .text-box {
+    width: 95%;
+    margin-top: 14px;
+  }
+
+  .text-box p {
+    line-height: 1.35;
+  }
+
+  .welcome-section {
+    padding: 28px 14px;
+  }
+
+  .welcome-inner,
+  .workshop-inner {
+    width: 100%;
+    padding: 0 12px;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+
+  .welcome-text h2,
+  .workshop-text h2 {
+    margin-bottom: 12px;
+  }
+
+  .welcome-text p,
+  .workshop-text p {
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .welcome-btn,
+  .workshop-btn {
+    width: 100%;
+    max-width: 260px;
+    padding: 12px 28px;
+  }
+
+  .welcome-image,
+  .workshop-image {
+    width: min(330px, 88vw);
+  }
+
+  .last-image {
+    width: min(310px, 82vw);
+    padding: 8px;
+  }
+
+  .m-w {
+    width: 95%;
+    padding-bottom: 36px;
+  }
+
+  .services-section {
+    padding-top: 36px;
+  }
+
+  #matcha,
+  #creations {
+    text-align: center;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 380px) {
+  .image-wrap {
+    min-height: 380px;
+    padding: 28px 12px;
+  }
+
+  .image-wrap img {
+    width: 90vw;
+  }
+
+  .text-box {
+    margin-top: 12px;
+  }
+
+  .welcome-text h2,
+  .workshop-text h2 {
+    font-size: 2.2rem;
+  }
+
+  .m-w {
+    font-size: 2rem;
+  }
+
+  .welcome-pill {
+    font-size: 0.95rem;
+    padding: 14px 18px;
+  }
+
+  .welcome-btn,
+  .workshop-btn {
+    max-width: 230px;
+  }
+}

@@ -118,8 +118,11 @@ function bookingStatusBadge(status) {
 }
 
 function getPaymentAction(booking) {
+  const recordType = (booking.record_type || "booking").toLowerCase();
   const bStatus = (booking.status || "").toLowerCase();
   const pStatus = (booking.payment_status || "unpaid").toLowerCase();
+
+  if (recordType === "workshop_registration") return null;
 
   if (["cancelled", "rejected"].includes(bStatus)) return null;
   if (pStatus === "paid") return null;
@@ -133,6 +136,10 @@ function getPaymentAction(booking) {
 }
 
 function canCancel(booking) {
+  const recordType = (booking.record_type || "booking").toLowerCase();
+
+  if (recordType === "workshop_registration") return false;
+
   const bStatus = (booking.status || "").toLowerCase();
   const cancelRequested =
     Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
@@ -656,20 +663,31 @@ const handleCancelSuccess = (bookingId) => {
   alert("Cancellation request submitted. The admin will review your request shortly.");
 };
 
-  const handlePayAction = (booking) => {
-    const action = getPaymentAction(booking);
+const handlePayAction = (booking) => {
+  const action = getPaymentAction(booking);
 
-    if (!action) return;
+  if (!action) return;
 
-    const purposeMap = {
-      event: "event_booking",
-      workshop: "workshop_booking",
-    };
+  const recordType = (booking.record_type || "booking").toLowerCase();
 
-    const purpose = purposeMap[booking.booking_type] || "event_booking";
+  if (recordType === "workshop_registration") {
+    return;
+  }
 
-    navigate(`/gcash-payment?purpose=${purpose}&booking_id=${booking.id}`);
+  const purposeMap = {
+    event: "event_booking",
+    workshop: "workshop_booking",
   };
+
+  const purpose = purposeMap[booking.booking_type];
+
+  if (!purpose) {
+    alert("Invalid booking type for payment.");
+    return;
+  }
+
+  navigate(`/gcash-payment?purpose=${purpose}&booking_id=${booking.id}`);
+};
 
   if (!user) return null;
 
@@ -877,7 +895,7 @@ const handleCancelSuccess = (bookingId) => {
   Number(b.cancel_requested) === 1 || b.cancel_requested === true;
 
                           return (
-                            <tr key={b.id}>
+                            <tr key={b.row_key || `${b.record_type || "booking"}-${b.id}`}>
                               <td
                                 className="td-date"
                                 aria-label={`Booking Date: ${b.booking_date}`}
@@ -886,21 +904,37 @@ const handleCancelSuccess = (bookingId) => {
                               </td>
 
                               <td
-                                className="td-time"
-                                aria-label={`Booking Time: ${b.start_time?.slice(
-                                  0,
-                                  5
-                                )} to ${b.end_time?.slice(0, 5)}`}
-                              >
-                                {b.start_time?.slice(0, 5)} – {b.end_time?.slice(0, 5)}
-                              </td>
+  className="td-time"
+  aria-label={
+    b.start_time && b.end_time
+      ? `Booking Time: ${b.start_time?.slice(0, 5)} to ${b.end_time?.slice(0, 5)}`
+      : "Time not available"
+  }
+>
+  {b.start_time && b.end_time
+    ? `${b.start_time?.slice(0, 5)} – ${b.end_time?.slice(0, 5)}`
+    : "—"}
+</td>
 
                               <td
-                                className="td-type"
-                                aria-label={`Booking Type: ${b.booking_type}`}
-                              >
-                                {b.booking_type}
-                              </td>
+  className="td-type"
+  aria-label={`Booking Type: ${
+    b.record_type === "workshop_registration"
+      ? `Workshop Registration, ${b.package} package`
+      : b.booking_type
+  }`}
+>
+  {b.record_type === "workshop_registration" ? (
+    <>
+      <div>Workshop Registration</div>
+      <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px" }}>
+        {b.package} Package
+      </div>
+    </>
+  ) : (
+    b.booking_type
+  )}
+</td>
 
                               <td>
                                 <span

@@ -16,6 +16,11 @@ $userId = (int) $_SESSION["user_id"];
 $private = [];
 $awaitingPayment = [];
 
+/*
+|--------------------------------------------------------------------------
+| 1. Normal bookings table
+|--------------------------------------------------------------------------
+*/
 $stmt = $conn->prepare("
     SELECT
         b.id,
@@ -79,6 +84,9 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 while ($row = $result->fetch_assoc()) {
+    $row["record_type"] = "booking";
+    $row["row_key"] = "booking-" . $row["id"];
+
     $row["status"] = $row["status"] ?? "pending";
     $row["payment_status"] = $row["computed_payment_status"] ?? "unpaid";
 
@@ -105,6 +113,98 @@ while ($row = $result->fetch_assoc()) {
 }
 
 $stmt->close();
+
+/*
+|--------------------------------------------------------------------------
+| 2. Workshop registrations table
+|--------------------------------------------------------------------------
+| This version does not require joining another workshops table.
+| It uses created_at as the displayed date because your provided table
+| only has created_at, not workshop date/start/end columns.
+|--------------------------------------------------------------------------
+*/
+$workshopStmt = $conn->prepare("
+    SELECT
+        wr.id,
+        wr.user_id,
+        wr.workshop_id,
+        wr.package,
+        wr.full_name,
+        wr.email,
+        wr.phone_number,
+        wr.created_at,
+        wr.status,
+        wr.payment_status,
+        wr.total_amount
+    FROM workshop_registrations wr
+    WHERE wr.user_id = ?
+    ORDER BY wr.created_at DESC
+");
+
+if (!$workshopStmt) {
+    http_response_code(500);
+    echo json_encode(["error" => "Workshop registration prepare failed: " . $conn->error]);
+    exit();
+}
+
+$workshopStmt->bind_param("i", $userId);
+$workshopStmt->execute();
+
+$workshopResult = $workshopStmt->get_result();
+
+while ($row = $workshopResult->fetch_assoc()) {
+    $createdAt = $row["created_at"] ?? null;
+    $bookingDate = $createdAt ? date("Y-m-d", strtotime($createdAt)) : null;
+
+    $registration = [
+        "id" => (int) $row["id"],
+        "record_type" => "workshop_registration",
+        "row_key" => "workshop-registration-" . $row["id"],
+
+        "booking_date" => $bookingDate,
+        "start_time" => null,
+        "end_time" => null,
+
+        "booking_type" => "workshop registration",
+        "workshop_id" => (int) $row["workshop_id"],
+        "package" => $row["package"],
+
+        "status" => $row["status"] ?? "pending",
+        "payment_status" => $row["payment_status"] ?? "unpaid",
+
+        "total_amount" => (float) ($row["total_amount"] ?? 0),
+        "amount_paid" => strtolower($row["payment_status"] ?? "") === "paid"
+            ? (float) ($row["total_amount"] ?? 0)
+            : 0,
+        "balance" => strtolower($row["payment_status"] ?? "") === "paid"
+            ? 0
+            : (float) ($row["total_amount"] ?? 0),
+
+        "cancel_requested" => 0,
+        "cancel_reason" => "",
+        "cancel_requested_at" => null,
+
+        "created_at" => $row["created_at"],
+        "display_status" => $row["status"] ?? "pending",
+        "can_continue_payment" => false,
+    ];
+
+    $private[] = $registration;
+}
+
+$workshopStmt->close();
+
+/*
+|--------------------------------------------------------------------------
+| 3. Sort all bookings + workshop registrations together
+|--------------------------------------------------------------------------
+*/
+usort($private, function ($a, $b) {
+    $dateA = $a["booking_date"] ?? $a["created_at"] ?? "";
+    $dateB = $b["booking_date"] ?? $b["created_at"] ?? "";
+
+    return strtotime($dateB) <=> strtotime($dateA);
+});
 
 echo json_encode([
     "success" => true,

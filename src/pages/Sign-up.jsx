@@ -539,7 +539,7 @@ export default function SignUp() {
             <button
               className="auth-signup-btn"
               type="submit"
-              disabled={!allValid || submitting}
+              
               aria-label={submitting ? "Signing up" : "Sign up"}
             >
               {submitting ? "SIGNING UP..." : "SIGN UP"}
