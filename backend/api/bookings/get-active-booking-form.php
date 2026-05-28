@@ -1,139 +1,202 @@
 <?php
+
 session_start();
+
 require_once __DIR__ . "/../../config/db.php";
 
-header("Content-Type: application/json");
+header("Content-Type: application/json; charset=utf-8");
 
 $type = $_GET["type"] ?? "";
 
-if (!in_array($type, ["event", "workshop"], true)) {
+if (!in_array($type, ["event_booking", "private_workshop"], true)) {
   http_response_code(400);
-  echo json_encode(["error" => "Invalid booking type"]);
-  exit();
-}
-
-$stmt = $conn->prepare("
-  SELECT id, booking_type, title, base_rate, downpayment_percentage
-  FROM booking_forms
-  WHERE booking_type = ? AND is_active = 1
-  ORDER BY id DESC
-  LIMIT 1
-");
-
-if (!$stmt) {
-  http_response_code(500);
-  echo json_encode(["error" => "Failed to prepare form query."]);
-  exit();
-}
-
-$stmt->bind_param("s", $type);
-$stmt->execute();
-$form = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if (!$form) {
   echo json_encode([
-    "success" => true,
-    "form" => null
+    "success" => false,
+    "error" => "Invalid booking type. Use event_booking or private_workshop."
   ]);
   exit();
 }
 
-$formId = (int) $form["id"];
-$sections = [];
+$defaults = [
+  "event_50_cups_price_per_cup" => 230.00,
+  "event_100_cups_price_per_cup" => 220.00,
+  "event_150_cups_price_per_cup" => 210.00,
+  "event_200_cups_price_per_cup" => 200.00,
+
+  "event_signature_addon" => 0.00,
+  "event_plus_addon" => 1000.00,
+  "event_premium_addon" => 2000.00,
+  "event_booking_downpayment_percentage" => 50.00,
+
+  "private_workshop_standard_price" => 3000.00,
+  "private_workshop_premium_price" => 3800.00,
+  "private_workshop_downpayment_percentage" => 50.00
+];
+
+$keysByType = [
+  "event_booking" => [
+    "event_50_cups_price_per_cup",
+    "event_100_cups_price_per_cup",
+    "event_150_cups_price_per_cup",
+    "event_200_cups_price_per_cup",
+    "event_signature_addon",
+    "event_plus_addon",
+    "event_premium_addon",
+    "event_booking_downpayment_percentage"
+  ],
+
+  "private_workshop" => [
+    "private_workshop_standard_price",
+    "private_workshop_premium_price",
+    "private_workshop_downpayment_percentage"
+  ]
+];
+
+$requestedKeys = $keysByType[$type];
+$pricing = [];
+
+foreach ($requestedKeys as $key) {
+  $pricing[$key] = $defaults[$key];
+}
+
+$placeholders = implode(",", array_fill(0, count($requestedKeys), "?"));
+$types = str_repeat("s", count($requestedKeys));
 
 $stmt = $conn->prepare("
-  SELECT id, title, sort_order
-  FROM booking_form_sections
-  WHERE form_id = ?
-  ORDER BY sort_order ASC, id ASC
+  SELECT setting_key, setting_value
+  FROM pricing_settings
+  WHERE setting_key IN ($placeholders)
 ");
 
 if (!$stmt) {
   http_response_code(500);
-  echo json_encode(["error" => "Failed to prepare section query."]);
+  echo json_encode([
+    "success" => false,
+    "error" => "Failed to prepare pricing query.",
+    "details" => $conn->error
+  ]);
   exit();
 }
 
-$stmt->bind_param("i", $formId);
+$stmt->bind_param($types, ...$requestedKeys);
 $stmt->execute();
-$res = $stmt->get_result();
+$result = $stmt->get_result();
 
-while ($section = $res->fetch_assoc()) {
-  $section["id"] = (int) $section["id"];
-  $section["sort_order"] = (int) $section["sort_order"];
-  $section["fields"] = [];
-  $sections[(int) $section["id"]] = $section;
+while ($row = $result->fetch_assoc()) {
+  $key = $row["setting_key"];
+
+  if (array_key_exists($key, $pricing)) {
+    $pricing[$key] = round((float)$row["setting_value"], 2);
+  }
 }
 
 $stmt->close();
 
-if (!empty($sections)) {
-  $sectionIds = implode(",", array_map("intval", array_keys($sections)));
+if ($type === "event_booking") {
+  $form = [
+    "id" => null,
+    "booking_type" => "event_booking",
+    "title" => "Event Booking",
+    "pricing_rule" => "cup_quantity_x_price_per_cup_plus_menu_addon",
+    "downpayment_percentage" => $pricing["event_booking_downpayment_percentage"],
 
-  $fieldsRes = $conn->query("
-    SELECT id, section_id, label, field_name, field_type, is_required, allow_quantity, sort_order
-    FROM booking_form_fields
-    WHERE section_id IN ($sectionIds)
-    ORDER BY sort_order ASC, id ASC
-  ");
+    "cup_packages" => [
+      [
+        "quantity" => 50,
+        "price_per_cup" => $pricing["event_50_cups_price_per_cup"]
+      ],
+      [
+        "quantity" => 100,
+        "price_per_cup" => $pricing["event_100_cups_price_per_cup"]
+      ],
+      [
+        "quantity" => 150,
+        "price_per_cup" => $pricing["event_150_cups_price_per_cup"]
+      ],
+      [
+        "quantity" => 200,
+        "price_per_cup" => $pricing["event_200_cups_price_per_cup"]
+      ]
+    ],
 
-  if (!$fieldsRes) {
-    http_response_code(500);
-    echo json_encode(["error" => "Failed to load form fields."]);
-    exit();
-  }
+    "menu_packages" => [
+      [
+        "package" => "SIGNATURE",
+        "label" => "Signature Package",
+        "description" => "4 signature drinks",
+        "addon" => $pricing["event_signature_addon"]
+      ],
+      [
+        "package" => "PLUS",
+        "label" => "Plus Package",
+        "description" => "Signature drinks + 2 additional drinks",
+        "addon" => $pricing["event_plus_addon"]
+      ],
+      [
+        "package" => "PREMIUM",
+        "label" => "Premium Package",
+        "description" => "Signature drinks + 4 additional drinks",
+        "addon" => $pricing["event_premium_addon"]
+      ]
+    ],
 
-  $fields = [];
+    "signature_drinks" => [
+      "Basic Matcha Latte",
+      "Earl Grey Matcha Latte",
+      "Peach Mango Matcha Latte",
+      "AM Matcha ’Ricano"
+    ],
 
-  while ($field = $fieldsRes->fetch_assoc()) {
-    $field["id"] = (int) $field["id"];
-    $field["section_id"] = (int) $field["section_id"];
-    $field["is_required"] = (int) $field["is_required"];
-    $field["allow_quantity"] = (int) $field["allow_quantity"];
-    $field["sort_order"] = (int) $field["sort_order"];
-    $field["options"] = [];
-    $fields[(int) $field["id"]] = $field;
-  }
+    "hojicha_options" => [
+      "Matcha only",
+      "Hojicha only",
+      "Mix of Matcha and Hojicha"
+    ]
+  ];
 
-  if (!empty($fields)) {
-    $fieldIds = implode(",", array_map("intval", array_keys($fields)));
-
-    $optionsRes = $conn->query("
-      SELECT id, field_id, label, price, price_type, is_other, sort_order
-      FROM booking_form_options
-      WHERE field_id IN ($fieldIds)
-      ORDER BY sort_order ASC, id ASC
-    ");
-
-    if (!$optionsRes) {
-      http_response_code(500);
-      echo json_encode(["error" => "Failed to load form options."]);
-      exit();
-    }
-
-    while ($option = $optionsRes->fetch_assoc()) {
-      $option["id"] = (int) $option["id"];
-      $option["field_id"] = (int) $option["field_id"];
-      $option["price"] = (float) $option["price"];
-      $option["is_other"] = (int) ($option["is_other"] ?? 0);
-      $option["sort_order"] = (int) $option["sort_order"];
-
-      $fields[(int) $option["field_id"]]["options"][] = $option;
-    }
-  }
-
-  foreach ($fields as $field) {
-    $sections[(int) $field["section_id"]]["fields"][] = $field;
-  }
+  echo json_encode([
+    "success" => true,
+    "type" => $type,
+    "pricing" => $pricing,
+    "form" => $form
+  ]);
+  exit();
 }
 
-$form["id"] = (int) $form["id"];
-$form["base_rate"] = (float) ($form["base_rate"] ?? 0);
-$form["downpayment_percentage"] = (float) ($form["downpayment_percentage"] ?? 50);
-$form["sections"] = array_values($sections);
+if ($type === "private_workshop") {
+  $form = [
+    "id" => null,
+    "booking_type" => "private_workshop",
+    "title" => "Private Workshop Booking",
+    "pricing_rule" => "standard_attendees_x_standard_price_plus_premium_attendees_x_premium_price",
+    "downpayment_percentage" => $pricing["private_workshop_downpayment_percentage"],
 
+    "packages" => [
+      [
+        "package" => "STANDARD",
+        "label" => "Standard Package",
+        "price_per_person" => $pricing["private_workshop_standard_price"]
+      ],
+      [
+        "package" => "PREMIUM",
+        "label" => "Premium Package",
+        "price_per_person" => $pricing["private_workshop_premium_price"]
+      ]
+    ]
+  ];
+
+  echo json_encode([
+    "success" => true,
+    "type" => $type,
+    "pricing" => $pricing,
+    "form" => $form
+  ]);
+  exit();
+}
+
+http_response_code(400);
 echo json_encode([
-  "success" => true,
-  "form" => $form
+  "success" => false,
+  "error" => "Invalid booking type"
 ]);
+exit();

@@ -1613,3 +1613,737 @@ body.dark-mode .compact-stat{ background:#242424; border-color:#2a2a2a; }
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   ADMIN DASHBOARD RESPONSIVE FIXES
+   Only affects AdminDashboard.jsx dashboard cards/charts/insights.
+   ========================================================================== */
+
+.admin-shell-react .admin-cards-hero-react {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: clamp(10px, 1vw, 14px);
+  margin-bottom: 18px;
+}
+
+.admin-shell-react .admin-cards-hero-react .admin-card-react {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-shell-react .admin-cards-hero-react .admin-big-react {
+  overflow-wrap: anywhere;
+  line-height: 1.1;
+}
+
+.admin-shell-react .admin-cards-hero-react .admin-muted-react {
+  line-height: 1.35;
+}
+
+.admin-shell-react .admin-card-label-react {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell-react .admin-card-label-react span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Dashboard chart panels ─────────────────────────────────────────────── */
+
+.admin-shell-react .admin-grid-2-react {
+  align-items: stretch;
+}
+
+.admin-shell-react .admin-grid-2-react > .admin-panel-react {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-shell-react .admin-panel-react canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.admin-shell-react .admin-panel-react h3 {
+  line-height: 1.25;
+}
+
+.admin-shell-react .admin-panel-react > p.admin-muted-react {
+  line-height: 1.4;
+}
+
+/* Chart wrapper from AdminDashboard.jsx */
+.admin-shell-react .admin-panel-react div[style*="min-height: 280px"] {
+  min-height: 280px !important;
+  width: 100%;
+}
+
+/* ── Dashboard empty chart state ────────────────────────────────────────── */
+
+.admin-shell-react .dash-empty-chart {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 34px 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.admin-shell-react .dash-empty-icon {
+  font-size: 2.1rem;
+  opacity: 0.45;
+}
+
+.admin-shell-react .dash-empty-msg {
+  max-width: 280px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+/* ── Dashboard insight panels ───────────────────────────────────────────── */
+
+.admin-shell-react .admin-grid-3-react > .admin-panel-react {
+  min-width: 0;
+}
+
+.admin-shell-react .admin-stat-item-react {
+  min-width: 0;
+}
+
+.admin-shell-react .admin-stat-item-react span,
+.admin-shell-react .admin-stat-item-react strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell-react .admin-stat-item-react strong {
+  text-align: right;
+}
+
+/* ── Dashboard loading skeleton ─────────────────────────────────────────── */
+
+.admin-shell-react .dash-skeleton {
+  min-height: 142px;
+}
+
+.admin-shell-react .skel-line {
+  max-width: 100%;
+}
+
+/* ── Large laptop / smaller desktop ─────────────────────────────────────── */
+
+@media (max-width: 1366px) {
+  .admin-shell-react .admin-cards-hero-react {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ── Tablet ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .admin-shell-react .admin-cards-hero-react {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .admin-shell-react .admin-grid-2-react {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell-react .admin-grid-3-react {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell-react .admin-panel-react div[style*="min-height: 280px"] {
+    min-height: 300px !important;
+  }
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .admin-shell-react .admin-topbar-react {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-shell-react .admin-title-react {
+    font-size: clamp(1.45rem, 8vw, 2rem);
+    line-height: 1.1;
+  }
+
+  .admin-shell-react .admin-cards-hero-react {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-shell-react .admin-card-react {
+    border-radius: 16px;
+  }
+
+  .admin-shell-react .admin-card-feature-react {
+    min-height: auto;
+  }
+
+  .admin-shell-react .admin-big-react {
+    font-size: clamp(1.45rem, 7vw, 1.9rem);
+  }
+
+  .admin-shell-react .admin-grid-2-react,
+  .admin-shell-react .admin-grid-3-react {
+    gap: 12px;
+  }
+
+  .admin-shell-react .admin-panel-react {
+    border-radius: 16px;
+  }
+
+  .admin-shell-react .admin-panel-react div[style*="min-height: 280px"] {
+    min-height: 280px !important;
+  }
+
+  .admin-shell-react .admin-stat-item-react {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .admin-shell-react .admin-stat-item-react strong {
+    text-align: left;
+    font-size: 1rem;
+  }
+}
+
+/* ── Small phones ───────────────────────────────────────────────────────── */
+
+@media (max-width: 520px) {
+  .admin-shell-react .admin-layout-react {
+    width: min(100% - 14px, 100%);
+    padding-top: 10px;
+  }
+
+  .admin-shell-react .admin-main-react {
+    min-width: 0;
+  }
+
+  .admin-shell-react .admin-cards-hero-react {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .admin-shell-react .admin-card-react {
+    padding: 14px;
+  }
+
+  .admin-shell-react .admin-card-label-react {
+    font-size: 0.7rem;
+    padding: 5px 9px;
+  }
+
+  .admin-shell-react .admin-big-react {
+    font-size: 1.45rem;
+  }
+
+  .admin-shell-react .admin-muted-react {
+    font-size: 0.8rem;
+  }
+
+  .admin-shell-react .admin-panel-react {
+    padding: 14px 12px;
+    margin-bottom: 12px;
+  }
+
+  .admin-shell-react .admin-panel-react h3 {
+    font-size: 0.98rem;
+  }
+
+  .admin-shell-react .admin-panel-react > p.admin-muted-react {
+    font-size: 0.8rem !important;
+  }
+
+  .admin-shell-react .admin-panel-react div[style*="min-height: 280px"] {
+    min-height: 250px !important;
+  }
+
+  .admin-shell-react .dash-empty-chart {
+    min-height: 190px;
+    padding: 28px 14px;
+  }
+
+  .admin-shell-react .dash-empty-icon {
+    font-size: 1.8rem;
+  }
+
+  .admin-shell-react .dash-empty-msg {
+    font-size: 0.82rem;
+  }
+
+  .admin-shell-react .admin-stat-item-react {
+    padding: 11px 12px;
+    border-radius: 12px;
+  }
+
+  .admin-shell-react .admin-stat-item-react span {
+    font-size: 0.82rem;
+  }
+
+  .admin-shell-react .admin-stat-item-react strong {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Very small phones ──────────────────────────────────────────────────── */
+
+@media (max-width: 380px) {
+  .admin-shell-react .admin-layout-react {
+    width: min(100% - 10px, 100%);
+  }
+
+  .admin-shell-react .admin-card-react,
+  .admin-shell-react .admin-panel-react {
+    padding: 12px 10px;
+  }
+
+  .admin-shell-react .admin-panel-react div[style*="min-height: 280px"] {
+    min-height: 230px !important;
+  }
+
+  .admin-shell-react .admin-big-react {
+    font-size: 1.3rem;
+  }
+}
+
+/* ── Prevent Chart.js overflow on all devices ───────────────────────────── */
+
+.admin-shell-react canvas {
+  max-width: 100% !important;
+}
+
+.admin-shell-react .admin-panel-react,
+.admin-shell-react .admin-card-react,
+.admin-shell-react .admin-stat-item-react {
+  max-width: 100%;
+}
+
+ /*
+  ==========================================================================
+  ADMIN REPORTS — responsive sales reports
+  Only affects AdminReports.jsx
+  ==========================================================================
+*/
+
+.admin-shell-react .reports-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-shell-react .reports-notice svg {
+  flex: 0 0 auto;
+}
+
+.admin-shell-react .reports-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--green-2);
+}
+
+.admin-shell-react .reports-panel-title svg {
+  flex: 0 0 auto;
+}
+
+.admin-shell-react .reports-filter-panel,
+.admin-shell-react .reports-main-panel {
+  overflow: hidden;
+}
+
+.admin-shell-react .reports-filter-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  margin: 0;
+}
+
+.admin-shell-react .reports-filter-field {
+  min-width: 0;
+}
+
+.admin-shell-react .reports-filter-field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+}
+
+.admin-shell-react .reports-filter-field label svg {
+  flex: 0 0 auto;
+}
+
+.admin-shell-react .reports-filter-button {
+  min-height: 42px;
+  border-color: var(--green-2);
+}
+
+.admin-shell-react .reports-filter-button[type="submit"] {
+  background: var(--green-2);
+  color: #ffffff;
+}
+
+.admin-shell-react .reports-filter-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-shell-react .reports-clear-button {
+  background: #ffffff;
+  color: var(--green-2);
+}
+
+.admin-shell-react .reports-tabs {
+  margin-bottom: 18px;
+}
+
+.admin-shell-react .reports-tabs .admin-tab-react {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.admin-shell-react .reports-tabs .admin-tab-react svg {
+  flex: 0 0 auto;
+}
+
+.admin-shell-react .reports-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-shell-react .reports-summary-card {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 4px 14px rgba(31, 59, 38, 0.035);
+}
+
+.admin-shell-react .reports-summary-card span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  line-height: 1.25;
+}
+
+.admin-shell-react .reports-summary-card span svg {
+  flex: 0 0 auto;
+  color: var(--green-2);
+}
+
+.admin-shell-react .reports-summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--green-2);
+  font-size: clamp(1.15rem, 1.4vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell-react .reports-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-shell-react .reports-loading svg {
+  flex: 0 0 auto;
+}
+
+.admin-shell-react .reports-empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  justify-content: center;
+  align-content: center;
+  gap: 8px;
+  padding: 34px 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.admin-shell-react .reports-empty-state svg {
+  color: var(--green-2);
+  opacity: 0.45;
+}
+
+.admin-shell-react .reports-empty-state strong {
+  color: var(--green-2);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.admin-shell-react .reports-empty-state span {
+  max-width: 320px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.admin-shell-react .reports-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-shell-react .reports-table {
+  min-width: 920px;
+  border: 0;
+  border-radius: 0;
+}
+
+.admin-shell-react .reports-table th {
+  white-space: nowrap;
+}
+
+.admin-shell-react .reports-table td {
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell-react .reports-title-cell {
+  display: block;
+  color: var(--green-2);
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.admin-shell-react .reports-sub-cell {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.admin-shell-react .reports-icon-text,
+.admin-shell-react .reports-date-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.admin-shell-react .reports-icon-text svg,
+.admin-shell-react .reports-date-cell svg {
+  flex: 0 0 auto;
+  color: var(--green-2);
+}
+
+.admin-shell-react .reports-amount-cell {
+  text-align: right;
+  color: var(--green-2);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-shell-react .reports-reference-cell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.admin-shell-react .pill-mini-react.pending {
+  background: #fff3cd;
+  border-color: #ffeeba;
+  color: #856404;
+}
+
+.admin-shell-react .pill-mini-react.paid {
+  background: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.admin-shell-react .pill-mini-react.rejected {
+  background: #fce4e4;
+  border-color: #f8c9c9;
+  color: #cc0000;
+}
+
+/* ── Reports responsive layout ─────────────────────────────────────────── */
+
+@media (max-width: 1180px) {
+  .admin-shell-react .reports-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .admin-shell-react .reports-filter-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-shell-react .reports-filter-button {
+    width: 100%;
+  }
+
+  .admin-shell-react .reports-tabs {
+    gap: 8px;
+  }
+
+  .admin-shell-react .reports-tabs .admin-tab-react {
+    flex: 1 1 180px;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-shell-react .reports-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell-react .reports-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell-react .reports-table-wrap {
+    border: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .admin-shell-react .reports-table {
+    min-width: 0;
+    width: 100%;
+    border: 0;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+    background: transparent;
+  }
+
+  .admin-shell-react .reports-table thead {
+    display: none;
+  }
+
+  .admin-shell-react .reports-table,
+  .admin-shell-react .reports-table tbody,
+  .admin-shell-react .reports-table tr,
+  .admin-shell-react .reports-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-shell-react .reports-table tbody tr {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 8px 18px rgba(31, 59, 38, 0.055);
+  }
+
+  .admin-shell-react .reports-table td {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf1ee;
+  }
+
+  .admin-shell-react .reports-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-shell-react .reports-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .admin-shell-react .reports-amount-cell {
+    text-align: left !important;
+    white-space: normal;
+  }
+
+  .admin-shell-react .reports-icon-text,
+  .admin-shell-react .reports-date-cell {
+    justify-content: flex-start;
+  }
+
+  .admin-shell-react .reports-reference-cell {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-shell-react .reports-filter-panel,
+  .admin-shell-react .reports-main-panel {
+    padding: 14px 12px;
+  }
+
+  .admin-shell-react .reports-tabs .admin-tab-react {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .admin-shell-react .reports-summary-card {
+    padding: 13px 12px;
+  }
+
+  .admin-shell-react .reports-summary-card strong {
+    font-size: 1.15rem;
+  }
+
+  .admin-shell-react .reports-table tbody tr {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .admin-shell-react .reports-table td {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .admin-shell-react .reports-empty-state {
+    min-height: 190px;
+    padding: 28px 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .admin-shell-react .reports-table td {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .admin-shell-react .reports-filter-panel,
+  .admin-shell-react .reports-main-panel {
+    padding: 12px 10px;
+  }
+}

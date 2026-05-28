@@ -5,28 +5,22 @@ import adminApi from "@/services/adminApi";
 // --- HELPER FUNCTIONS ---
 
 function money(value) {
-  return Number(value || 0).toLocaleString(undefined, {
+  return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
-function getAnswerLabel(field, value) {
-  if (value === undefined || value === null || value === "") return "—";
+function readableType(type = "") {
+  const value = String(type || "").toLowerCase();
 
-  const options = field.options || [];
+  if (value === "event_booking" || value === "event") return "Event Booking";
+  if (value === "private_workshop" || value === "workshop") return "Private Workshop";
+  if (value === "custom") return "Custom Booking";
 
-  if (Array.isArray(value)) {
-    return value
-      .map((v) => {
-        const opt = options.find((o) => String(o.id) === String(v));
-        return opt?.label || v;
-      })
-      .join(", ");
-  }
-
-  const opt = options.find((o) => String(o.id) === String(value));
-  return opt?.label || value;
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function paymentBadgeClass(status) {
@@ -103,10 +97,11 @@ const getAvatarTheme = (name) => {
 function getBookingGroup(booking) {
   const type = String(booking.booking_type || "").toLowerCase();
 
-  if (type === "event") return "events";
-  if (type === "workshop") return "workshops";
+  if (type === "event_booking" || type === "event") return "events";
+  if (type === "private_workshop" || type === "workshop") return "private_workshops";
+  if (type === "custom") return "custom";
 
-  return "private";
+  return "custom";
 }
 
 function getTabCount(bookings, tab) {
@@ -116,19 +111,38 @@ function getTabCount(bookings, tab) {
     return bookings.filter(
       (b) =>
         isCancellationRequested(b) &&
-        ["pending_payment", "pending", "approved"].includes(String(b.status || "").toLowerCase())
+        ["pending_payment", "pending", "approved"].includes(
+          String(b.status || "").toLowerCase()
+        )
     ).length;
   }
 
   return bookings.filter((b) => getBookingGroup(b) === tab).length;
 }
 
+function formatTime(start, end) {
+  if (!start || !end) return "No time set";
+  return `${String(start).slice(0, 5)} - ${String(end).slice(0, 5)}`;
+}
+
+function getNotesValue(notes, keys, fallback = "—") {
+  if (!notes || typeof notes !== "object") return fallback;
+
+  for (const key of keys) {
+    if (notes[key] !== undefined && notes[key] !== null && notes[key] !== "") {
+      return notes[key];
+    }
+  }
+
+  return fallback;
+}
+
 const TABS = [
   { key: "all", label: "All Bookings" },
   { key: "cancel_requests", label: "Cancellation Requests" },
   { key: "events", label: "Events" },
-  { key: "workshops", label: "Workshops" },
-  { key: "private", label: "Private / Custom" },
+  { key: "private_workshops", label: "Private Workshops" },
+  { key: "custom", label: "Custom" },
 ];
 
 export default function AdminReservations() {
@@ -149,7 +163,7 @@ export default function AdminReservations() {
       const { data } = await adminApi.get("/admin/admin-reservations.php");
 
       setCsrf(data.csrf || "");
-      setBookings(data.bookings || data.pending || []);
+      setBookings(data.bookings || []);
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to load reservations.");
     } finally {
@@ -168,7 +182,9 @@ export default function AdminReservations() {
       return bookings.filter(
         (b) =>
           isCancellationRequested(b) &&
-          ["pending_payment", "pending", "approved"].includes(String(b.status || "").toLowerCase())
+          ["pending_payment", "pending", "approved"].includes(
+            String(b.status || "").toLowerCase()
+          )
       );
     }
 
@@ -192,7 +208,7 @@ export default function AdminReservations() {
     }
 
     if (newStatus === "cancelled" && !canCancelBooking(booking)) {
-      setErr("Only pending or approved bookings can be cancelled.");
+      setErr("Only pending, pending payment, or approved bookings can be cancelled.");
       return;
     }
 
@@ -247,11 +263,12 @@ export default function AdminReservations() {
 
     const total = Number(booking.total_amount || 0);
     const amountPaid = Number(booking.amount_paid || 0);
-    const balance = Math.max(total - amountPaid, 0);
+    const balance = Number(booking.balance ?? Math.max(total - amountPaid, 0));
 
-    const snapshot = booking.form_snapshot_decoded || {};
-    const downpaymentPercentage = Number(snapshot.downpayment_percentage || 50);
-    const downpaymentAmount = total * (downpaymentPercentage / 100);
+    const downpaymentPercentage = Number(booking.downpayment_percentage || 50);
+    const downpaymentAmount = Number(
+      booking.downpayment_amount || total * (downpaymentPercentage / 100)
+    );
 
     return (
       <div className="compact-stat-list">
@@ -350,93 +367,123 @@ export default function AdminReservations() {
     );
   };
 
-  const renderSelectedItemsCompact = (booking) => {
-    const items = booking.selected_items || [];
+  const renderBookingDetailsCompact = (booking) => {
+    const notes = booking.notes_decoded || {};
+    const type = String(booking.booking_type || "").toLowerCase();
 
-    if (!items.length) {
+    if (type === "event_booking" || type === "event") {
       return (
-        <div className="admin-muted-react" style={{ fontSize: "0.85rem" }}>
-          No priced items selected.
+        <div className="compact-stat-list">
+          <div className="compact-stat">
+            <span>Event Type</span>
+            <strong>{getNotesValue(notes, ["event_type"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Event Name</span>
+            <strong>{getNotesValue(notes, ["event_name"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Location</span>
+            <strong>{getNotesValue(notes, ["event_location", "location"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Cup Package</span>
+            <strong>{getNotesValue(notes, ["cup_quantity"])} cups</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Price Per Cup</span>
+            <strong>₱{money(getNotesValue(notes, ["price_per_cup"], 0))}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Menu Package</span>
+            <strong>{getNotesValue(notes, ["menu_package"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Menu Add-on</span>
+            <strong>₱{money(getNotesValue(notes, ["menu_addon"], 0))}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Additional Drinks</span>
+            <strong>{getNotesValue(notes, ["selected_drinks"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Hojicha Option</span>
+            <strong>{getNotesValue(notes, ["hojicha_options"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Other Request</span>
+            <strong>{getNotesValue(notes, ["other_request", "special_notes"])}</strong>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === "private_workshop" || type === "workshop") {
+      return (
+        <div className="compact-stat-list">
+          <div className="compact-stat">
+            <span>Workshop Location</span>
+            <strong>{getNotesValue(notes, ["workshop_location", "location"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Total Attendees</span>
+            <strong>{getNotesValue(notes, ["total_attendees"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Standard Attendees</span>
+            <strong>{getNotesValue(notes, ["standard_attendees"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Premium Attendees</span>
+            <strong>{getNotesValue(notes, ["premium_attendees"])}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Standard Price</span>
+            <strong>₱{money(getNotesValue(notes, ["standard_price"], 0))}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Premium Price</span>
+            <strong>₱{money(getNotesValue(notes, ["premium_price"], 0))}</strong>
+          </div>
+
+          <div className="compact-stat">
+            <span>Other Request</span>
+            <strong>{getNotesValue(notes, ["other_request", "special_notes"])}</strong>
+          </div>
         </div>
       );
     }
 
     return (
       <div className="compact-stat-list">
-        {items.map((item, index) => (
-          <div
-            className="compact-stat"
-            key={index}
-            style={{
-              flexDirection: "column",
-              alignItems: "flex-start",
-              gap: "4px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                width: "100%",
-              }}
-            >
-              <strong style={{ color: "var(--ink)" }}>{item.option_label}</strong>
-              <strong style={{ color: "var(--green-2)" }}>
-                ₱{money(item.line_total)}
-              </strong>
-            </div>
-
-            <span style={{ fontSize: "0.75rem" }}>
-              {item.field_label}
-              {item.price_type === "per_quantity" ? ` (Qty: ${item.quantity})` : ""}
-              {item.price_type === "per_cup" ? ` (${item.cups || 0} cups)` : ""}
-            </span>
+        {Object.entries(notes).length === 0 ? (
+          <div className="admin-muted-react" style={{ fontSize: "0.85rem" }}>
+            No booking details available.
           </div>
-        ))}
+        ) : (
+          Object.entries(notes).map(([key, value]) => (
+            <div className="compact-stat" key={key}>
+              <span>{key.replace(/_/g, " ")}</span>
+              <strong>{String(value || "—")}</strong>
+            </div>
+          ))
+        )}
       </div>
     );
-  };
-
-  const renderDynamicAnswersCompact = (booking) => {
-    const snapshot = booking.form_snapshot_decoded || {};
-    const answers = booking.dynamic_answers || {};
-    const sections = snapshot.sections || [];
-
-    if (!sections.length) {
-      return (
-        <div className="admin-muted-react" style={{ fontSize: "0.85rem" }}>
-          No form snapshot available.
-        </div>
-      );
-    }
-
-    return sections.map((section) => (
-      <div key={section.id || section.title} style={{ marginBottom: "12px" }}>
-        <span
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: 800,
-            color: "var(--green-2)",
-            textTransform: "uppercase",
-            marginBottom: "6px",
-            display: "block",
-          }}
-        >
-          {section.title}
-        </span>
-
-        <div className="compact-stat-list">
-          {(section.fields || []).map((field) => (
-            <div className="compact-stat" key={field.id || field.label}>
-              <span>{field.label}</span>
-              <strong style={{ textAlign: "right", maxWidth: "60%" }}>
-                {getAnswerLabel(field, answers[field.field_name])}
-              </strong>
-            </div>
-          ))}
-        </div>
-      </div>
-    ));
   };
 
   return (
@@ -461,8 +508,8 @@ export default function AdminReservations() {
               fontSize: "0.9rem",
             }}
           >
-            Review pending, approved, completed, cancelled, and customer cancellation
-            requests in one place.
+            Review pending, approved, completed, cancelled, and customer
+            cancellation requests in one place.
           </p>
         </div>
 
@@ -533,11 +580,7 @@ export default function AdminReservations() {
 
               <tbody>
                 {filteredBookings.map((p) => {
-                  const time =
-                    p.start_time && p.end_time
-                      ? `${String(p.start_time).slice(0, 5)} - ${String(p.end_time).slice(0, 5)}`
-                      : "";
-
+                  const time = formatTime(p.start_time, p.end_time);
                   const isExpanded = expandedId === p.id;
                   const paymentStatus = String(p.payment_status || "unpaid").toLowerCase();
                   const status = String(p.status || "pending").toLowerCase();
@@ -573,7 +616,7 @@ export default function AdminReservations() {
                               marginTop: "2px",
                             }}
                           >
-                            {String(p.booking_type || "").toUpperCase()}
+                            {readableType(p.booking_type)}
                           </div>
                         </td>
 
@@ -589,7 +632,7 @@ export default function AdminReservations() {
                               marginTop: "2px",
                             }}
                           >
-                            {time || "No time set"}
+                            {time}
                           </div>
                         </td>
 
@@ -694,16 +737,16 @@ export default function AdminReservations() {
                             )}
 
                             {canCancel && (
-  <button
-    className="admin-btn-react admin-btn-cancel-react"
-    style={{ padding: "6px 12px", fontSize: "0.72rem" }}
-    type="button"
-    onClick={() => handleStatus(p, "cancelled")}
-    disabled={isSaving}
-  >
-    CANCEL
-  </button>
-)}
+                              <button
+                                className="admin-btn-react admin-btn-cancel-react"
+                                style={{ padding: "6px 12px", fontSize: "0.72rem" }}
+                                type="button"
+                                onClick={() => handleStatus(p, "cancelled")}
+                                disabled={isSaving}
+                              >
+                                CANCEL
+                              </button>
+                            )}
 
                             {canReject && (
                               <button
@@ -743,7 +786,9 @@ export default function AdminReservations() {
                               onClick={() => setExpandedId(isExpanded ? null : p.id)}
                               className="btn-expand-chevron"
                               style={{
-                                transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                                transform: isExpanded
+                                  ? "rotate(180deg)"
+                                  : "rotate(0deg)",
                               }}
                               title="View Booking Details"
                             >
@@ -775,15 +820,8 @@ export default function AdminReservations() {
                                 </div>
 
                                 <div className="detail-section">
-                                  <h4 className="detail-heading">Purchased Items</h4>
-                                  {renderSelectedItemsCompact(p)}
-                                </div>
-                              </div>
-
-                              <div style={{ marginTop: "18px" }}>
-                                <div className="detail-section">
-                                  <h4 className="detail-heading">Customer Form</h4>
-                                  {renderDynamicAnswersCompact(p)}
+                                  <h4 className="detail-heading">Booking Details</h4>
+                                  {renderBookingDetailsCompact(p)}
                                 </div>
                               </div>
                             </div>

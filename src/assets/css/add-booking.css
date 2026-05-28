@@ -637,3 +637,75 @@ body.screen-reader-on #readable-content .booking-page .booking-value:focus {
     width: min(100% - 18px, 860px);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   New fixed Event Booking pricing flow
+   Keeps the current design, only adds missing classes/states.
+───────────────────────────────────────────────────────────── */
+
+.booking-page .booking-row.total,
+.booking-page .booking-row.booking-row-total {
+  margin-top: 4px;
+  border-top: 2px solid rgba(47, 90, 43, 0.14);
+  border-bottom: 1px solid rgba(47, 90, 43, 0.1);
+  padding-top: 14px;
+}
+
+.booking-page .booking-row.total .booking-label,
+.booking-page .booking-row.total .booking-value,
+.booking-page .booking-row.booking-row-total .booking-label,
+.booking-page .booking-row.booking-row-total .booking-value {
+  color: var(--green-dark);
+  font-size: 1.02rem;
+  font-weight: 950;
+}
+
+.booking-page .btn:not(.btn-confirm):not(.btn-next):not(.btn-cancel):not(.btn-edit) {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--green-2);
+  border: 2px solid var(--green-2);
+}
+
+.booking-page .btn:not(.btn-confirm):not(.btn-next):not(.btn-cancel):not(.btn-edit):hover:not(:disabled) {
+  background: var(--green-soft);
+}
+
+.booking-page .field > input[type="number"] {
+  margin-top: 0;
+}
+
+.booking-page .options > .opt,
+.booking-page .options > label.opt {
+  width: 100%;
+  margin: 0;
+}
+
+.booking-page .opt span {
+  min-width: 0;
+  display: inline-block;
+}
+
+.booking-page .booking-summary + .actions {
+  margin-top: 18px;
+}
+
+.booking-page .field textarea[name="selected_drinks"],
+.booking-page .field textarea[name="other_request"] {
+  min-height: 104px;
+}
+
+.booking-page .card .booking-summary {
+  animation: bookingFadeIn 0.24s ease-out both;
+}
+
+.booking-page select[name="event_type"],
+.booking-page select[name="hojicha_options"] {
+  cursor: pointer;
+}
+
+@media (max-width: 560px) {
+  .booking-page .booking-summary + .actions {
+    margin-top: 16px;
+  }
+}
+

@@ -12,6 +12,27 @@ const CONTACT_METHODS = [
   { value: "Whatsapp", label: "WhatsApp" },
 ];
 
+const CUP_PACKAGES = [50, 100, 150, 200];
+
+const MENU_PACKAGES = [
+  {
+    value: "SIGNATURE",
+    label: "Signature",
+    description:
+      "4 signature drinks: Basic Matcha Latte, Earl Grey Matcha Latte, Peach Mango Matcha Latte, AM Matcha ’Ricano",
+  },
+  {
+    value: "PLUS",
+    label: "Plus",
+    description: "Signature drinks + 2 additional drinks of choice",
+  },
+  {
+    value: "PREMIUM",
+    label: "Premium",
+    description: "Signature drinks + 4 additional drinks of choice",
+  },
+];
+
 function pad(n) {
   return String(n).padStart(2, "0");
 }
@@ -24,70 +45,11 @@ function addHours(timeStr, hoursToAdd) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function parseCupCount(label = "") {
-  const match = String(label).match(/(\d+)\s*cups?/i);
-  return match ? Number(match[1]) : 0;
-}
-
 function money(value) {
-  return Number(value || 0).toLocaleString(undefined, {
+  return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-function readableText(text = "") {
-  return String(text)
-    .replace(/\bCUPS\b/gi, "cups")
-    .replace(/\bCUP\b/gi, "cup")
-    .replace(/\bCUPER\b/gi, "cups")
-    .replace(/\bPER\b/gi, "per")
-    .replace(/\bPERSON\b/gi, "person")
-    .replace(/\bOATMILK\b/gi, "oatmilk")
-    .replace(/\bOAT MILK\b/gi, "oatmilk")
-    .replace(/\bOPTIONAL\b/gi, "Optional")
-    .replace(/\bTEXT\b/gi, "Text")
-    .replace(/\bCALL\b/gi, "Call")
-    .replace(/\bVIBER\b/gi, "Viber")
-    .replace(/\bWHATSAPP\b/gi, "WhatsApp")
-    .replace(/\bNEXT\b/gi, "Next")
-    .replace(/\bCANCEL\b/gi, "Cancel")
-    .replace(/\bEDIT\b/gi, "Edit")
-    .replace(/\bCONFIRM\b/gi, "Confirm")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getOptionLabel(option) {
-  const priceText =
-    Number(option.price) > 0 ? `, price ${money(option.price)} pesos` : "";
-
-  const priceTypeText =
-    option.price_type === "per_quantity"
-      ? " each"
-      : option.price_type === "per_cup"
-      ? " per cup"
-      : "";
-
-  return readableText(`${option.label}${priceText}${priceTypeText}`);
-}
-
-function getSelectAriaLabel(field, fieldValue) {
-  const options = field.options || [];
-
-  const selectedOption = options.find(
-    (option) => String(option.id) === String(fieldValue)
-  );
-
-  const choices = options
-    .map((option, index) => `Press ${index + 1} for ${getOptionLabel(option)}`)
-    .join(", ");
-
-  return selectedOption
-    ? `${readableText(field.label)}. Selected ${getOptionLabel(
-        selectedOption
-      )}. Choices: ${choices}.`
-    : `${readableText(field.label)}. Select one option. Choices: ${choices}.`;
 }
 
 export default function AddEventBooking() {
@@ -98,8 +60,18 @@ export default function AddEventBooking() {
 
   const [step, setStep] = useState("form");
   const [error, setError] = useState("");
-  const [loadingForm, setLoadingForm] = useState(true);
-  const [formSchema, setFormSchema] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [pricing, setPricing] = useState({
+    event_50_cups_price_per_cup: 230,
+    event_100_cups_price_per_cup: 220,
+    event_150_cups_price_per_cup: 210,
+    event_200_cups_price_per_cup: 200,
+    event_signature_addon: 0,
+    event_plus_addon: 1000,
+    event_premium_addon: 2000,
+    event_booking_downpayment_percentage: 50,
+  });
 
   const [fixedInfo, setFixedInfo] = useState({
     full_name: "",
@@ -108,12 +80,18 @@ export default function AddEventBooking() {
     contact_methods: [],
     start_time: "",
     end_time: "",
+    event_type: "",
+    event_name: "",
+    event_location: "",
     other_request: "",
   });
 
-  const [answers, setAnswers] = useState({});
-  const [quantities, setQuantities] = useState({});
-  const [otherAnswers, setOtherAnswers] = useState({});
+  const [eventInfo, setEventInfo] = useState({
+    cup_quantity: 100,
+    menu_package: "SIGNATURE",
+    selected_drinks: "",
+    hojicha_options: "Matcha only",
+  });
 
   useEffect(() => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -122,264 +100,68 @@ export default function AddEventBooking() {
   }, [date, navigate]);
 
   useEffect(() => {
-    loadActiveForm();
+    loadPricing();
+    loadCurrentUser();
   }, []);
 
-  useEffect(() => {
-    API.get("/user/current-user.php")
-      .then(({ data }) => {
-        if (data.success && data.user) {
-          setFixedInfo((prev) => ({
-            ...prev,
-            full_name: data.user.name || prev.full_name,
-            email: data.user.email || prev.email,
-            phone_number: data.user.phone_number || prev.phone_number,
-          }));
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const loadActiveForm = async () => {
-    setLoadingForm(true);
+  const loadPricing = async () => {
+    setLoading(true);
     setError("");
 
     try {
       const { data } = await API.get("/bookings/get-active-booking-form.php", {
-        params: { type: "event" },
+        params: { type: "event_booking" },
       });
 
-      if (!data.form) {
-        setError("No active event booking form found. Please ask admin to create one.");
-        return;
+      if (data.pricing) {
+        setPricing((prev) => ({ ...prev, ...data.pricing }));
       }
-
-      setFormSchema(data.form);
     } catch (err) {
       console.error(err);
-      setError("Failed to load event booking form.");
+      setError("Failed to load event pricing.");
     } finally {
-      setLoadingForm(false);
+      setLoading(false);
     }
   };
 
-  const allFields = useMemo(() => {
-    if (!formSchema?.sections) return [];
-    return formSchema.sections.flatMap((section) => section.fields || []);
-  }, [formSchema]);
+  const loadCurrentUser = async () => {
+    try {
+      const { data } = await API.get("/user/current-user.php");
 
-  const baseRate = useMemo(() => {
-    return Math.max(0, Number(formSchema?.base_rate || 0));
-  }, [formSchema]);
-
-  const isOtherOption = (option) => Number(option?.is_other || 0) === 1;
-
-  const otherAnswerKey = (fieldId, optionId) => `${fieldId}_${optionId}`;
-
-  const getOtherAnswer = (fieldId, optionId) => {
-    return otherAnswers[otherAnswerKey(fieldId, optionId)] || "";
-  };
-
-  const selectedOptionNeedsOtherText = (field, value) => {
-    const selectedValues = Array.isArray(value) ? value : [value];
-
-    return selectedValues.some((selectedValue) => {
-      const option = (field.options || []).find(
-        (opt) => String(opt.id) === String(selectedValue)
-      );
-
-      return isOtherOption(option);
-    });
-  };
-
-  const selectedCupCount = useMemo(() => {
-    for (const field of allFields) {
-      const selected = answers[field.field_name];
-      if (!selected) continue;
-
-      const selectedValues = Array.isArray(selected) ? selected : [selected];
-
-      for (const value of selectedValues) {
-        const option = (field.options || []).find(
-          (opt) => String(opt.id) === String(value)
-        );
-
-        const cups = parseCupCount(option?.label || "");
-        if (cups > 0) return cups;
+      if (data.success && data.user) {
+        setFixedInfo((prev) => ({
+          ...prev,
+          full_name: data.user.name || prev.full_name,
+          email: data.user.email || prev.email,
+          phone_number: data.user.phone_number || prev.phone_number,
+        }));
       }
+    } catch {
+      // keep empty fields
     }
+  };
 
-    return 0;
-  }, [allFields, answers]);
+  const cupPriceKey = `event_${eventInfo.cup_quantity}_cups_price_per_cup`;
 
-  const selectedItems = useMemo(() => {
-    const items = [];
-
-    for (const field of allFields) {
-      const value = answers[field.field_name];
-
-      if (value === undefined || value === "" || value === null) continue;
-
-      const selectedValues = Array.isArray(value) ? value : [value];
-
-      for (const selectedValue of selectedValues) {
-        const option = (field.options || []).find(
-          (opt) => String(opt.id) === String(selectedValue)
-        );
-
-        if (!option) continue;
-
-        const optionKey = `${field.id}_${option.id}`;
-        const qty =
-          Number(field.allow_quantity) === 1
-            ? Math.max(1, Number(quantities[optionKey] || 1))
-            : 1;
-
-        const price = Number(option.price || 0);
-        const priceType = option.price_type || "fixed";
-
-        let lineTotal = price;
-
-        if (priceType === "per_quantity") lineTotal = price * qty;
-        if (priceType === "per_cup") lineTotal = price * selectedCupCount;
-
-        const optionIsOther = isOtherOption(option);
-        const otherValue = optionIsOther
-          ? getOtherAnswer(field.id, option.id).trim()
-          : "";
-
-        items.push({
-          field_id: field.id,
-          field_label: field.label,
-          field_name: field.field_name,
-          option_id: option.id,
-          option_label: optionIsOther && otherValue ? `Other: ${otherValue}` : option.label,
-          option_is_other: optionIsOther ? 1 : 0,
-          other_value: otherValue,
-          price,
-          price_type: priceType,
-          quantity: qty,
-          cups: priceType === "per_cup" ? selectedCupCount : null,
-          line_total: lineTotal,
-        });
-      }
-    }
-
-    return items;
-  }, [allFields, answers, quantities, selectedCupCount, otherAnswers]);
+  const menuAddonKey = {
+    SIGNATURE: "event_signature_addon",
+    PLUS: "event_plus_addon",
+    PREMIUM: "event_premium_addon",
+  }[eventInfo.menu_package];
 
   const totalAmount = useMemo(() => {
-    const optionTotal = selectedItems.reduce(
-      (sum, item) => sum + Number(item.line_total || 0),
-      0
+    const cupTotal =
+      Number(eventInfo.cup_quantity || 0) * Number(pricing[cupPriceKey] || 0);
+    const addon = Number(pricing[menuAddonKey] || 0);
+    return cupTotal + addon;
+  }, [eventInfo.cup_quantity, eventInfo.menu_package, pricing, cupPriceKey, menuAddonKey]);
+
+  const dueNow = useMemo(() => {
+    return (
+      totalAmount *
+      (Number(pricing.event_booking_downpayment_percentage || 50) / 100)
     );
-
-    return baseRate + optionTotal;
-  }, [baseRate, selectedItems]);
-
-  useEffect(() => {
-    const readableContent = document.getElementById("readable-content");
-
-    if (!readableContent) return;
-
-    readableContent
-      .querySelectorAll("label, .label")
-      .forEach((element) => {
-        if (!element.classList.contains("opt")) {
-          element.removeAttribute("tabindex");
-        }
-      });
-
-    const isVisible = (element) => {
-      const style = window.getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-
-      return (
-        style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        style.opacity !== "0" &&
-        rect.width > 0 &&
-        rect.height > 0
-      );
-    };
-
-    const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, .opt, .title, .section-title, .small-note, .date-title, .booking-label, .booking-value, .error"
-    );
-
-    readableElements.forEach((element) => {
-      const tagName = element.tagName.toLowerCase();
-
-      if (
-        !element.classList.contains("opt") &&
-        tagName !== "button" &&
-        tagName !== "a" &&
-        tagName !== "input" &&
-        tagName !== "textarea" &&
-        tagName !== "select"
-      ) {
-        element.removeAttribute("tabindex");
-      }
-
-      if (!isVisible(element)) return;
-
-      let textToRead = "";
-
-      if (tagName === "img") {
-        textToRead = element.getAttribute("alt") || "";
-      } else if (
-        tagName === "input" ||
-        tagName === "textarea" ||
-        tagName === "select"
-      ) {
-        const parentDiv = element.closest(".field") || element.closest("div");
-        const label = parentDiv?.querySelector("label");
-
-        textToRead =
-          element.getAttribute("aria-label") ||
-          label?.innerText ||
-          element.placeholder ||
-          element.value ||
-          element.name ||
-          element.id ||
-          "Input field";
-      } else {
-        textToRead =
-          element.getAttribute("aria-label") ||
-          element.innerText ||
-          element.textContent ||
-          "";
-      }
-
-      if (!textToRead.trim()) return;
-
-      if (
-        !element.classList.contains("opt") &&
-        tagName !== "button" &&
-        tagName !== "a" &&
-        tagName !== "input" &&
-        tagName !== "textarea" &&
-        tagName !== "select"
-      ) {
-        element.setAttribute("tabindex", "0");
-      }
-
-      if (!element.getAttribute("aria-label")) {
-        element.setAttribute("aria-label", readableText(textToRead));
-      }
-    });
-  }, [
-    step,
-    error,
-    loadingForm,
-    formSchema,
-    fixedInfo,
-    answers,
-    quantities,
-    otherAnswers,
-    selectedItems,
-    totalAmount,
-  ]);
+  }, [totalAmount, pricing.event_booking_downpayment_percentage]);
 
   const handleFixedChange = (e) => {
     const { name, value } = e.target;
@@ -396,6 +178,15 @@ export default function AddEventBooking() {
     setFixedInfo((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleEventChange = (e) => {
+    const { name, value } = e.target;
+
+    setEventInfo((prev) => ({
+      ...prev,
+      [name]: name === "cup_quantity" ? Number(value) : value,
+    }));
+  };
+
   const handleContactMethod = (e) => {
     const { value, checked } = e.target;
 
@@ -407,168 +198,17 @@ export default function AddEventBooking() {
     }));
   };
 
-  const handleContactMethodKeyDown = (method, e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-
-      setFixedInfo((prev) => ({
-        ...prev,
-        contact_methods: prev.contact_methods.includes(method.value)
-          ? prev.contact_methods.filter((item) => item !== method.value)
-          : [...prev.contact_methods, method.value],
-      }));
-    }
-  };
-
-  const handleOptionKeyDown = (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-
-      const input = e.currentTarget.querySelector("input");
-
-      if (input && !input.disabled) {
-        input.click();
-      }
-    }
-  };
-
-  const handleSelectKeyDown = (field, e) => {
-    const options = field.options || [];
-    const pressedNumber = Number(e.key);
-
-    if (!pressedNumber || pressedNumber < 1 || pressedNumber > options.length) {
-      return;
-    }
-
-    e.preventDefault();
-
-    const selectedOption = options[pressedNumber - 1];
-
-    if (!selectedOption) return;
-
-    setAnswers((prev) => ({
-      ...prev,
-      [field.field_name]: String(selectedOption.id),
-    }));
-  };
-
-  const handleDynamicChange = (field, e) => {
-    const { value, checked, type } = e.target;
-
-    if (field.field_type === "checkbox" && !checked) {
-      clearOtherAnswer(field.id, value);
-    }
-
-    if (field.field_type === "radio" || field.field_type === "select") {
-      clearOtherAnswersForField(field);
-    }
-
-    setAnswers((prev) => {
-      if (field.field_type === "checkbox") {
-        const current = Array.isArray(prev[field.field_name])
-          ? prev[field.field_name]
-          : [];
-
-        return {
-          ...prev,
-          [field.field_name]: checked
-            ? [...current, value]
-            : current.filter((item) => item !== value),
-        };
-      }
-
-      if (type === "file") {
-        return {
-          ...prev,
-          [field.field_name]: e.target.files?.[0]?.name || "",
-        };
-      }
-
-      return {
-        ...prev,
-        [field.field_name]: value,
-      };
-    });
-  };
-
-  const handleQuantityChange = (fieldId, optionId, value) => {
-    const key = `${fieldId}_${optionId}`;
-
-    setQuantities((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  const handleOtherAnswerChange = (fieldId, optionId, value) => {
-    setOtherAnswers((prev) => ({
-      ...prev,
-      [otherAnswerKey(fieldId, optionId)]: value,
-    }));
-  };
-
-  const clearOtherAnswer = (fieldId, optionId) => {
-    setOtherAnswers((prev) => {
-      const next = { ...prev };
-      delete next[otherAnswerKey(fieldId, optionId)];
-      return next;
-    });
-  };
-
-  const clearOtherAnswersForField = (field) => {
-    setOtherAnswers((prev) => {
-      const next = { ...prev };
-
-      (field.options || []).forEach((option) => {
-        delete next[otherAnswerKey(field.id, option.id)];
-      });
-
-      return next;
-    });
-  };
-
   const validateForm = () => {
     if (!fixedInfo.full_name.trim()) return "Full name is required.";
     if (!fixedInfo.phone_number.trim()) return "Phone number is required.";
     if (!fixedInfo.email.trim()) return "Email is required.";
     if (!fixedInfo.start_time || !fixedInfo.end_time) return "Start time is required.";
-
-    for (const field of allFields) {
-      if (!Number(field.is_required)) continue;
-
-      const value = answers[field.field_name];
-
-      if (
-        value === undefined ||
-        value === "" ||
-        value === null ||
-        (Array.isArray(value) && value.length === 0)
-      ) {
-        return `${field.label} is required.`;
-      }
-    }
-
-    for (const field of allFields) {
-      const value = answers[field.field_name];
-
-      if (!selectedOptionNeedsOtherText(field, value)) continue;
-
-      const selectedValues = Array.isArray(value) ? value : [value];
-      const missingOtherText = selectedValues.some((selectedValue) => {
-        const option = (field.options || []).find(
-          (opt) => String(opt.id) === String(selectedValue)
-        );
-
-        return isOtherOption(option) && !getOtherAnswer(field.id, option.id).trim();
-      });
-
-      if (missingOtherText) {
-        return `Please specify your answer for "${field.label} - Other".`;
-      }
-    }
-
-    if (totalAmount <= 0) return "Please select at least one priced option or ask admin to set a base booking rate.";
-
+    if (!fixedInfo.event_type.trim()) return "Type of event is required.";
+    if (!fixedInfo.event_name.trim()) return "Event name is required.";
+    if (!fixedInfo.event_location.trim()) return "Event location is required.";
+    if (!eventInfo.cup_quantity) return "Cup package is required.";
+    if (!eventInfo.menu_package) return "Menu package is required.";
+    if (totalAmount <= 0) return "Invalid total amount.";
     return "";
   };
 
@@ -601,10 +241,10 @@ export default function AddEventBooking() {
 
   const buildDraft = () => ({
     ...fixedInfo,
-    dynamic_answers: answers,
-    other_answers: otherAnswers,
-    selected_items: selectedItems,
-    base_rate: baseRate,
+    ...eventInfo,
+    booking_type: "event_booking",
+    price_per_cup: Number(pricing[cupPriceKey] || 0),
+    menu_addon: Number(pricing[menuAddonKey] || 0),
     total_amount: totalAmount,
   });
 
@@ -612,16 +252,11 @@ export default function AddEventBooking() {
     setError("");
 
     try {
-      const draft = buildDraft();
-
       const res = await API.post("/bookings/event/create-event-booking.php", {
         date,
         start_time: fixedInfo.start_time,
         end_time: fixedInfo.end_time,
-        draft,
-        form_id: formSchema.id,
-        form_snapshot: formSchema,
-        total_amount: totalAmount,
+        draft: buildDraft(),
       });
 
       if (res.data.success) {
@@ -637,169 +272,6 @@ export default function AddEventBooking() {
         setError(err.response?.data?.error || "Connection error. Please try again.");
       }
     }
-  };
-
-  const renderDynamicField = (field) => {
-    const fieldValue = answers[field.field_name] || "";
-
-    if (["text", "number", "email", "date", "time"].includes(field.field_type)) {
-      return (
-        <input
-          type={field.field_type}
-          value={fieldValue}
-          aria-label={
-            String(fieldValue).trim()
-              ? `${readableText(field.label)}: ${readableText(fieldValue)}`
-              : `Enter ${readableText(field.label)}`
-          }
-          onChange={(e) => handleDynamicChange(field, e)}
-        />
-      );
-    }
-
-    if (field.field_type === "textarea") {
-      return (
-        <textarea
-          value={fieldValue}
-          aria-label={
-            String(fieldValue).trim()
-              ? `${readableText(field.label)}: ${readableText(fieldValue)}`
-              : `Enter ${readableText(field.label)}`
-          }
-          onChange={(e) => handleDynamicChange(field, e)}
-        />
-      );
-    }
-
-    if (field.field_type === "select") {
-      const selectedOption = (field.options || []).find(
-        (option) => String(option.id) === String(fieldValue)
-      );
-
-      return (
-        <>
-          <select
-            value={fieldValue}
-            aria-label={getSelectAriaLabel(field, fieldValue)}
-            onKeyDown={(e) => handleSelectKeyDown(field, e)}
-            onChange={(e) => handleDynamicChange(field, e)}
-          >
-            <option value=""></option>
-            {(field.options || []).map((option) => (
-              <option
-                key={option.id}
-                value={option.id}
-                aria-label={getOptionLabel(option)}
-              >
-                {option.label}
-                {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
-              </option>
-            ))}
-          </select>
-
-          {selectedOption && isOtherOption(selectedOption) && (
-            <input
-              className="other-input"
-              type="text"
-              value={getOtherAnswer(field.id, selectedOption.id)}
-              placeholder="Please specify"
-              aria-label={`Please specify other answer for ${readableText(field.label)}`}
-              onChange={(e) =>
-                handleOtherAnswerChange(field.id, selectedOption.id, e.target.value)
-              }
-            />
-          )}
-        </>
-      );
-    }
-
-    if (field.field_type === "radio" || field.field_type === "checkbox") {
-      return (
-        <div className="options">
-          {(field.options || []).map((option) => {
-            const optionKey = `${field.id}_${option.id}`;
-
-            const checked =
-              field.field_type === "checkbox"
-                ? Array.isArray(fieldValue) && fieldValue.includes(String(option.id))
-                : String(fieldValue) === String(option.id);
-
-            const readableField = readableText(field.label);
-            const readableOption = getOptionLabel(option);
-
-            return (
-              <div key={option.id}>
-                <label
-                  className="opt"
-                  tabIndex="0"
-                  role={field.field_type === "radio" ? "radio" : "checkbox"}
-                  aria-checked={checked}
-                  aria-label={`${readableField}: ${readableOption}. ${
-                    checked ? "Selected" : "Not selected"
-                  }. Press Enter to ${checked ? "unselect" : "select"}.`}
-                  onKeyDown={handleOptionKeyDown}
-                >
-                  <input
-                    type={field.field_type}
-                    name={field.field_name}
-                    value={option.id}
-                    checked={checked}
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    onChange={(e) => handleDynamicChange(field, e)}
-                  />
-
-                  {option.label}
-                  {Number(option.price) > 0 ? ` — ₱${money(option.price)}` : ""}
-                  {option.price_type === "per_quantity" ? " each" : ""}
-                  {option.price_type === "per_cup" ? " per cup" : ""}
-                </label>
-
-                {checked && isOtherOption(option) && (
-                  <input
-                    className="other-input"
-                    type="text"
-                    value={getOtherAnswer(field.id, option.id)}
-                    placeholder="Please specify"
-                    aria-label={`Please specify other answer for ${readableField}`}
-                    onChange={(e) =>
-                      handleOtherAnswerChange(field.id, option.id, e.target.value)
-                    }
-                  />
-                )}
-
-                {checked && Number(field.allow_quantity) === 1 && (
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantities[optionKey] || 1}
-                    aria-label={`Quantity for ${readableOption}: ${
-                      quantities[optionKey] || 1
-                    }`}
-                    onChange={(e) =>
-                      handleQuantityChange(field.id, option.id, e.target.value)
-                    }
-                    placeholder="Quantity"
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    if (field.field_type === "file") {
-      return (
-        <input
-          type="file"
-          aria-label={`Upload ${readableText(field.label)}`}
-          onChange={(e) => handleDynamicChange(field, e)}
-        />
-      );
-    }
-
-    return null;
   };
 
   return (
@@ -824,293 +296,259 @@ export default function AddEventBooking() {
           <div className="card">
             {error && <div className="error">{error}</div>}
 
-            {loadingForm ? (
-              <div className="title">Loading booking form...</div>
+            {loading ? (
+              <div className="title">Loading event booking...</div>
+            ) : step === "review" ? (
+              <>
+                <div className="title">Please review your event booking</div>
+
+                <div className="section-title">CONTACT INFORMATION</div>
+                <ReviewRow label="Full Name" value={fixedInfo.full_name} />
+                <ReviewRow label="Phone Number" value={fixedInfo.phone_number} />
+                <ReviewRow label="Email Address" value={fixedInfo.email} />
+                <ReviewRow label="Contact Methods" value={fixedInfo.contact_methods.join(", ")} />
+
+                <div className="section-title">BOOKING INFORMATION</div>
+                <ReviewRow label="Date" value={date} />
+                <ReviewRow label="Start Time" value={fixedInfo.start_time} />
+                <ReviewRow label="End Time" value={fixedInfo.end_time} />
+                <ReviewRow label="Type of Event" value={fixedInfo.event_type} />
+                <ReviewRow label="Event Name" value={fixedInfo.event_name} />
+                <ReviewRow label="Location" value={fixedInfo.event_location} />
+
+                <div className="section-title">PACKAGE DETAILS</div>
+                <ReviewRow label="Cup Package" value={`${eventInfo.cup_quantity} cups`} />
+                <ReviewRow
+                  label="Price per Cup"
+                  value={`₱${money(pricing[cupPriceKey])}`}
+                />
+                <ReviewRow label="Menu Package" value={eventInfo.menu_package} />
+                <ReviewRow
+                  label="Menu Add-on"
+                  value={`₱${money(pricing[menuAddonKey])}`}
+                />
+                <ReviewRow label="Additional Drinks" value={eventInfo.selected_drinks || "None"} />
+                <ReviewRow label="Hojicha Option" value={eventInfo.hojicha_options} />
+                <ReviewRow label="Other Request" value={fixedInfo.other_request || "None"} />
+
+                <div className="booking-summary">
+                  <div className="booking-row">
+                    <span className="booking-label">
+                      {eventInfo.cup_quantity} cups × ₱{money(pricing[cupPriceKey])}
+                    </span>
+                    <span className="booking-value">
+                      ₱{money(Number(eventInfo.cup_quantity) * Number(pricing[cupPriceKey]))}
+                    </span>
+                  </div>
+
+                  <div className="booking-row">
+                    <span className="booking-label">{eventInfo.menu_package} add-on</span>
+                    <span className="booking-value">₱{money(pricing[menuAddonKey])}</span>
+                  </div>
+
+                  <div className="booking-row total">
+                    <span className="booking-label">Total Amount</span>
+                    <span className="booking-value">₱{money(totalAmount)}</span>
+                  </div>
+
+                  <div className="booking-row">
+                    <span className="booking-label">
+                      Due Now ({pricing.event_booking_downpayment_percentage}%)
+                    </span>
+                    <span className="booking-value">₱{money(dueNow)}</span>
+                  </div>
+                </div>
+
+                <div className="actions">
+                  <button type="button" className="btn" onClick={() => setStep("form")}>
+                    Edit
+                  </button>
+                  <button type="button" className="btn btn-confirm" onClick={handleConfirm}>
+                    Confirm and Pay
+                  </button>
+                </div>
+              </>
             ) : (
               <>
-                {step === "form" && (
-                  <>
-                    <div className="title">
-                      {formSchema?.title || "Book your event now!"}
-                    </div>
+                <div className="title">Book your event now!</div>
 
-                    <div className="section-title">CONTACT INFORMATION</div>
+                <div className="section-title">CONTACT INFORMATION</div>
 
-                    <div className="field">
-                      <label className="label">Full Name</label>
-                      <input
-                        type="text"
-                        name="full_name"
-                        value={fixedInfo.full_name}
-                        aria-label={
-                          fixedInfo.full_name.trim()
-                            ? `Full Name: ${fixedInfo.full_name}`
-                            : "Enter Full Name"
-                        }
-                        onChange={handleFixedChange}
-                      />
-                    </div>
+                <TextField label="Full Name" name="full_name" value={fixedInfo.full_name} onChange={handleFixedChange} />
+                <TextField label="Phone Number" name="phone_number" value={fixedInfo.phone_number} onChange={handleFixedChange} />
+                <TextField label="Email Address" name="email" value={fixedInfo.email} onChange={handleFixedChange} readOnly type="email" />
 
-                    <div className="field">
-                      <label className="label">Phone Number</label>
-                      <input
-                        type="text"
-                        name="phone_number"
-                        value={fixedInfo.phone_number}
-                        aria-label={
-                          fixedInfo.phone_number.trim()
-                            ? `Phone Number: ${fixedInfo.phone_number}`
-                            : "Enter Phone Number"
-                        }
-                        onChange={handleFixedChange}
-                      />
-                    </div>
-
-                    <div className="field">
-                      <label className="label">Email Address</label>
-                      <input
-                        type="email"
-                        name="email"
-                        required
-                        value={fixedInfo.email}
-                        readOnly
-                        aria-label={
-                          fixedInfo.email.trim()
-                            ? `Email Address: ${fixedInfo.email}`
-                            : "Enter Email Address"
-                        }
-                      />
-                    </div>
-
-                    <div className="field">
-                      <label className="label">
-                        Are you available to contact in the following:
+                <div className="field">
+                  <label className="label">Are you available to contact in the following:</label>
+                  <div className="options">
+                    {CONTACT_METHODS.map((method) => (
+                      <label className="opt" key={method.value}>
+                        <input
+                          type="checkbox"
+                          value={method.value}
+                          checked={fixedInfo.contact_methods.includes(method.value)}
+                          onChange={handleContactMethod}
+                        />
+                        {method.label}
                       </label>
-
-                      <div className="options">
-                        {CONTACT_METHODS.map((method) => {
-                          const checked = fixedInfo.contact_methods.includes(
-                            method.value
-                          );
-
-                          return (
-                            <label
-                              className="opt"
-                              key={method.value}
-                              tabIndex="0"
-                              role="checkbox"
-                              aria-checked={checked}
-                              aria-label={`Contact method: ${method.label}. ${
-                                checked ? "Selected" : "Not selected"
-                              }. Press Enter to ${
-                                checked ? "unselect" : "select"
-                              }.`}
-                              onKeyDown={(e) =>
-                                handleContactMethodKeyDown(method, e)
-                              }
-                            >
-                              <input
-                                type="checkbox"
-                                value={method.value}
-                                checked={checked}
-                                tabIndex={-1}
-                                aria-hidden="true"
-                                onChange={handleContactMethod}
-                              />
-                              {method.label}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="two-col">
-                      <div className="field">
-                        <label className="label">Work Hours</label>
-                        <input
-                          type="time"
-                          name="start_time"
-                          value={fixedInfo.start_time}
-                          aria-label={
-                            fixedInfo.start_time
-                              ? `Start Time: ${fixedInfo.start_time}`
-                              : "Enter Start Time"
-                          }
-                          onChange={handleFixedChange}
-                        />
-                      </div>
-
-                      <div className="field">
-                        <label className="label">&nbsp;</label>
-                        <input
-                          type="time"
-                          name="end_time"
-                          value={fixedInfo.end_time}
-                          readOnly
-                          aria-label={
-                            fixedInfo.end_time
-                              ? `End Time: ${fixedInfo.end_time}`
-                              : "End Time"
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="small-note">Up to 4 hours operation</div>
-
-                    {(formSchema?.sections || []).map((section) => (
-                      <div key={section.id}>
-                        <div className="section-title">{section.title}</div>
-
-                        {(section.fields || []).map((field) => (
-                          <div className="field" key={field.id}>
-                            <label className="label">
-                              {field.label}
-                              {Number(field.is_required) === 1 ? " *" : ""}
-                            </label>
-
-                            {renderDynamicField(field)}
-                          </div>
-                        ))}
-                      </div>
                     ))}
+                  </div>
+                </div>
 
-                    <div className="field">
-                      <label className="label">Other Request (Optional)</label>
-                      <input
-                        type="text"
-                        name="other_request"
-                        value={fixedInfo.other_request}
-                        aria-label={
-                          fixedInfo.other_request.trim()
-                            ? `Other Request: ${fixedInfo.other_request}`
-                            : "Enter Other Request Optional"
-                        }
-                        onChange={handleFixedChange}
-                      />
-                    </div>
+                <div className="section-title">BOOKING INFORMATION</div>
 
-                    <div className="booking-summary">
-                      {baseRate > 0 && (
-                        <div className="booking-row">
-                          <span className="booking-label">Base Booking Rate</span>
-                          <span className="booking-value">₱{money(baseRate)}</span>
-                        </div>
-                      )}
+                <div className="field">
+                  <label className="label">Event Time</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <input type="time" name="start_time" value={fixedInfo.start_time} onChange={handleFixedChange} />
+                    <input type="time" name="end_time" value={fixedInfo.end_time} onChange={handleFixedChange} />
+                  </div>
+                  <div className="small-note">up to 4 hours operation</div>
+                </div>
 
-                      <div className="booking-row">
-                        <span className="booking-label">Total</span>
-                        <span className="booking-value">₱{money(totalAmount)}</span>
-                      </div>
-                    </div>
+                <div className="field">
+                  <label className="label">Type of Event</label>
+                  <select name="event_type" value={fixedInfo.event_type} onChange={handleFixedChange}>
+                    <option value=""></option>
+                    <option value="Birthday Party">Birthday Party</option>
+                    <option value="Corporate Event">Corporate Event</option>
+                    <option value="Product Launch">Product Launch</option>
+                    <option value="Bridal Shower">Bridal Shower</option>
+                    <option value="Baby Shower">Baby Shower</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className="btn btn-cancel"
-                        aria-label="Cancel"
-                        onClick={() => navigate(`/day?date=${date}&type=event`)}
-                      >
-                        CANCEL
-                      </button>
+                <TextField label="Event Name" name="event_name" value={fixedInfo.event_name} onChange={handleFixedChange} />
+                <TextField label="Location" name="event_location" value={fixedInfo.event_location} onChange={handleFixedChange} />
 
-                      <button
-                        type="button"
-                        className="btn btn-next"
-                        aria-label="Next"
-                        onClick={handleReview}
-                      >
-                        NEXT
-                      </button>
-                    </div>
-                  </>
-                )}
+                <div className="section-title">CUP PACKAGE</div>
 
-                {step === "review" && (
-                  <>
-                    <div className="title">
-                      Please review your details carefully, before confirmation.
-                    </div>
+                <div className="field">
+                  <label className="label">Cup Package</label>
+                  <div className="options">
+                    {CUP_PACKAGES.map((qty) => {
+                      const key = `event_${qty}_cups_price_per_cup`;
+                      return (
+                        <label className="opt" key={qty}>
+                          <input
+                            type="radio"
+                            name="cup_quantity"
+                            value={qty}
+                            checked={Number(eventInfo.cup_quantity) === qty}
+                            onChange={handleEventChange}
+                          />
+                          {qty} cups — ₱{money(pricing[key])}/cup
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    <div className="booking-summary animate-fade-in">
-                      {Object.entries(fixedInfo).map(([key, value]) => {
-                        if (
-                          value === "" ||
-                          (Array.isArray(value) && value.length === 0)
-                        ) {
-                          return null;
-                        }
+                <div className="section-title">MENU PACKAGE</div>
 
-                        const label = readableText(
-                          key
-                            .replace(/_/g, " ")
-                            .replace(/\b\w/g, (c) => c.toUpperCase())
-                        );
+                <div className="field">
+                  <label className="label">Menu Package</label>
+                  <div className="options">
+                    {MENU_PACKAGES.map((pkg) => {
+                      const key = {
+                        SIGNATURE: "event_signature_addon",
+                        PLUS: "event_plus_addon",
+                        PREMIUM: "event_premium_addon",
+                      }[pkg.value];
 
-                        return (
-                          <div className="booking-row" key={key}>
-                            <span className="booking-label">{label}</span>
-                            <span className="booking-value">
-                              {Array.isArray(value) ? value.join(", ") : value}
-                            </span>
-                          </div>
-                        );
-                      })}
-
-                      {baseRate > 0 && (
-                        <div className="booking-row">
-                          <span className="booking-label">Base Booking Rate</span>
-                          <span className="booking-value">₱{money(baseRate)}</span>
-                        </div>
-                      )}
-
-                      {selectedItems.map((item) => (
-                        <div
-                          className="booking-row"
-                          key={`${item.field_id}_${item.option_id}`}
-                        >
-                          <span className="booking-label">
-                            {readableText(item.field_label)}:{" "}
-                            {readableText(item.option_label)}
+                      return (
+                        <label className="opt" key={pkg.value}>
+                          <input
+                            type="radio"
+                            name="menu_package"
+                            value={pkg.value}
+                            checked={eventInfo.menu_package === pkg.value}
+                            onChange={handleEventChange}
+                          />
+                          <span>
+                            {pkg.label} — {pkg.description}
+                            {Number(pricing[key]) > 0 ? ` (+₱${money(pricing[key])})` : ""}
                           </span>
-                          <span className="booking-value">
-                            ₱{money(item.line_total)}
-                          </span>
-                        </div>
-                      ))}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                      <div className="booking-row">
-                        <span className="booking-label">Total Amount</span>
-                        <span className="booking-value">₱{money(totalAmount)}</span>
-                      </div>
-                    </div>
+                <div className="field">
+                  <label className="label">Preferred Additional Drinks</label>
+                  <textarea
+                    name="selected_drinks"
+                    value={eventInfo.selected_drinks}
+                    placeholder="Example: Strawberry Matcha Latte, Hojicha Latte"
+                    onChange={handleEventChange}
+                  />
+                </div>
 
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className="btn btn-edit"
-                        aria-label="Edit"
-                        onClick={() => setStep("form")}
-                      >
-                        EDIT
-                      </button>
+                <div className="field">
+                  <label className="label">Hojicha Versions</label>
+                  <select
+                    name="hojicha_options"
+                    value={eventInfo.hojicha_options}
+                    onChange={handleEventChange}
+                  >
+                    <option value="Matcha only">Matcha only</option>
+                    <option value="Hojicha only">Hojicha only</option>
+                    <option value="Mix of Matcha and Hojicha">Mix of Matcha and Hojicha</option>
+                  </select>
+                </div>
 
-                      <button
-                        type="button"
-                        className="btn btn-confirm"
-                        aria-label="Confirm"
-                        onClick={handleConfirm}
-                      >
-                        CONFIRM
-                      </button>
-                    </div>
-                  </>
-                )}
+                <div className="field">
+                  <label className="label">Other Request</label>
+                  <textarea
+                    name="other_request"
+                    value={fixedInfo.other_request}
+                    onChange={handleFixedChange}
+                  />
+                </div>
+
+                <div className="booking-summary">
+                  <div className="booking-row total">
+                    <span className="booking-label">Total Event Price</span>
+                    <span className="booking-value">₱{money(totalAmount)}</span>
+                  </div>
+                  <div className="booking-row">
+                    <span className="booking-label">
+                      Due Now ({pricing.event_booking_downpayment_percentage}%)
+                    </span>
+                    <span className="booking-value">₱{money(dueNow)}</span>
+                  </div>
+                </div>
+
+                <div className="actions">
+                  <button className="btn btn-confirm" type="button" onClick={handleReview}>
+                    Next
+                  </button>
+                </div>
               </>
             )}
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function TextField({ label, name, value, onChange, type = "text", readOnly = false }) {
+  return (
+    <div className="field">
+      <label className="label">{label}</label>
+      <input type={type} name={name} value={value} onChange={onChange} readOnly={readOnly} />
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }) {
+  return (
+    <div className="field">
+      <label className="label">{label}</label>
+      <input value={value || ""} readOnly />
+    </div>
   );
 }

@@ -1,928 +1,428 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "./../assets/css/AdminForms.css";
-import { 
-  Type, 
-  AlignLeft, 
-  Hash, 
-  Mail, 
-  Calendar, 
-  ChevronDownSquare, 
-  CheckCircle2, 
-  CheckSquare, 
-  Paperclip,
-  GripVertical,
-  Copy,
-  ArrowUp,
-  ArrowDown,
-  Trash2,
-  Plus,
-  Eye,
-  EyeOff,
-  RotateCcw,
+import {
   Save,
+  RefreshCw,
   PartyPopper,
-  Coffee
+  Coffee,
+  Calculator,
+  Info,
 } from "lucide-react";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const QUESTION_TYPES = [
-  {
-    value: "text",
-    label: "Short Answer",
-    icon: <Type size={16} />,
-    hint: "One-line text (e.g. Event Name)",
-    hasOptions: false,
-    hasPricing: false,
-  },
-  {
-    value: "textarea",
-    label: "Long Answer",
-    icon: <AlignLeft size={16} />,
-    hint: "Multi-line text (e.g. Special Requests)",
-    hasOptions: false,
-    hasPricing: false,
-  },
-  {
-    value: "number",
-    label: "Number",
-    icon: <Hash size={16} />,
-    hint: "Numeric input",
-    hasOptions: false,
-    hasPricing: false,
-  },
-  {
-    value: "email",
-    label: "Email",
-    icon: <Mail size={16} />,
-    hint: "Email address",
-    hasOptions: false,
-    hasPricing: false,
-  },
-  {
-    value: "date",
-    label: "Date Picker",
-    icon: <Calendar size={16} />,
-    hint: "Date selection",
-    hasOptions: false,
-    hasPricing: false,
-  },
-  {
-    value: "select",
-    label: "Dropdown",
-    icon: <ChevronDownSquare size={16} />,
-    hint: "One choice from a dropdown list",
-    hasOptions: true,
-    hasPricing: true,
-  },
-  {
-    value: "radio",
-    label: "Multiple Choice",
-    icon: <CheckCircle2 size={16} />,
-    hint: "Pick one option (shown as radio buttons)",
-    hasOptions: true,
-    hasPricing: true,
-  },
-  {
-    value: "checkbox",
-    label: "Checkboxes",
-    icon: <CheckSquare size={16} />,
-    hint: "Pick one or more options",
-    hasOptions: true,
-    hasPricing: true,
-    allowsQuantity: true,
-  },
-  {
-    value: "file",
-    label: "File Upload",
-    icon: <Paperclip size={16} />,
-    hint: "Customer uploads a file",
-    hasOptions: false,
-    hasPricing: false,
-  },
-];
-
-const PRICE_TYPE_OPTIONS = [
-  { value: "fixed", label: "Flat fee (₱ added once)" },
-  { value: "per_quantity", label: "Per quantity selected" },
-  { value: "per_cup", label: "Per cup ordered (×cups)" },
-];
-
-const typeMap = Object.fromEntries(QUESTION_TYPES.map((t) => [t.value, t]));
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const uid = () => Math.random().toString(36).slice(2, 9);
-
-const emptyOption = () => ({ _id: uid(), label: "", price: 0, price_type: "fixed", is_other: false });
-
-const emptyField = (field_type = "text") => ({
-  _id: uid(),
-  label: "",
-  field_name: "",
-  field_type,
-  is_required: false,
-  allow_quantity: false,
-  options: typeMap[field_type]?.hasOptions ? [emptyOption()] : [],
-});
-
-const emptySection = () => ({ _id: uid(), title: "", fields: [emptyField()] });
-
-const slugify = (str) =>
-  str
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "")
-    .slice(0, 60) || "field";
-
-const buildFieldNames = (sections) => {
-  const counts = {};
-  return sections.map((s) => ({
-    ...s,
-    fields: s.fields.map((f) => {
-      const base = slugify(f.label || "field");
-      counts[base] = (counts[base] || 0) + 1;
-      return { ...f, field_name: counts[base] > 1 ? `${base}_${counts[base]}` : base };
-    }),
-  }));
+const EVENT_DEFAULTS = {
+  event_50_cups_price_per_cup: 230,
+  event_100_cups_price_per_cup: 220,
+  event_150_cups_price_per_cup: 210,
+  event_200_cups_price_per_cup: 200,
+  event_signature_addon: 0,
+  event_plus_addon: 1000,
+  event_premium_addon: 2000,
+  event_booking_downpayment_percentage: 50,
 };
 
-const money = (v) =>
-  Number(v || 0).toLocaleString("en-PH", {
+const PRIVATE_WORKSHOP_DEFAULTS = {
+  private_workshop_standard_price: 3000,
+  private_workshop_premium_price: 3800,
+  private_workshop_downpayment_percentage: 50,
+};
+
+const money = (value) =>
+  Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-// ─── Default templates ────────────────────────────────────────────────────────
+const numberValue = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
-const eventTemplate = () => [
-  {
-    _id: uid(),
-    title: "Event Information",
-    fields: [
-      {
-        _id: uid(),
-        label: "Type of Event",
-        field_name: "",
-        field_type: "select",
-        is_required: true,
-        allow_quantity: false,
-        options: ["Birthday Party", "Corporate Event", "Product Launch", "Bridal Shower", "Baby Shower", "Other"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
-      },
-      { _id: uid(), label: "Event Name", field_name: "", field_type: "text", is_required: true, allow_quantity: false, options: [] },
-      { _id: uid(), label: "Location", field_name: "", field_type: "text", is_required: true, allow_quantity: false, options: [] },
-      {
-        _id: uid(),
-        label: "Estimated Number of Guests",
-        field_name: "",
-        field_type: "select",
-        is_required: true,
-        allow_quantity: false,
-        options: ["10–20", "21–30", "31–40", "41–50", "50+"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
-      },
-    ],
-  },
-  {
-    _id: uid(),
-    title: "Packages & Add-ons",
-    fields: [
-      {
-        _id: uid(),
-        label: "Cup Package",
-        field_name: "",
-        field_type: "radio",
-        is_required: true,
-        allow_quantity: false,
-        options: [
-          ["50 cups", 13000],
-          ["75 cups", 21000],
-          ["100 cups", 26000],
-          ["150 cups", 34500],
-          ["200 cups", 40000],
-        ].map(([l, p]) => ({ _id: uid(), label: l, price: p, price_type: "fixed", is_other: false })),
-      },
-      {
-        _id: uid(),
-        label: "Menu Option",
-        field_name: "",
-        field_type: "radio",
-        is_required: true,
-        allow_quantity: false,
-        options: [
-          ["4 menu items", 0, "fixed"],
-          ["6 menu items", 1500, "fixed"],
-          ["8 menu items", 3000, "fixed"],
-          ["Customized cups logo", 12, "per_cup"],
-        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt, is_other: false })),
-      },
-      {
-        _id: uid(),
-        label: "Milk Option",
-        field_name: "",
-        field_type: "radio",
-        is_required: false,
-        allow_quantity: false,
-        options: ["Oatmilk", "Dairy Milk (+ ₱1,500)", "Non-fat Milk (+ ₱1,500)"].map((l, i) => ({ _id: uid(), label: l, price: i === 0 ? 0 : 1500, price_type: "fixed", is_other: false })),
-      },
-      {
-        _id: uid(),
-        label: "Add-ons",
-        field_name: "",
-        field_type: "checkbox",
-        is_required: false,
-        allow_quantity: true,
-        options: [
-          ["Extra staff", 800, "per_quantity"],
-          ["Sintra board sign", 0, "fixed"],
-        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt, is_other: false })),
-      },
-    ],
-  },
-];
-
-const workshopTemplate = () => [
-  {
-    _id: uid(),
-    title: "Workshop Information",
-    fields: [
-      {
-        _id: uid(),
-        label: "Type of Workshop",
-        field_name: "",
-        field_type: "select",
-        is_required: true,
-        allow_quantity: false,
-        options: ["Matcha Workshop", "Private Workshop", "Corporate Workshop", "Other"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
-      },
-      {
-        _id: uid(),
-        label: "Location",
-        field_name: "",
-        field_type: "select",
-        is_required: true,
-        allow_quantity: false,
-        options: ["Makati", "Greenhills, San Juan", "I have a set location"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
-      },
-      {
-        _id: uid(),
-        label: "Number of Attendees",
-        field_name: "",
-        field_type: "select",
-        is_required: true,
-        allow_quantity: false,
-        options: ["10–20", "21–30", "31–40", "41–50", "50+"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
-      },
-    ],
-  },
-  {
-    _id: uid(),
-    title: "Packages & Add-ons",
-    fields: [
-      {
-        _id: uid(),
-        label: "Cup Drink Options",
-        field_name: "",
-        field_type: "radio",
-        is_required: true,
-        allow_quantity: false,
-        options: ["2 cups per person", "3 cups per person", "5 cups per person"].map((l) => ({ _id: uid(), label: l, price: 0, price_type: "fixed", is_other: false })),
-      },
-      {
-        _id: uid(),
-        label: "Customized Cups Logo",
-        field_name: "",
-        field_type: "checkbox",
-        is_required: false,
-        allow_quantity: false,
-        options: [{ _id: uid(), label: "Customized cups logo (₱12/cup)", price: 12, price_type: "per_cup" }],
-      },
-      {
-        _id: uid(),
-        label: "Milk Options",
-        field_name: "",
-        field_type: "checkbox",
-        is_required: false,
-        allow_quantity: false,
-        options: [
-          ["Oatmilk", 0, "fixed"],
-          ["Dairy Milk", 30, "per_cup"],
-          ["Sparkling Water", 40, "per_cup"],
-        ].map(([l, p, pt]) => ({ _id: uid(), label: l, price: p, price_type: pt, is_other: false })),
-      },
-    ],
-  },
-];
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function TypePicker({ value, onChange }) {
-  return (
-    <div className="afc-type-grid">
-      {QUESTION_TYPES.map((t) => (
-        <button
-          key={t.value}
-          type="button"
-          className={`afc-type-card ${value === t.value ? "active" : ""}`}
-          onClick={() => onChange(t.value)}
-          title={t.hint}
-        >
-          <span className="afc-type-icon">{t.icon}</span>
-          <span className="afc-type-label">{t.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function OptionRow({ option, fieldType, onChange, onRemove, canRemove }) {
-  const hasPricing = typeMap[fieldType]?.hasPricing;
-  const isOther = !!option.is_other;
-
-  return (
-    <div className={`afc-option-row ${isOther ? "afc-option-row-other" : ""}`}>
-      <span className="afc-option-bullet">
-        {fieldType === "radio" ? "◉" : fieldType === "select" ? "▾" : "☐"}
-      </span>
-
-      <input
-        className="afc-option-input"
-        type="text"
-        placeholder={isOther ? "Other answer option" : "Option label…"}
-        value={isOther ? "Other" : option.label}
-        disabled={isOther}
-        onChange={(e) => onChange("label", e.target.value)}
-      />
-
-      {hasPricing && !isOther && (
-        <>
-          <div className="afc-option-price-wrap">
-            <span className="afc-option-currency">₱</span>
-            <input
-              className="afc-option-price"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              value={option.price ?? ""}
-onChange={(e) =>
-  onChange("price", e.target.value === "" ? "" : parseFloat(e.target.value))
-}
-            />
-          </div>
-
-          <select
-            className="afc-option-ptype"
-            value={option.price_type}
-            onChange={(e) => onChange("price_type", e.target.value)}
-            title="How is this price applied?"
-          >
-            {PRICE_TYPE_OPTIONS.map((pt) => (
-              <option key={pt.value} value={pt.value}>
-                {pt.label}
-              </option>
-            ))}
-          </select>
-        </>
-      )}
-
-      <label className="afc-option-other-toggle" title="Let customer type their own answer, like Google Forms Other">
-        <input
-          type="checkbox"
-          checked={isOther}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            onChange({
-              is_other: checked,
-              label: checked ? "Other" : "",
-              price: checked ? 0 : Number(option.price || 0),
-              price_type: checked ? "fixed" : option.price_type || "fixed",
-            });
-          }}
-        />
-        <span>Other</span>
-      </label>
-
-      {canRemove && (
-        <button
-          type="button"
-          className="afc-icon-btn afc-remove-opt"
-          onClick={onRemove}
-          title="Remove option"
-        >
-          <Trash2 size={16} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function FieldCard({
-  field,
-  sectionIndex,
-  fieldIndex,
-  totalFields,
-  onUpdate,
-  onRemove,
-  onDuplicate,
-  onMove,
+function PriceInput({
+  label,
+  value,
+  onChange,
+  helper,
+  min = 0,
+  max,
+  suffix,
 }) {
-  const typeDef = typeMap[field.field_type] || typeMap.text;
-  const [showTypePicker, setShowTypePicker] = useState(false);
-
-const handleTypeChange = (newType) => {
-    const newTypeDef = typeMap[newType];
-    const updates = { field_type: newType };
-    
-    if (!newTypeDef.hasOptions) {
-      updates.options = [];
-    } else if (!field.options?.length) {
-      updates.options = [emptyOption()];
-    }
-    
-    // Send both updates at the exact same time
-    onUpdate(updates);
-    setShowTypePicker(false);
-  };
-
-  const updateOption = (optIndex, keyOrObj, value) => {
-    const next = field.options.map((o, i) => {
-      if (i !== optIndex) return o;
-      if (typeof keyOrObj === "object" && keyOrObj !== null) {
-        return { ...o, ...keyOrObj };
-      }
-      return { ...o, [keyOrObj]: value };
-    });
-    onUpdate("options", next);
-  };
-
-  const addOption = () => onUpdate("options", [...field.options, emptyOption()]);
-
-  const removeOption = (optIndex) =>
-    onUpdate("options", field.options.filter((_, i) => i !== optIndex));
-
   return (
-    <div className="afc-field-card">
-      <div className="afc-field-header">
-        <div className="afc-field-drag-handle" title="Drag to reorder">
-          <GripVertical size={16} />
-        </div>
-
-        <button
-          type="button"
-          className="afc-type-pill"
-          onClick={() => setShowTypePicker((v) => !v)}
-          title="Change question type"
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            {typeDef.icon} {typeDef.label} ▾
-          </span>
-        </button>
-
-        <div className="afc-field-actions">
-          <button
-            type="button"
-            className="afc-icon-btn"
-            onClick={onDuplicate}
-            title="Duplicate question"
-          >
-            <Copy size={16} />
-          </button>
-          <button
-            type="button"
-            className="afc-icon-btn"
-            onClick={() => onMove(-1)}
-            disabled={fieldIndex === 0}
-            title="Move up"
-          >
-            <ArrowUp size={16} />
-          </button>
-          <button
-            type="button"
-            className="afc-icon-btn"
-            onClick={() => onMove(1)}
-            disabled={fieldIndex === totalFields - 1}
-            title="Move down"
-          >
-            <ArrowDown size={16} />
-          </button>
-          <button
-            type="button"
-            className="afc-icon-btn afc-remove-btn"
-            onClick={onRemove}
-            title="Delete question"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-
-      {showTypePicker && (
-        <div className="afc-type-picker-popup">
-          <div className="afc-type-picker-title">Choose question type</div>
-          <TypePicker value={field.field_type} onChange={handleTypeChange} />
-        </div>
-      )}
-
-      <input
-        className="afc-field-label-input"
-        type="text"
-        placeholder={`Question label… (e.g. ${typeDef.hint})`}
-        value={field.label}
-        onChange={(e) => onUpdate("label", e.target.value)}
-      />
-
-      {typeDef.hasOptions && (
-        <div className="afc-options-list">
-          {(field.options || []).map((opt, optIndex) => (
-            <OptionRow
-              key={opt._id}
-              option={opt}
-              fieldType={field.field_type}
-              onChange={(k, v) => updateOption(optIndex, k, v)}
-              onRemove={() => removeOption(optIndex)}
-              canRemove={field.options.length > 1}
-            />
-          ))}
-
-          <button type="button" className="afc-add-option-btn" onClick={addOption}>
-            + Add option
-          </button>
-        </div>
-      )}
-
-      <div className="afc-field-footer">
-        <label className="afc-toggle">
-          <input
-            type="checkbox"
-            checked={field.is_required}
-            onChange={(e) => onUpdate("is_required", e.target.checked)}
-          />
-          <span className="afc-toggle-track" />
-          <span className="afc-toggle-label">Required</span>
-        </label>
-
-        {typeDef.allowsQuantity && (
-          <label className="afc-toggle">
-            <input
-              type="checkbox"
-              checked={field.allow_quantity}
-              onChange={(e) => onUpdate("allow_quantity", e.target.checked)}
-            />
-            <span className="afc-toggle-track" />
-            <span className="afc-toggle-label">
-              Allow quantity input <span className="afc-toggle-hint">(customer can enter how many)</span>
-            </span>
-          </label>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SectionEditor({ section, sectionIndex, totalSections, onUpdate, onRemove, onMove, onAddField }) {
-const updateField = (fieldIndex, keyOrObj, value) => {
-    const next = section.fields.map((f, i) => {
-      if (i !== fieldIndex) return f;
-      // Allow passing an object to update multiple things at once
-      if (typeof keyOrObj === "object" && keyOrObj !== null) {
-        return { ...f, ...keyOrObj };
-      }
-      return { ...f, [keyOrObj]: value };
-    });
-    onUpdate("fields", next);
-  };
-
-  const removeField = (fieldIndex) => {
-    onUpdate("fields", section.fields.filter((_, i) => i !== fieldIndex));
-  };
-
-  const duplicateField = (fieldIndex) => {
-    const orig = section.fields[fieldIndex];
-    const copy = {
-      ...orig,
-      _id: uid(),
-      label: orig.label + " (copy)",
-      options: (orig.options || []).map((o) => ({ ...o, _id: uid() })),
-    };
-    const next = [...section.fields];
-    next.splice(fieldIndex + 1, 0, copy);
-    onUpdate("fields", next);
-  };
-
-  const moveField = (fieldIndex, dir) => {
-    const next = [...section.fields];
-    const target = fieldIndex + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[fieldIndex], next[target]] = [next[target], next[fieldIndex]];
-    onUpdate("fields", next);
-  };
-
-  return (
-    <div className="afc-section">
-      <div className="afc-section-header">
-        <div className="afc-section-number">Section {sectionIndex + 1}</div>
+    <div className="afc-settings-field">
+      <label className="afc-label">{label}</label>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        {!suffix && <span className="afc-option-currency">₱</span>}
         <input
-          className="afc-section-title-input"
-          type="text"
-          placeholder="Section title (optional — leave blank for no header)"
-          value={section.title}
-          onChange={(e) => onUpdate("title", e.target.value)}
+          className="afc-input"
+          type="number"
+          min={min}
+          max={max}
+          step="0.01"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
         />
-        <div className="afc-section-actions" aria-label={`Section ${sectionIndex + 1} actions`}>
-          <button
-            type="button"
-            className="afc-icon-btn afc-section-action-btn"
-            onClick={() => onMove(-1)}
-            disabled={sectionIndex === 0}
-            title="Move section up"
-            aria-label={`Move section ${sectionIndex + 1} up`}
-          >
-            <ArrowUp size={16} />
-            <span>Move up</span>
-          </button>
+        {suffix && (
+          <span style={{ fontWeight: 800, color: "var(--muted, #777)" }}>
+            {suffix}
+          </span>
+        )}
+      </div>
+      {helper && <div className="afc-label-hint">{helper}</div>}
+    </div>
+  );
+}
 
-          <button
-            type="button"
-            className="afc-icon-btn afc-section-action-btn"
-            onClick={() => onMove(1)}
-            disabled={sectionIndex === totalSections - 1}
-            title="Move section down"
-            aria-label={`Move section ${sectionIndex + 1} down`}
-          >
-            <ArrowDown size={16} />
-            <span>Move down</span>
-          </button>
+function EventPricingEditor({ pricing, setPricing }) {
+  const [previewCupQty, setPreviewCupQty] = useState(100);
+  const [previewMenu, setPreviewMenu] = useState("PREMIUM");
 
-          {totalSections > 1 && (
-            <button
-              type="button"
-              className="afc-icon-btn afc-remove-btn afc-section-action-btn"
-              onClick={onRemove}
-              title="Remove section"
-              aria-label={`Remove section ${sectionIndex + 1}`}
+  const cupPriceKey = {
+    50: "event_50_cups_price_per_cup",
+    100: "event_100_cups_price_per_cup",
+    150: "event_150_cups_price_per_cup",
+    200: "event_200_cups_price_per_cup",
+  }[previewCupQty];
+
+  const menuAddonKey = {
+    SIGNATURE: "event_signature_addon",
+    PLUS: "event_plus_addon",
+    PREMIUM: "event_premium_addon",
+  }[previewMenu];
+
+  const previewBase =
+    numberValue(previewCupQty) * numberValue(pricing[cupPriceKey]);
+  const previewAddon = numberValue(pricing[menuAddonKey]);
+  const previewTotal = previewBase + previewAddon;
+  const downpaymentPercent = numberValue(
+    pricing.event_booking_downpayment_percentage
+  );
+  const dueNow = (previewTotal * downpaymentPercent) / 100;
+
+  const update = (key, value) => {
+    setPricing((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  return (
+    <>
+      <div className="afc-settings-card">
+        <div className="afc-section-number">Event Cup Package Prices</div>
+        <p className="afc-downpayment-preview">
+          Event booking uses <strong>base price + menu package add-on</strong>.
+          The base price is calculated by multiplying the selected cup quantity
+          by the price per cup.
+        </p>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="50 cups price per cup"
+            value={pricing.event_50_cups_price_per_cup}
+            onChange={(v) => update("event_50_cups_price_per_cup", v)}
+            helper="Default: ₱230 per cup"
+          />
+
+          <PriceInput
+            label="100 cups price per cup"
+            value={pricing.event_100_cups_price_per_cup}
+            onChange={(v) => update("event_100_cups_price_per_cup", v)}
+            helper="Default: ₱220 per cup"
+          />
+        </div>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="150 cups price per cup"
+            value={pricing.event_150_cups_price_per_cup}
+            onChange={(v) => update("event_150_cups_price_per_cup", v)}
+            helper="Default: ₱210 per cup"
+          />
+
+          <PriceInput
+            label="200 cups price per cup"
+            value={pricing.event_200_cups_price_per_cup}
+            onChange={(v) => update("event_200_cups_price_per_cup", v)}
+            helper="Default: ₱200 per cup"
+          />
+        </div>
+      </div>
+
+      <div className="afc-settings-card">
+        <div className="afc-section-number">Event Menu Package Add-ons</div>
+        <p className="afc-downpayment-preview">
+          Signature can stay at ₱0 because it is already included in the base
+          cup package. Plus and Premium add extra cost.
+        </p>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="Signature add-on"
+            value={pricing.event_signature_addon}
+            onChange={(v) => update("event_signature_addon", v)}
+            helper="4 signature drinks"
+          />
+
+          <PriceInput
+            label="Plus add-on"
+            value={pricing.event_plus_addon}
+            onChange={(v) => update("event_plus_addon", v)}
+            helper="Signature drinks + 2 additional drinks"
+          />
+        </div>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="Premium add-on"
+            value={pricing.event_premium_addon}
+            onChange={(v) => update("event_premium_addon", v)}
+            helper="Signature drinks + 4 additional drinks"
+          />
+
+          <PriceInput
+            label="Event downpayment"
+            value={pricing.event_booking_downpayment_percentage}
+            onChange={(v) => update("event_booking_downpayment_percentage", v)}
+            helper="Amount customer pays first when reserving"
+            min={1}
+            max={100}
+            suffix="%"
+          />
+        </div>
+      </div>
+
+      <div className="afc-settings-card">
+        <div
+          className="afc-section-number"
+          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        >
+          <Calculator size={16} />
+          Event Pricing Preview
+        </div>
+
+        <div className="afc-settings-row">
+          <div className="afc-settings-field">
+            <label className="afc-label">Preview cup package</label>
+            <select
+              className="afc-input"
+              value={previewCupQty}
+              onChange={(e) => setPreviewCupQty(Number(e.target.value))}
             >
-              <Trash2 size={16} />
-              <span>Remove section</span>
-            </button>
-          )}
+              <option value={50}>50 cups</option>
+              <option value={100}>100 cups</option>
+              <option value={150}>150 cups</option>
+              <option value={200}>200 cups</option>
+            </select>
+          </div>
+
+          <div className="afc-settings-field">
+            <label className="afc-label">Preview menu package</label>
+            <select
+              className="afc-input"
+              value={previewMenu}
+              onChange={(e) => setPreviewMenu(e.target.value)}
+            >
+              <option value="SIGNATURE">Signature</option>
+              <option value="PLUS">Plus</option>
+              <option value="PREMIUM">Premium</option>
+            </select>
+          </div>
         </div>
-      </div>
-
-      {(section.fields || []).map((field, fieldIndex) => (
-        <FieldCard
-          key={field._id}
-          field={field}
-          sectionIndex={sectionIndex}
-          fieldIndex={fieldIndex}
-          totalFields={section.fields.length}
-          onUpdate={(k, v) => updateField(fieldIndex, k, v)}
-          onRemove={() => removeField(fieldIndex)}
-          onDuplicate={() => duplicateField(fieldIndex)}
-          onMove={(dir) => moveField(fieldIndex, dir)}
-        />
-      ))}
-
-      <button
-        type="button"
-        className="afc-add-field-btn"
-        onClick={onAddField}
-      >
-        + Add question to this section
-      </button>
-    </div>
-  );
-}
-
-// ─── Live Preview ─────────────────────────────────────────────────────────────
-
-function PreviewField({ field }) {
-  const typeDef = typeMap[field.field_type] || typeMap.text;
-
-  return (
-    <div className="afp-isolated-scope">
-      <div className="field">
-        <label className="label">
-          {field.label || <em style={{ color: "#aaa" }}>Untitled question</em>}
-          {field.is_required && (
-            <span style={{ color: "#d93025", marginLeft: 4 }}>*</span>
-          )}
-        </label>
-
-        {field.field_type === "text" && (
-          <input type="text" placeholder="Short answer text" disabled />
-        )}
-        {field.field_type === "textarea" && (
-          <textarea placeholder="Long answer text" disabled />
-        )}
-        {field.field_type === "number" && (
-          <input type="number" placeholder="0" disabled />
-        )}
-        {field.field_type === "email" && (
-          <input type="email" placeholder="name@email.com" disabled />
-        )}
-        {field.field_type === "date" && <input type="date" disabled />}
-        {field.field_type === "file" && (
-          <div
-            style={{
-              width: "100%",
-              padding: 12,
-              border: "2px dashed #ccc",
-              borderRadius: 10,
-              textAlign: "center",
-              color: "#888",
-              background: "var(--field)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <Paperclip size={16} /> Choose file…
-          </div>
-        )}
-
-        {field.field_type === "select" && (
-          <select disabled>
-            <option>— Select an option —</option>
-            {(field.options || []).map((o, i) => (
-              <option key={i}>
-                {o.is_other ? "Other" : o.label}
-                {o.price > 0
-                  ? ` (+₱${money(o.price)}${
-                      o.price_type !== "fixed"
-                        ? ` ${PRICE_TYPE_OPTIONS.find(
-                            (p) => p.value === o.price_type
-                          )?.label.toLowerCase()}`
-                        : ""
-                    })`
-                  : ""}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {(field.field_type === "radio" || field.field_type === "checkbox") && (
-          <div className="options">
-            {(field.options || []).map((o, i) => (
-              <div key={i}>
-                <label className="opt">
-                  <input type={field.field_type} disabled name={field._id} />
-                  <span>
-                    {o.is_other ? "Other:" : o.label}
-                    {o.price > 0 && (
-                      <span style={{ color: "var(--green-2)", fontWeight: 800 }}>
-                        {" "}
-                        +₱{money(o.price)}
-                      </span>
-                    )}
-                  </span>
-                </label>
-                {o.is_other && (
-                  <input
-                    type="text"
-                    placeholder="Customer types their answer"
-                    disabled
-                    style={{ marginTop: 8 }}
-                  />
-                )}
-                {field.allow_quantity &&
-                  field.field_type === "checkbox" &&
-                  o.label &&
-                  !o.is_other && (
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      disabled
-                      style={{ marginTop: 8 }}
-                    />
-                  )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LivePreview({ title, sections, downpayment, baseRate }) {
-  const cleanBaseRate = Math.max(0, Number(baseRate || 0));
-  const cleanDownpayment = Math.min(100, Math.max(1, Number(downpayment || 50)));
-  const dueNow =
-    cleanDownpayment >= 100
-      ? cleanBaseRate
-      : (cleanBaseRate * cleanDownpayment) / 100;
-
-  return (
-    <div className="afp-root afp-isolated-scope">
-      <div className="card">
-        <div className="title" style={{ fontSize: "1.8rem", marginBottom: 6 }}>
-          {title || "Untitled Form"}
-        </div>
-
-        {cleanBaseRate > 0 && (
-          <div className="afp-price-note">
-            Starting rate: ₱{money(cleanBaseRate)} •{" "}
-            {cleanDownpayment < 100
-              ? `${cleanDownpayment}% downpayment required to confirm booking`
-              : "Full payment required to confirm booking"}
-          </div>
-        )}
-
-        {sections.map((section) => (
-          <div key={section._id} className="afp-preview-section">
-            {section.title && (
-              <div className="section-title">{section.title}</div>
-            )}
-
-            {(section.fields || []).map((field) => (
-              <PreviewField key={field._id} field={field} />
-            ))}
-          </div>
-        ))}
 
         <div className="afp-booking-summary">
-          {cleanBaseRate > 0 && (
-            <div className="afp-booking-row">
-              <span>Base Booking Rate</span>
-              <strong>₱{money(cleanBaseRate)}</strong>
-            </div>
-          )}
+          <div className="afp-booking-row">
+            <span>
+              {previewCupQty} cups × ₱{money(pricing[cupPriceKey])}
+            </span>
+            <strong>₱{money(previewBase)}</strong>
+          </div>
 
-          {cleanBaseRate > 0 && cleanDownpayment < 100 && (
-            <div className="afp-booking-row">
-              <span>Downpayment Due Now</span>
-              <strong>₱{money(dueNow)}</strong>
-            </div>
-          )}
+          <div className="afp-booking-row">
+            <span>{previewMenu} add-on</span>
+            <strong>₱{money(previewAddon)}</strong>
+          </div>
 
           <div className="afp-booking-row afp-booking-row-total">
-            <span>Total Starts At</span>
-            <strong>₱{money(cleanBaseRate)}</strong>
+            <span>Total Event Price</span>
+            <strong>₱{money(previewTotal)}</strong>
+          </div>
+
+          <div className="afp-booking-row">
+            <span>Downpayment Due Now ({downpaymentPercent}%)</span>
+            <strong>₱{money(dueNow)}</strong>
           </div>
         </div>
-
-        <div className="actions" style={{ justifyContent: "center" }}>
-          <button
-            className="btn btn-confirm"
-            disabled
-            style={{ opacity: 0.6, width: "100%", maxWidth: 300 }}
-          >
-            Submit Booking Request
-          </button>
-        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+function PrivateWorkshopPricingEditor({ pricing, setPricing }) {
+  const [previewTotalAttendees, setPreviewTotalAttendees] = useState(30);
+  const [previewStandardAttendees, setPreviewStandardAttendees] = useState(15);
+  const [previewPremiumAttendees, setPreviewPremiumAttendees] = useState(15);
+
+  const update = (key, value) => {
+    setPricing((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const standardTotal =
+    numberValue(previewStandardAttendees) *
+    numberValue(pricing.private_workshop_standard_price);
+
+  const premiumTotal =
+    numberValue(previewPremiumAttendees) *
+    numberValue(pricing.private_workshop_premium_price);
+
+  const total = standardTotal + premiumTotal;
+
+  const downpaymentPercent = numberValue(
+    pricing.private_workshop_downpayment_percentage
+  );
+
+  const dueNow = (total * downpaymentPercent) / 100;
+
+  const attendeeMismatch =
+    numberValue(previewStandardAttendees) +
+      numberValue(previewPremiumAttendees) !==
+    numberValue(previewTotalAttendees);
+
+  return (
+    <>
+      <div className="afc-settings-card">
+        <div className="afc-section-number">Private Workshop Prices</div>
+        <p className="afc-downpayment-preview">
+          Private workshop uses <strong>per-person package pricing</strong>.
+          The customer enters how many attendees chose Standard and Premium.
+        </p>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="Standard price per person"
+            value={pricing.private_workshop_standard_price}
+            onChange={(v) => update("private_workshop_standard_price", v)}
+            helper="Default: ₱3,000 per person"
+          />
+
+          <PriceInput
+            label="Premium price per person"
+            value={pricing.private_workshop_premium_price}
+            onChange={(v) => update("private_workshop_premium_price", v)}
+            helper="Default: ₱3,800 per person"
+          />
+        </div>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="Private workshop downpayment"
+            value={pricing.private_workshop_downpayment_percentage}
+            onChange={(v) =>
+              update("private_workshop_downpayment_percentage", v)
+            }
+            helper="Amount customer pays first when reserving"
+            min={1}
+            max={100}
+            suffix="%"
+          />
+        </div>
+      </div>
+
+      <div className="afc-settings-card">
+        <div
+          className="afc-section-number"
+          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        >
+          <Calculator size={16} />
+          Private Workshop Pricing Preview
+        </div>
+
+        <div className="afc-settings-row">
+          <PriceInput
+            label="Total attendees"
+            value={previewTotalAttendees}
+            onChange={setPreviewTotalAttendees}
+            min={1}
+            suffix="people"
+          />
+
+          <PriceInput
+            label="Standard attendees"
+            value={previewStandardAttendees}
+            onChange={setPreviewStandardAttendees}
+            min={0}
+            suffix="people"
+          />
+
+          <PriceInput
+            label="Premium attendees"
+            value={previewPremiumAttendees}
+            onChange={setPreviewPremiumAttendees}
+            min={0}
+            suffix="people"
+          />
+        </div>
+
+        {attendeeMismatch && (
+          <div className="admin-notice-react bad">
+            Standard attendees + Premium attendees must equal Total attendees.
+          </div>
+        )}
+
+        <div className="afp-booking-summary">
+          <div className="afp-booking-row">
+            <span>
+              {previewStandardAttendees} Standard × ₱
+              {money(pricing.private_workshop_standard_price)}
+            </span>
+            <strong>₱{money(standardTotal)}</strong>
+          </div>
+
+          <div className="afp-booking-row">
+            <span>
+              {previewPremiumAttendees} Premium × ₱
+              {money(pricing.private_workshop_premium_price)}
+            </span>
+            <strong>₱{money(premiumTotal)}</strong>
+          </div>
+
+          <div className="afp-booking-row afp-booking-row-total">
+            <span>Total Private Workshop Price</span>
+            <strong>₱{money(total)}</strong>
+          </div>
+
+          <div className="afp-booking-row">
+            <span>Downpayment Due Now ({downpaymentPercent}%)</span>
+            <strong>₱{money(dueNow)}</strong>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function AdminForms() {
-  const [bookingType, setBookingType] = useState("event");
+  const [bookingType, setBookingType] = useState("event_booking");
   const [csrfToken, setCsrfToken] = useState("");
-  const [title, setTitle] = useState("");
-  const [baseRate, setBaseRate] = useState(0);
-  const [downpayment, setDownpayment] = useState(50);
-  const [sections, setSections] = useState(eventTemplate());
+  const [pricing, setPricing] = useState({
+    ...EVENT_DEFAULTS,
+    ...PRIVATE_WORKSHOP_DEFAULTS,
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [showPreview, setShowPreview] = useState(true);
-  const [confirmReset, setConfirmReset] = useState(false);
 
-  const getDefaultTitle = (type) =>
-    type === "event" ? "Event Booking Form" : "Private Workshop Booking Form";
+  const activeDefaults = useMemo(() => {
+    return bookingType === "event_booking"
+      ? EVENT_DEFAULTS
+      : PRIVATE_WORKSHOP_DEFAULTS;
+  }, [bookingType]);
 
-  const getDefaultTemplate = (type) =>
-    type === "event" ? eventTemplate() : workshopTemplate();
-
-  const normalizeFromApi = (apiSections) =>
-    (apiSections || []).map((section) => ({
-      _id: uid(),
-      title: section.title || "",
-      fields: (section.fields || []).map((field) => ({
-        _id: uid(),
-        label: field.label || "",
-        field_name: field.field_name || "",
-        field_type: field.field_type || "text",
-        is_required: Number(field.is_required) === 1,
-        allow_quantity: Number(field.allow_quantity) === 1,
-        options: (field.options || []).map((o) => ({
-          _id: uid(),
-          label: Number(o.is_other || 0) === 1 ? "Other" : o.label || "",
-          price: Number(o.is_other || 0) === 1 ? 0 : Number(o.price || 0),
-          price_type: Number(o.is_other || 0) === 1 ? "fixed" : o.price_type || "fixed",
-          is_other: Number(o.is_other || 0) === 1,
-        })),
-      })),
-    }));
-
-  const loadForm = async (type) => {
+  const loadPricing = async (type) => {
     setLoading(true);
     setNotice("");
     setError("");
@@ -936,100 +436,45 @@ export default function AdminForms() {
         setCsrfToken(data.csrf_token);
       }
 
-      if (data.form) {
-        setTitle(data.form.title || "");
-        setBaseRate(Number(data.form.base_rate || 0));
-        setDownpayment(Number(data.form.downpayment_percentage || 50));
-        const normalized = normalizeFromApi(data.form.sections);
-        setSections(
-          normalized.length ? normalized : getDefaultTemplate(type)
-        );
-      } else {
-        setTitle(getDefaultTitle(type));
-        setBaseRate(0);
-        setDownpayment(50);
-        setSections(getDefaultTemplate(type));
-      }
+      setPricing((prev) => ({
+        ...prev,
+        ...activeDefaults,
+        ...(data.pricing || {}),
+      }));
     } catch (err) {
       console.error(err);
-      setError("Failed to load booking form.");
-      setTitle(getDefaultTitle(type));
-      setBaseRate(0);
-      setSections(getDefaultTemplate(type));
+      setError("Failed to load pricing settings.");
+      setPricing((prev) => ({
+        ...prev,
+        ...activeDefaults,
+      }));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadForm(bookingType);
+    loadPricing(bookingType);
   }, [bookingType]);
 
-  const updateSection = (si, key, value) =>
-    setSections((prev) =>
-      prev.map((s, i) => (i === si ? { ...s, [key]: value } : s))
-    );
+  const validate = () => {
+    const keys =
+      bookingType === "event_booking"
+        ? Object.keys(EVENT_DEFAULTS)
+        : Object.keys(PRIVATE_WORKSHOP_DEFAULTS);
 
-  const addSection = () => setSections((prev) => [...prev, emptySection()]);
+    for (const key of keys) {
+      const value = numberValue(pricing[key]);
 
-  const removeSection = (si) =>
-    setSections((prev) => prev.filter((_, i) => i !== si));
-
-  const moveSection = (sectionIndex, dir) =>
-    setSections((prev) => {
-      const next = [...prev];
-      const target = sectionIndex + dir;
-
-      if (target < 0 || target >= next.length) {
-        return prev;
+      if (value < 0) {
+        return "Prices cannot be negative.";
       }
 
-      [next[sectionIndex], next[target]] = [next[target], next[sectionIndex]];
-      return next;
-    });
-
-  const addFieldToSection = (si) =>
-    setSections((prev) =>
-      prev.map((s, i) =>
-        i === si ? { ...s, fields: [...s.fields, emptyField()] } : s
-      )
-    );
-
-  const validate = () => {
-    if (!title.trim()) return "Please give this form a title.";
-    if (Number(baseRate) < 0) return "Base booking rate cannot be negative.";
-    if (Number(downpayment) < 1 || Number(downpayment) > 100)
-      return "Downpayment percentage must be between 1 and 100.";
-    const liveSections = sections.filter((s) => (s.fields || []).length > 0);
-    if (!liveSections.length) return "Add at least one question.";
-
-    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex += 1) {
-      const section = sections[sectionIndex];
-
-      for (const field of section.fields || []) {
-        if (!field.label.trim()) {
-          return `Section ${sectionIndex + 1} has a question without a label.`;
-        }
-
-        if (typeMap[field.field_type]?.hasOptions) {
-          const options = field.options || [];
-
-          if (!options.length) {
-            return `"${field.label}" needs at least one option.`;
-          }
-
-          for (const opt of options) {
-            if (!opt.is_other && !String(opt.label || "").trim()) {
-              return `"${field.label}" has an option without a label.`;
-            }
-
-            if (Number(opt.price || 0) < 0) {
-              return `"${field.label}" has an option with a negative price.`;
-            }
-          }
-        }
+      if (key.includes("downpayment_percentage") && (value < 1 || value > 100)) {
+        return "Downpayment percentage must be between 1 and 100.";
       }
     }
+
     return "";
   };
 
@@ -1037,256 +482,156 @@ export default function AdminForms() {
     setError("");
     setNotice("");
 
-    const err = validate();
-    if (err) {
-      setError(err);
+    const validationError = validate();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setSaving(true);
-    const processedSections = buildFieldNames(sections);
+
+    const keys =
+      bookingType === "event_booking"
+        ? Object.keys(EVENT_DEFAULTS)
+        : Object.keys(PRIVATE_WORKSHOP_DEFAULTS);
+
+    const payloadPricing = {};
+
+    keys.forEach((key) => {
+      payloadPricing[key] = numberValue(pricing[key]);
+    });
 
     try {
       const { data } = await adminApi.post("/admin/save-booking-form.php", {
         csrf_token: csrfToken,
         booking_type: bookingType,
-        title,
-        base_rate: Number(baseRate || 0),
-        downpayment_percentage: Number(downpayment),
-        sections: processedSections
-          .filter((s) => (s.fields || []).length > 0)
-          .map((s) => ({
-            title: String(s.title || "").trim(),
-            fields: s.fields.map((f) => ({
-              label: String(f.label || "").trim(),
-              field_name: f.field_name,
-              field_type: f.field_type,
-              is_required: f.is_required ? 1 : 0,
-              allow_quantity: f.allow_quantity ? 1 : 0,
-              options: (f.options || []).map((o) => ({
-                label: o.is_other ? "Other" : String(o.label || "").trim(),
-                price: o.is_other ? 0 : Number(o.price || 0),
-                price_type: o.is_other ? "fixed" : o.price_type,
-                is_other: o.is_other ? 1 : 0,
-              })),
-            })),
-          })),
+        pricing: payloadPricing,
       });
 
       if (data.success) {
-        setNotice("✓ Form saved successfully.");
-        await loadForm(bookingType);
+        setNotice("✓ Pricing settings saved successfully.");
+        await loadPricing(bookingType);
       } else {
-        setError(data.error || "Failed to save form.");
+        setError(data.error || "Failed to save pricing settings.");
       }
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to save form.");
+      setError(err.response?.data?.error || "Failed to save pricing settings.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleResetConfirm = () => {
-    setTitle(getDefaultTitle(bookingType));
-    setBaseRate(0);
-    setDownpayment(50);
-    setSections(getDefaultTemplate(bookingType));
-    setConfirmReset(false);
-    setNotice("");
+  const handleResetDefaults = () => {
+    setPricing((prev) => ({
+      ...prev,
+      ...activeDefaults,
+    }));
+
+    setNotice("Default values restored. Click Save to apply them.");
     setError("");
   };
 
   return (
-    <AdminLayout title="Booking Forms">
+    <AdminLayout title="Booking Pricing">
       <div className="admin-forms-page-react">
-      {confirmReset && (
-        <div
-          className="afc-modal-backdrop"
-          onClick={() => setConfirmReset(false)}
-        >
-          <div className="afc-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="afc-modal-title">Reset to default template?</div>
-            <p className="afc-modal-body">
-              All current questions will be replaced with the default{" "}
-              {bookingType === "event" ? "Event" : "Workshop"} template.
-              Unsaved changes will be lost.
-            </p>
-            <div className="afc-modal-actions">
+        <div className="afc-toolbar">
+          <div className="afc-toolbar-left">
+            <div className="afc-tabs">
               <button
-                className="afc-btn-secondary"
-                onClick={() => setConfirmReset(false)}
-              >
-                Cancel
-              </button>
-              <button className="afc-btn-danger" onClick={handleResetConfirm}>
-                Yes, reset
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="afc-toolbar">
-        <div className="afc-toolbar-left">
-          <div className="afc-tabs">
-            {["event", "workshop"].map((t) => (
-              <button
-                key={t}
-                className={`afc-tab ${bookingType === t ? "active" : ""}`}
-                onClick={() => setBookingType(t)}
+                type="button"
+                className={`afc-tab ${
+                  bookingType === "event_booking" ? "active" : ""
+                }`}
+                onClick={() => setBookingType("event_booking")}
                 style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
-                {t === "event" ? <PartyPopper size={16} /> : <Coffee size={16} />}
-                {t === "event" ? "Event Form" : "Workshop Form"}
+                <PartyPopper size={16} />
+                Event Booking
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="afc-toolbar-right">
-          <button
-            type="button"
-            className="afc-btn-secondary"
-            onClick={() => setShowPreview((v) => !v)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
-            {showPreview ? "Hide Preview" : "Show Preview"}
-          </button>
-
-          <button
-            type="button"
-            className="afc-btn-secondary"
-            onClick={() => setConfirmReset(true)}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <RotateCcw size={16} /> Reset Template
-          </button>
-
-          <button
-            type="button"
-            className="afc-btn-primary"
-            onClick={handleSave}
-            disabled={saving}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <Save size={16} /> {saving ? "Saving…" : "Save Form"}
-          </button>
-        </div>
-      </div>
-
-      {notice && <div className="admin-notice-react ok">{notice}</div>}
-      {error && <div className="admin-notice-react bad">{error}</div>}
-
-      <div className={`afc-split ${showPreview ? "with-preview" : ""}`}>
-        <div className="afc-editor">
-          <div className="afc-settings-card">
-            <div className="afc-settings-row">
-              <div className="afc-settings-field">
-                <label className="afc-label">Form Title</label>
-                <input
-                  className="afc-input"
-                  type="text"
-                  value={title}
-                  placeholder={getDefaultTitle(bookingType)}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-              <div className="afc-settings-field afc-settings-field--sm">
-                <label className="afc-label">
-                  Base Booking Rate <span className="afc-label-hint">(₱)</span>
-                </label>
-                <input
-                  className="afc-input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={baseRate}
-                  onChange={(e) => setBaseRate(e.target.value)}
-                />
-              </div>
-
-              <div className="afc-settings-field afc-settings-field--sm">
-                <label className="afc-label">
-                  Downpayment % <span className="afc-label-hint"> (1–100)</span>
-                </label>
-                <input
-                  className="afc-input"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={downpayment}
-                  onChange={(e) => setDownpayment(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="afc-downpayment-preview">
-              <strong>Starting booking rate:</strong> ₱{money(baseRate)}.{" "}
-              {downpayment >= 100
-                ? "Customers must pay the full amount upfront."
-                : `Customers pay ${downpayment}% now and the remaining ${
-                    100 - downpayment
-                  }% later.`}
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="afc-loading">Loading form…</div>
-          ) : (
-            <>
-              {sections.map((section, si) => (
-                <SectionEditor
-                  key={section._id}
-                  section={section}
-                  sectionIndex={si}
-                  totalSections={sections.length}
-                  onUpdate={(k, v) => updateSection(si, k, v)}
-                  onRemove={() => removeSection(si)}
-                  onMove={(dir) => moveSection(si, dir)}
-                  onAddField={() => addFieldToSection(si)}
-                />
-              ))}
 
               <button
                 type="button"
-                className="afc-add-section-btn"
-                onClick={addSection}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                }}
+                className={`afc-tab ${
+                  bookingType === "private_workshop" ? "active" : ""
+                }`}
+                onClick={() => setBookingType("private_workshop")}
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
-                <Plus size={18} /> Add new section
+                <Coffee size={16} />
+                Private Workshop
               </button>
-            </>
+            </div>
+          </div>
+
+          <div className="afc-toolbar-right">
+            <button
+              type="button"
+              className="afc-btn-secondary"
+              onClick={handleResetDefaults}
+              disabled={saving || loading}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <RefreshCw size={16} />
+              Reset Defaults
+            </button>
+
+            <button
+              type="button"
+              className="afc-btn-primary"
+              onClick={handleSave}
+              disabled={saving || loading}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <Save size={16} />
+              {saving ? "Saving…" : "Save Pricing"}
+            </button>
+          </div>
+        </div>
+
+        {notice && <div className="admin-notice-react ok">{notice}</div>}
+        {error && <div className="admin-notice-react bad">{error}</div>}
+
+        <div className="afc-settings-card">
+          <div
+            className="afc-section-number"
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <Info size={16} />
+            Pricing Logic
+          </div>
+
+          {bookingType === "event_booking" ? (
+            <p className="afc-downpayment-preview">
+              Event booking total is calculated as:{" "}
+              <strong>Cup Quantity × Price Per Cup + Menu Package Add-on</strong>.
+            </p>
+          ) : (
+            <p className="afc-downpayment-preview">
+              Private workshop total is calculated as:{" "}
+              <strong>
+                Standard Attendees × Standard Price + Premium Attendees ×
+                Premium Price
+              </strong>.
+            </p>
           )}
         </div>
 
-        {showPreview && (
-          <div className="afc-preview-pane">
-            <div className="afc-preview-header">
-              <span
-                className="afc-preview-badge"
-                style={{ display: "flex", alignItems: "center", gap: "4px" }}
-              >
-                <Eye size={12} /> Live Preview
-              </span>
-              <span className="afc-preview-hint">
-                This is exactly what your customers will see
-              </span>
-            </div>
-            <LivePreview
-              title={title}
-              sections={sections}
-              downpayment={downpayment}
-              baseRate={baseRate}
-            />
-          </div>
+        {loading ? (
+          <div className="afc-loading">Loading pricing settings…</div>
+        ) : (
+          <>
+            {bookingType === "event_booking" ? (
+              <EventPricingEditor pricing={pricing} setPricing={setPricing} />
+            ) : (
+              <PrivateWorkshopPricingEditor
+                pricing={pricing}
+                setPricing={setPricing}
+              />
+            )}
+          </>
         )}
-      </div>
       </div>
     </AdminLayout>
   );

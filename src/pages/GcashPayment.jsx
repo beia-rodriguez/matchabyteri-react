@@ -24,21 +24,43 @@ function getSafeStatusClass(status = "") {
     .replace(/[^a-z0-9_-]/g, "-");
 }
 
-const ALLOWED_PURPOSES = ["event_booking", "workshop_booking", "workshop_public"];
+function normalizePurpose(value = "") {
+  const purpose = String(value || "").toLowerCase().trim();
+
+  if (purpose === "workshop_booking") return "private_workshop";
+  if (purpose === "workshop_public") return "workshop_registration";
+
+  return purpose;
+}
+
+const ALLOWED_PURPOSES = [
+  "event_booking",
+  "private_workshop",
+  "workshop_registration",
+
+  // old URL compatibility
+  "workshop_booking",
+  "workshop_public",
+];
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export default function GcashPayment() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const purpose = (searchParams.get("purpose") || "").toLowerCase();
+  const rawPurpose = (searchParams.get("purpose") || "").toLowerCase();
+  const purpose = normalizePurpose(rawPurpose);
+
   const bookingId = parseInt(searchParams.get("booking_id") || "0", 10);
   const registrationId = parseInt(
     searchParams.get("registration_id") || "0",
     10
   );
 
-  const isPublicWorkshop = purpose === "workshop_public";
+  const isPublicWorkshop = purpose === "workshop_registration";
+  const isPrivateBooking =
+    purpose === "event_booking" || purpose === "private_workshop";
 
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
@@ -108,19 +130,20 @@ export default function GcashPayment() {
   };
 
   useEffect(() => {
-    const validPrivate =
-      ["event_booking", "workshop_booking"].includes(purpose) && bookingId > 0;
+    const validPrivate = isPrivateBooking && bookingId > 0;
+    const validPublic = isPublicWorkshop && registrationId > 0;
 
-    const validPublic = purpose === "workshop_public" && registrationId > 0;
-
-    if (!ALLOWED_PURPOSES.includes(purpose) || (!validPrivate && !validPublic)) {
+    if (
+      !ALLOWED_PURPOSES.includes(rawPurpose) ||
+      (!validPrivate && !validPublic)
+    ) {
       navigate("/calendar");
       return;
     }
 
     loadPaymentInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purpose, bookingId, registrationId, navigate]);
+  }, [rawPurpose, purpose, bookingId, registrationId, navigate]);
 
   useEffect(() => {
     if (isPublicWorkshop) {
@@ -139,13 +162,19 @@ export default function GcashPayment() {
     return Number(paymentData?.total_amount || 0);
   }, [paymentData]);
 
+  const amountPaid = useMemo(() => {
+    return Number(paymentData?.amount_paid || 0);
+  }, [paymentData]);
+
   const formSnapshot = useMemo(() => {
     const snapshotRaw = paymentData?.form_snapshot;
 
     if (!snapshotRaw) return null;
 
     try {
-      return typeof snapshotRaw === "string" ? JSON.parse(snapshotRaw) : snapshotRaw;
+      return typeof snapshotRaw === "string"
+        ? JSON.parse(snapshotRaw)
+        : snapshotRaw;
     } catch {
       return null;
     }
@@ -166,7 +195,9 @@ export default function GcashPayment() {
       const context =
         typeof contextRaw === "string" ? JSON.parse(contextRaw) : contextRaw;
 
-      const contextBaseRate = Number(context?.base_rate || context?.form_snapshot?.base_rate || 0);
+      const contextBaseRate = Number(
+        context?.base_rate || context?.form_snapshot?.base_rate || 0
+      );
 
       return Number.isFinite(contextBaseRate) && contextBaseRate > 0
         ? contextBaseRate
@@ -179,18 +210,34 @@ export default function GcashPayment() {
   const downpaymentPercentage = useMemo(() => {
     if (isPublicWorkshop) return 100;
 
-    const percentage = Number(formSnapshot?.downpayment_percentage || 50);
+    const fromApi = Number(paymentData?.downpayment_percentage || 0);
+    if (fromApi > 0 && fromApi <= 100) return fromApi;
 
-    return percentage > 0 && percentage <= 100 ? percentage : 50;
-  }, [formSnapshot, isPublicWorkshop]);
+    const fromSnapshot = Number(formSnapshot?.downpayment_percentage || 0);
+    if (fromSnapshot > 0 && fromSnapshot <= 100) return fromSnapshot;
+
+    return 50;
+  }, [paymentData, formSnapshot, isPublicWorkshop]);
 
   const downpaymentAmount = useMemo(() => {
+    const fromApi = Number(paymentData?.downpayment_amount || 0);
+
+    if (fromApi > 0) {
+      return Number(fromApi.toFixed(2));
+    }
+
     return Number((totalAmount * (downpaymentPercentage / 100)).toFixed(2));
-  }, [totalAmount, downpaymentPercentage]);
+  }, [paymentData, totalAmount, downpaymentPercentage]);
 
   const remainingAmount = useMemo(() => {
-    return Number((totalAmount - downpaymentAmount).toFixed(2));
-  }, [totalAmount, downpaymentAmount]);
+    const fromApi = Number(paymentData?.remaining_amount || 0);
+
+    if (fromApi > 0) {
+      return Number(fromApi.toFixed(2));
+    }
+
+    return Number(Math.max(0, totalAmount - amountPaid).toFixed(2));
+  }, [paymentData, totalAmount, amountPaid]);
 
   const amountToPay = useMemo(() => {
     if (isPublicWorkshop) return totalAmount;
@@ -432,6 +479,19 @@ export default function GcashPayment() {
                           <span>Total Amount</span>
                           <strong>₱{money(totalAmount)}</strong>
                         </div>
+
+                        {amountPaid > 0 && (
+                          <div
+                            className="gpmt-summary-item voice-readable"
+                            tabIndex="0"
+                            aria-label={`Amount already paid is ${money(
+                              amountPaid
+                            )} pesos.`}
+                          >
+                            <span>Amount Paid</span>
+                            <strong>₱{money(amountPaid)}</strong>
+                          </div>
+                        )}
 
                         {bookingBaseRate > 0 && (
                           <div

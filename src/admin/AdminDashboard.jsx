@@ -1,49 +1,75 @@
-/**
- * AdminDashboard.jsx
- *
- * Fixes over previous version:
- *  - totalWorkshop / totalEvent now count only meaningful statuses (approved + complete)
- *  - avgRevenuePerBooking uses paid-booking denominator, not all bookings
- *  - Month labels formatted as "Jan 2025" instead of raw "2025-01"
- *  - Pending bookings count displayed as an urgent operational card
- *  - Skeleton loading cards while data loads
- *  - Chart colors match the green admin palette
- *  - Empty-state handled per chart with an illustration, not bare text
- *  - Chart instances cleaned up correctly
- */
-
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
-import { Package, PartyPopper, PhilippinePeso, Clock } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCircle,
+  Clock,
+  Package,
+  PartyPopper,
+  PhilippinePeso,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+/**
+ * AdminDashboard.jsx
+ */
 
-/** "2025-01"  →  "Jan 2025" */
 const fmtMonth = (ym) => {
   const [year, month] = (ym || "").split("-");
+
   if (!year || !month) return ym;
+
   const d = new Date(Number(year), Number(month) - 1, 1);
-  return d.toLocaleDateString("en-PH", { month: "short", year: "numeric" });
+
+  return d.toLocaleDateString("en-PH", {
+    month: "short",
+    year: "numeric",
+  });
 };
 
-const money = (v) =>
-  Number(v || 0).toLocaleString("en-PH", {
+const money = (value) =>
+  Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-// ─── Palette (matches --green-2 / --yellow from admin-panel.css) ─────────────
+const readableLabel = (value = "") =>
+  String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
 const COLORS = {
   green: "#37664c",
+  greenDark: "#2f5a2b",
   greenLight: "rgba(55,102,76,0.15)",
   yellow: "#ffd95a",
-  yellowLight: "rgba(255,217,90,0.25)",
-  muted: "#6b7a62",
+  yellowStrong: "#f3c623",
+  yellowLight: "rgba(255,217,90,0.28)",
+  orange: "#e07b00",
+  orangeLight: "rgba(224,123,0,0.16)",
+  blue: "#2563eb",
+  blueLight: "rgba(37,99,235,0.16)",
+  red: "#dc2626",
+  redLight: "rgba(220,38,38,0.16)",
+  gray: "#6b7a62",
+  grayLight: "rgba(107,122,98,0.16)",
 };
 
-// ─── Skeleton card ────────────────────────────────────────────────────────────
+const STATUS_COLORS = {
+  pending_payment: COLORS.orange,
+  pending: COLORS.blue,
+  approved: COLORS.green,
+  completed: COLORS.greenDark,
+  cancelled: COLORS.gray,
+  rejected: COLORS.red,
+  unpaid: COLORS.gray,
+  partial: COLORS.orange,
+  paid: COLORS.green,
+};
+
 function SkeletonCard() {
   return (
     <div className="admin-card-react admin-card-feature-react dash-skeleton">
@@ -54,7 +80,6 @@ function SkeletonCard() {
   );
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, tag, value, sub, accent }) {
   return (
     <div
@@ -65,14 +90,16 @@ function StatCard({ icon: Icon, label, tag, value, sub, accent }) {
         <Icon size={14} aria-hidden="true" />
         <span>{tag}</span>
       </div>
+
       <h4>{label}</h4>
+
       <div className="admin-big-react">{value}</div>
+
       <div className="admin-muted-react">{sub}</div>
     </div>
   );
 }
 
-// ─── Empty chart state ────────────────────────────────────────────────────────
 function EmptyChart({ message }) {
   return (
     <div className="dash-empty-chart">
@@ -82,18 +109,52 @@ function EmptyChart({ message }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+function hasAnyNumber(values = []) {
+  return values.some((value) => Number(value || 0) > 0);
+}
+
+function ChartBox({ title, subtitle, loading, emptyMessage, hasData, children }) {
+  return (
+    <div className="admin-panel-react">
+      <h3 style={{ marginBottom: 4 }}>{title}</h3>
+
+      {subtitle && (
+        <p
+          className="admin-muted-react"
+          style={{ marginTop: 0, marginBottom: 14, fontSize: "0.86rem" }}
+        >
+          {subtitle}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="admin-muted-react" role="status">
+          Loading chart…
+        </div>
+      ) : !hasData ? (
+        <EmptyChart message={emptyMessage} />
+      ) : (
+        <div style={{ position: "relative", minHeight: 280 }}>{children}</div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const countCanvasRef = useRef(null);
+  const bookingCanvasRef = useRef(null);
   const revenueCanvasRef = useRef(null);
-  const countChartRef = useRef(null);
-  const revenueChartRef = useRef(null);
+  const statusCanvasRef = useRef(null);
+  const paymentCanvasRef = useRef(null);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const bookingChartRef = useRef(null);
+  const revenueChartRef = useRef(null);
+  const statusChartRef = useRef(null);
+  const paymentChartRef = useRef(null);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -102,19 +163,49 @@ export default function AdminDashboard() {
 
         const { data } = await adminApi.get("/admin/admin-dashboard.php");
 
-        // Format month labels client-side
         const labels = (data.labels || []).map(fmtMonth);
 
         setStats({
-          totalWorkshop: Number(data.totalWorkshop || 0),
+          totalWorkshop: Number(data.totalWorkshop || data.totalPrivateWorkshops || 0),
+          totalPrivateWorkshops: Number(
+            data.totalPrivateWorkshops || data.totalWorkshop || 0
+          ),
           totalEvent: Number(data.totalEvent || 0),
+          totalPublicRegistrations: Number(data.totalPublicRegistrations || 0),
+
           totalRevenue: Number(data.totalRevenue || 0),
-          pendingBookings: Number(data.pendingBookings || 0),
           paidBookings: Number(data.paidBookings || 0),
+
+          pendingBookings: Number(data.pendingBookings || 0),
+          pendingPaymentBookings: Number(data.pendingPaymentBookings || 0),
+          cancellationRequests: Number(data.cancellationRequests || 0),
+
           labels,
-          workshopCounts: (data.workshopCounts || []).map(Number),
+
+          workshopCounts: (data.workshopCounts || data.privateWorkshopCounts || []).map(
+            Number
+          ),
+          privateWorkshopCounts: (
+            data.privateWorkshopCounts ||
+            data.workshopCounts ||
+            []
+          ).map(Number),
           eventCounts: (data.eventCounts || []).map(Number),
+          publicRegistrationCounts: (data.publicRegistrationCounts || []).map(
+            Number
+          ),
+          pendingCounts: (data.pendingCounts || []).map(Number),
+
           revenue: (data.revenue || []).map(Number),
+          paymentCounts: (data.paymentCounts || []).map(Number),
+
+          statusLabels: (data.statusLabels || []).map(readableLabel),
+          statusRawLabels: data.statusLabels || [],
+          statusCounts: (data.statusCounts || []).map(Number),
+
+          paymentStatusLabels: (data.paymentStatusLabels || []).map(readableLabel),
+          paymentStatusRawLabels: data.paymentStatusLabels || [],
+          paymentStatusCounts: (data.paymentStatusCounts || []).map(Number),
         });
       } catch (err) {
         console.error("Dashboard fetch error:", err);
@@ -127,53 +218,88 @@ export default function AdminDashboard() {
     load();
   }, []);
 
-  // ── Charts ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!stats || !stats.labels.length) return;
 
-    // Destroy previous instances
-    countChartRef.current?.destroy();
+    bookingChartRef.current?.destroy();
     revenueChartRef.current?.destroy();
+    statusChartRef.current?.destroy();
+    paymentChartRef.current?.destroy();
 
     const frame = requestAnimationFrame(() => {
-      const countCtx = countCanvasRef.current?.getContext("2d");
+      const bookingCtx = bookingCanvasRef.current?.getContext("2d");
       const revenueCtx = revenueCanvasRef.current?.getContext("2d");
+      const statusCtx = statusCanvasRef.current?.getContext("2d");
+      const paymentCtx = paymentCanvasRef.current?.getContext("2d");
 
-      if (countCtx) {
-        countChartRef.current = new Chart(countCtx, {
+      if (bookingCtx) {
+        bookingChartRef.current = new Chart(bookingCtx, {
           type: "bar",
           data: {
             labels: stats.labels,
             datasets: [
-              {
-                label: "Workshops",
-                data: stats.workshopCounts,
-                backgroundColor: COLORS.green,
-                borderRadius: 6,
-              },
               {
                 label: "Events",
                 data: stats.eventCounts,
                 backgroundColor: COLORS.yellow,
                 borderRadius: 6,
               },
+              {
+                label: "Private Workshops",
+                data: stats.privateWorkshopCounts,
+                backgroundColor: COLORS.green,
+                borderRadius: 6,
+              },
+              {
+                label: "Public Registrations",
+                data: stats.publicRegistrationCounts,
+                backgroundColor: COLORS.blue,
+                borderRadius: 6,
+              },
+              {
+                label: "Pending / Awaiting Payment",
+                data: stats.pendingCounts,
+                backgroundColor: COLORS.orange,
+                borderRadius: 6,
+              },
             ],
           },
           options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
             plugins: {
-              legend: { position: "bottom" },
+              legend: {
+                position: "bottom",
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}`,
+                },
+              },
             },
             scales: {
               y: {
                 beginAtZero: true,
-                ticks: { precision: 0, color: COLORS.muted },
-                grid: { color: "rgba(0,0,0,0.05)" },
+                ticks: {
+                  precision: 0,
+                  color: COLORS.gray,
+                },
+                grid: {
+                  color: "rgba(0,0,0,0.05)",
+                },
               },
               x: {
-                ticks: { color: COLORS.muted, maxRotation: 45 },
-                grid: { display: false },
+                ticks: {
+                  color: COLORS.gray,
+                  maxRotation: 45,
+                },
+                grid: {
+                  display: false,
+                },
               },
             },
           },
@@ -195,32 +321,147 @@ export default function AdminDashboard() {
                 fill: true,
                 pointBackgroundColor: COLORS.green,
                 pointRadius: 4,
+                yAxisID: "y",
+              },
+              {
+                label: "Paid Payments",
+                data: stats.paymentCounts,
+                borderColor: COLORS.orange,
+                backgroundColor: COLORS.orangeLight,
+                tension: 0.35,
+                fill: false,
+                pointBackgroundColor: COLORS.orange,
+                pointRadius: 4,
+                yAxisID: "y1",
               },
             ],
           },
           options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
             plugins: {
-              legend: { position: "bottom" },
+              legend: {
+                position: "bottom",
+              },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => ` ₱${money(ctx.raw)}`,
+                  label: (ctx) => {
+                    if (ctx.dataset.label === "Revenue") {
+                      return ` Revenue: ₱${money(ctx.raw)}`;
+                    }
+
+                    return ` Paid Payments: ${ctx.raw}`;
+                  },
                 },
               },
             },
             scales: {
               y: {
+                type: "linear",
+                position: "left",
                 beginAtZero: true,
                 ticks: {
-                  color: COLORS.muted,
-                  callback: (v) => `₱${Number(v).toLocaleString()}`,
+                  color: COLORS.gray,
+                  callback: (value) => `₱${Number(value).toLocaleString("en-PH")}`,
                 },
-                grid: { color: "rgba(0,0,0,0.05)" },
+                grid: {
+                  color: "rgba(0,0,0,0.05)",
+                },
+              },
+              y1: {
+                type: "linear",
+                position: "right",
+                beginAtZero: true,
+                ticks: {
+                  precision: 0,
+                  color: COLORS.gray,
+                },
+                grid: {
+                  drawOnChartArea: false,
+                },
               },
               x: {
-                ticks: { color: COLORS.muted, maxRotation: 45 },
-                grid: { display: false },
+                ticks: {
+                  color: COLORS.gray,
+                  maxRotation: 45,
+                },
+                grid: {
+                  display: false,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      if (statusCtx) {
+        statusChartRef.current = new Chart(statusCtx, {
+          type: "doughnut",
+          data: {
+            labels: stats.statusLabels,
+            datasets: [
+              {
+                label: "Bookings",
+                data: stats.statusCounts,
+                backgroundColor: stats.statusRawLabels.map(
+                  (label) => STATUS_COLORS[label] || COLORS.gray
+                ),
+                borderWidth: 2,
+                borderColor: "#ffffff",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "62%",
+            plugins: {
+              legend: {
+                position: "bottom",
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.label}: ${ctx.raw}`,
+                },
+              },
+            },
+          },
+        });
+      }
+
+      if (paymentCtx) {
+        paymentChartRef.current = new Chart(paymentCtx, {
+          type: "doughnut",
+          data: {
+            labels: stats.paymentStatusLabels,
+            datasets: [
+              {
+                label: "Payments",
+                data: stats.paymentStatusCounts,
+                backgroundColor: stats.paymentStatusRawLabels.map(
+                  (label) => STATUS_COLORS[label] || COLORS.gray
+                ),
+                borderWidth: 2,
+                borderColor: "#ffffff",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "62%",
+            plugins: {
+              legend: {
+                position: "bottom",
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => ` ${ctx.label}: ${ctx.raw}`,
+                },
               },
             },
           },
@@ -230,22 +471,59 @@ export default function AdminDashboard() {
 
     return () => {
       cancelAnimationFrame(frame);
-      countChartRef.current?.destroy();
+
+      bookingChartRef.current?.destroy();
       revenueChartRef.current?.destroy();
-      countChartRef.current = null;
+      statusChartRef.current?.destroy();
+      paymentChartRef.current?.destroy();
+
+      bookingChartRef.current = null;
       revenueChartRef.current = null;
+      statusChartRef.current = null;
+      paymentChartRef.current = null;
     };
   }, [stats]);
 
-  // ── Derived metrics ────────────────────────────────────────────────────────
   const avgRevenuePerPaidBooking =
     stats && stats.paidBookings > 0
       ? stats.totalRevenue / stats.paidBookings
       : 0;
 
-  const hasChartData = stats && stats.labels.length > 0;
+  const totalMeaningfulBookings =
+    Number(stats?.totalEvent || 0) +
+    Number(stats?.totalPrivateWorkshops || 0) +
+    Number(stats?.totalPublicRegistrations || 0);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const totalActionRequired =
+    Number(stats?.pendingBookings || 0) +
+    Number(stats?.pendingPaymentBookings || 0) +
+    Number(stats?.cancellationRequests || 0);
+
+  const hasBookingChartData =
+    stats &&
+    (hasAnyNumber(stats.eventCounts) ||
+      hasAnyNumber(stats.privateWorkshopCounts) ||
+      hasAnyNumber(stats.publicRegistrationCounts) ||
+      hasAnyNumber(stats.pendingCounts));
+
+  const hasRevenueChartData =
+    stats && (hasAnyNumber(stats.revenue) || hasAnyNumber(stats.paymentCounts));
+
+  const hasStatusChartData = stats && hasAnyNumber(stats.statusCounts);
+  const hasPaymentStatusChartData = stats && hasAnyNumber(stats.paymentStatusCounts);
+
+  const bestRevenueMonth = useMemo(() => {
+    if (!stats || !stats.revenue.length) return "—";
+
+    const max = Math.max(...stats.revenue);
+
+    if (max <= 0) return "—";
+
+    const index = stats.revenue.indexOf(max);
+
+    return `${stats.labels[index]} — ₱${money(max)}`;
+  }, [stats]);
+
   return (
     <AdminLayout title="Dashboard">
       {error && (
@@ -254,9 +532,11 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Summary cards ─────────────────────────────────────────────── */}
-      <div className="admin-cards-react admin-cards-hero-react" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}>
-{loading ? (
+      <div
+        className="admin-cards-react admin-cards-hero-react"
+        style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}
+      >
+        {loading ? (
           <>
             <SkeletonCard />
             <SkeletonCard />
@@ -266,100 +546,129 @@ export default function AdminDashboard() {
         ) : (
           <>
             <StatCard
-              icon={Package}
-              tag="Workshops"
-              label="Total Workshops"
-              value={stats?.totalWorkshop ?? 0} 
-              sub="Approved & completed"
-            />
-            <StatCard
               icon={PartyPopper}
               tag="Events"
               label="Total Events"
-              value={stats?.totalEvent ?? 0} 
+              value={stats?.totalEvent ?? 0}
               sub="Approved & completed"
             />
+
+            <StatCard
+              icon={Package}
+              tag="Private Workshops"
+              label="Total Workshops"
+              value={stats?.totalPrivateWorkshops ?? 0}
+              sub="Approved & completed"
+            />
+
             <StatCard
               icon={PhilippinePeso}
               tag="Revenue"
               label="Total Revenue"
-              value={`₱${money(stats?.totalRevenue ?? 0)}`} 
-              sub="Sum of paid payments"
+              value={`₱${money(stats?.totalRevenue ?? 0)}`}
+              sub="Paid GCash payments"
             />
+
             <StatCard
               icon={Clock}
               tag="Action Required"
-              label="Pending Bookings"
-              value={stats?.pendingBookings ?? 0} 
-              sub="Awaiting your review"
-              accent={(stats?.pendingBookings ?? 0) > 0 ? "#e07b00" : undefined} 
+              label="Needs Review"
+              value={totalActionRequired}
+              sub="Pending, unpaid, or cancel requests"
+              accent={totalActionRequired > 0 ? COLORS.orange : undefined}
             />
           </>
         )}
       </div>
 
-      {/* ── Charts ───────────────────────────────────────────────────────── */}
       <div className="admin-grid-2-react">
-        <div className="admin-panel-react">
-          <h3>Booking Trends</h3>
-          {loading ? (
-            <div className="admin-muted-react" role="status">Loading chart…</div>
-          ) : !hasChartData ? (
-            <EmptyChart message="No booking data for the past 12 months yet." />
-          ) : (
-            <canvas ref={countCanvasRef} height="140" aria-label="Booking trends bar chart" />
-          )}
-        </div>
+        <ChartBox
+          title="Booking Trends"
+          subtitle="Events, private workshops, public registrations, and pending bookings by month."
+          loading={loading}
+          hasData={hasBookingChartData}
+          emptyMessage="No booking data for the past 12 months yet."
+        >
+          <canvas ref={bookingCanvasRef} aria-label="Booking trends chart" />
+        </ChartBox>
 
-        <div className="admin-panel-react">
-          <h3>Revenue Trends</h3>
-          {loading ? (
-            <div className="admin-muted-react" role="status">Loading chart…</div>
-          ) : !hasChartData ? (
-            <EmptyChart message="No revenue data for the past 12 months yet." />
-          ) : (
-            <canvas ref={revenueCanvasRef} height="140" aria-label="Revenue trends line chart" />
-          )}
-        </div>
+        <ChartBox
+          title="Revenue & Paid Payments"
+          subtitle="Revenue amount and number of paid payment submissions by month."
+          loading={loading}
+          hasData={hasRevenueChartData}
+          emptyMessage="No paid payment data for the past 12 months yet."
+        >
+          <canvas ref={revenueCanvasRef} aria-label="Revenue and paid payments chart" />
+        </ChartBox>
       </div>
 
-      {/* ── Insight panels ───────────────────────────────────────────────── */}
+      <div className="admin-grid-2-react">
+        <ChartBox
+          title="Booking Status Distribution"
+          subtitle="Current status of all booking records."
+          loading={loading}
+          hasData={hasStatusChartData}
+          emptyMessage="No booking status data available yet."
+        >
+          <canvas ref={statusCanvasRef} aria-label="Booking status distribution chart" />
+        </ChartBox>
+
+        <ChartBox
+          title="Payment Status Distribution"
+          subtitle="Computed payment state from bookings, payments, and workshop registrations."
+          loading={loading}
+          hasData={hasPaymentStatusChartData}
+          emptyMessage="No payment status data available yet."
+        >
+          <canvas ref={paymentCanvasRef} aria-label="Payment status distribution chart" />
+        </ChartBox>
+      </div>
+
       <div className="admin-grid-3-react">
         <div className="admin-panel-react">
           <h3>Quick Insights</h3>
+
           <div className="admin-stat-list-react">
             <div className="admin-stat-item-react">
-              <span>Avg revenue / paid booking</span>
+              <span>Avg revenue / paid record</span>
               <strong>₱{money(avgRevenuePerPaidBooking)}</strong>
             </div>
+
+            <div className="admin-stat-item-react">
+              <span>Best revenue month</span>
+              <strong>{bestRevenueMonth}</strong>
+            </div>
+
             <div className="admin-stat-item-react">
               <span>Months tracked</span>
               <strong>{stats?.labels.length ?? "—"}</strong>
-            </div>
-            <div className="admin-stat-item-react">
-              <span>Months with revenue</span>
-              <strong>
-                {stats?.revenue.filter((v) => v > 0).length ?? "—"}
-              </strong>
             </div>
           </div>
         </div>
 
         <div className="admin-panel-react">
           <h3>Bookings Snapshot</h3>
+
           <div className="admin-stat-list-react">
             <div className="admin-stat-item-react">
-              <span>Workshops (approved+done)</span>
-              <strong>{stats?.totalWorkshop ?? "—"}</strong>
+              <span>Meaningful bookings</span>
+              <strong>{loading ? "—" : totalMeaningfulBookings}</strong>
             </div>
+
             <div className="admin-stat-item-react">
-              <span>Events (approved+done)</span>
-              <strong>{stats?.totalEvent ?? "—"}</strong>
+              <span>Public workshop registrations</span>
+              <strong>{stats?.totalPublicRegistrations ?? "—"}</strong>
             </div>
+
             <div className="admin-stat-item-react">
-              <span>Pending review</span>
-              <strong style={{ color: stats?.pendingBookings > 0 ? "#e07b00" : "inherit" }}>
-                {stats?.pendingBookings ?? "—"}
+              <span>Cancellation requests</span>
+              <strong
+                style={{
+                  color: stats?.cancellationRequests > 0 ? COLORS.orange : "inherit",
+                }}
+              >
+                {stats?.cancellationRequests ?? "—"}
               </strong>
             </div>
           </div>
@@ -367,17 +676,26 @@ export default function AdminDashboard() {
 
         <div className="admin-panel-react">
           <h3>System Status</h3>
+
           <div className="admin-stat-list-react">
             <div className="admin-stat-item-react">
               <span>Dashboard API</span>
-              <strong style={{ color: error ? "#dc2626" : "#37664c" }}>
+              <strong style={{ color: error ? COLORS.red : COLORS.green }}>
                 {error ? "Error" : loading ? "Loading…" : "Online"}
               </strong>
             </div>
+
             <div className="admin-stat-item-react">
               <span>Charts</span>
-              <strong>{loading ? "Loading…" : hasChartData ? "Ready" : "No data"}</strong>
+              <strong>
+                {loading
+                  ? "Loading…"
+                  : hasBookingChartData || hasRevenueChartData
+                  ? "Ready"
+                  : "No data"}
+              </strong>
             </div>
+
             <div className="admin-stat-item-react">
               <span>Data source</span>
               <strong>Bookings / Payments</strong>
