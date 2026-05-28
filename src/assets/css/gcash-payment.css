@@ -124,6 +124,18 @@
   border-color: var(--gpmt-green);
 }
 
+.gpmt-status-pending {
+  background: var(--gpmt-yellow);
+  color: var(--gpmt-green-dark);
+  border-color: var(--gpmt-yellow-dark);
+}
+
+.gpmt-status-unpaid {
+  background: #fff;
+  color: var(--gpmt-green);
+  border-color: var(--gpmt-line-strong);
+}
+
 .gpmt-status-partial {
   background: var(--gpmt-yellow);
   color: var(--gpmt-green-dark);
@@ -284,7 +296,7 @@
 
 .gpmt-summary-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
 }
 
@@ -310,6 +322,7 @@
   color: var(--gpmt-green);
   font-size: 1.2rem;
   font-weight: 950;
+  word-break: break-word;
 }
 
 .gpmt-field {
@@ -594,7 +607,10 @@ body.screen-reader-on #readable-content .gpmt-back:focus {
   }
 }
 
-/* ── Base booking rate summary support ─────────────────────────────────── */
+/* ─────────────────────────────────────────────
+   Safe support for updated payment logic
+   Does not change the original page design.
+───────────────────────────────────────────── */
 
 .gpmt-summary-grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -602,4 +618,62 @@ body.screen-reader-on #readable-content .gpmt-back:focus {
 
 .gpmt-summary-item strong {
   word-break: break-word;
+}
+
+.gpmt-summary-item:nth-child(2):has(strong) {
+  background: #ffffff;
+}
+
+.gpmt-payment-options:empty {
+  display: none;
+}
+
+.gpmt-radio-option input[readonly] {
+  pointer-events: none;
+}
+
+.gpmt-radio-option:has(input[readonly]:checked) {
+  cursor: default;
+}
+
+.gpmt-field input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 13px;
+  background: var(--gpmt-green);
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.gpmt-field input[type="file"]::file-selector-button:hover {
+  background: var(--gpmt-green-dark);
+}
+
+.gpmt-status-pending,
+.gpmt-status-unpaid,
+.gpmt-status-partial,
+.gpmt-status-paid,
+.gpmt-status-rejected {
+  text-align: center;
+}
+
+@media (max-width: 420px) {
+  .gpmt-card {
+    padding: 18px 14px;
+  }
+
+  .gpmt-form-panel {
+    padding: 16px 14px;
+  }
+
+  .gpmt-summary-item {
+    padding: 14px;
+  }
+
+  .gpmt-radio-option {
+    padding: 13px;
+  }
 }

@@ -5,8 +5,6 @@ import Navbar from "../components/Navbar";
 import "../assets/css/user-profile.css";
 import "../assets/css/universal.css";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 function money(value) {
   return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
@@ -18,15 +16,21 @@ function readableText(text = "") {
   return String(text)
     .replace(/\bPAID\b/g, "Paid")
     .replace(/\bPARTIAL\b/g, "Partial")
+    .replace(/\bPENDING_PAYMENT\b/g, "Pending Payment")
+    .replace(/\bAWAITING_PAYMENT\b/g, "Awaiting Payment")
     .replace(/\bPENDING\b/g, "Pending")
     .replace(/\bREJECTED\b/g, "Rejected")
     .replace(/\bUNPAID\b/g, "Unpaid")
     .replace(/\bAPPROVED\b/g, "Approved")
     .replace(/\bCANCELLED\b/g, "Cancelled")
+    .replace(/\bEVENT_BOOKING\b/g, "Event Booking")
+    .replace(/\bPRIVATE_WORKSHOP\b/g, "Private Workshop")
+    .replace(/\bWORKSHOP_REGISTRATION\b/g, "Workshop Registration")
+    .replace(/\bCUSTOM\b/g, "Custom")
     .replace(/\bNEW\b/g, "New")
+    .replace(/_/g, " ")
     .trim();
 }
-
 
 function profilePictureSrc(path, fallback = "/pics/default-avatar.png") {
   if (!path || !String(path).trim()) return fallback;
@@ -86,6 +90,23 @@ function formatPhoneForInput(value = "") {
   return clean.replace(/^\+?63/, "");
 }
 
+function displayBookingType(booking) {
+  if (booking.display_type) return booking.display_type;
+
+  const recordType = String(booking.record_type || "").toLowerCase();
+  const bookingType = String(booking.booking_type || "").toLowerCase();
+
+  if (recordType === "workshop_registration") {
+    return "Public Workshop Registration";
+  }
+
+  if (bookingType === "event_booking") return "Event Booking";
+  if (bookingType === "private_workshop") return "Private Workshop";
+  if (bookingType === "custom") return "Custom Booking";
+
+  return readableText(bookingType).replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function paymentBadge(status) {
   switch ((status || "unpaid").toLowerCase()) {
     case "paid":
@@ -109,6 +130,10 @@ function bookingStatusBadge(status) {
       return { label: "CANCELLED", color: "#dc2626" };
     case "rejected":
       return { label: "REJECTED", color: "#dc2626" };
+    case "pending_payment":
+      return { label: "AWAITING PAYMENT", color: "#e07b00" };
+    case "pending":
+      return { label: "PENDING", color: "var(--muted, #888)" };
     default:
       return {
         label: status?.toUpperCase() || "PENDING",
@@ -147,14 +172,12 @@ function canCancel(booking) {
   return ["pending", "approved"].includes(bStatus) && !cancelRequested;
 }
 
-// ─── Cancel Modal ────────────────────────────────────────────────────────────
-
 function CancelModal({ booking, onClose, onSuccess }) {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -241,12 +264,15 @@ const handleSubmit = async (e) => {
             id="cancel-request-modal-description"
             tabIndex={0}
           >
-            Review your booking details, enter your cancellation reason, then submit your request for admin review.
+            Review your booking details, enter your cancellation reason, then
+            submit your request for admin review.
           </p>
 
           <div className="cancel-request-modal__summary" aria-label="Booking summary">
             <div className="cancel-request-modal__summary-row" tabIndex={0}>
-              <span className="cancel-request-modal__summary-label">Booking Date</span>
+              <span className="cancel-request-modal__summary-label">
+                Booking Date
+              </span>
               <strong className="cancel-request-modal__summary-value">
                 {booking.booking_date}
               </strong>
@@ -255,14 +281,15 @@ const handleSubmit = async (e) => {
             <div className="cancel-request-modal__summary-row" tabIndex={0}>
               <span className="cancel-request-modal__summary-label">Time</span>
               <strong className="cancel-request-modal__summary-value">
-                {booking.start_time?.slice(0, 5)} – {booking.end_time?.slice(0, 5)}
+                {booking.start_time?.slice(0, 5)} –{" "}
+                {booking.end_time?.slice(0, 5)}
               </strong>
             </div>
 
             <div className="cancel-request-modal__summary-row" tabIndex={0}>
               <span className="cancel-request-modal__summary-label">Type</span>
               <strong className="cancel-request-modal__summary-value cancel-request-modal__summary-value--capitalize">
-                {booking.booking_type}
+                {displayBookingType(booking)}
               </strong>
             </div>
           </div>
@@ -301,7 +328,8 @@ const handleSubmit = async (e) => {
                 id="cancel-request-reason-help"
                 tabIndex={0}
               >
-                Please enter at least 10 characters. The submit button stays available so screen readers can detect it.
+                Please enter at least 10 characters. The submit button stays
+                available so screen readers can detect it.
               </p>
 
               <div
@@ -327,9 +355,7 @@ const handleSubmit = async (e) => {
 
             <div className="cancel-request-modal__warning" tabIndex={0}>
               <strong>⚠ Cancellation requests are subject to admin review.</strong>
-              <span>
-                Refunds, if applicable, depend on your booking terms.
-              </span>
+              <span>Refunds, if applicable, depend on your booking terms.</span>
             </div>
 
             <div className="cancel-request-modal__actions">
@@ -362,8 +388,6 @@ const handleSubmit = async (e) => {
     </div>
   );
 }
-
-// ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function UserProfile() {
   const navigate = useNavigate();
@@ -546,99 +570,100 @@ export default function UserProfile() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (savingProfile) return;
+    if (savingProfile) return;
 
-  const cleanName = form.name.trim();
-  const phoneDigits = String(form.phone_number || "").replace(/\D/g, "");
-  const cleanPhone = phoneDigits ? normalizePhoneNumber(phoneDigits) : "";
-  const cleanBirthdate = form.birthdate || "";
+    const cleanName = form.name.trim();
+    const phoneDigits = String(form.phone_number || "").replace(/\D/g, "");
+    const cleanPhone = phoneDigits ? normalizePhoneNumber(phoneDigits) : "";
+    const cleanBirthdate = form.birthdate || "";
 
-  if (!cleanName) {
-    window.alert("Name is required.");
-    return;
-  }
-
-  if (phoneDigits && !/^9\d{9}$/.test(phoneDigits)) {
-    window.alert("Contact number must be a Philippine mobile number. Example: +63 912 345 6789.");
-    return;
-  }
-
-  if (cleanBirthdate) {
-    const selectedDate = new Date(`${cleanBirthdate}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (Number.isNaN(selectedDate.getTime()) || selectedDate > today) {
-      window.alert("Birthdate must be a valid date and cannot be in the future.");
+    if (!cleanName) {
+      window.alert("Name is required.");
       return;
     }
-  }
 
-  const changed =
-    !originalForm ||
-    cleanName !== String(originalForm.name || "").trim() ||
-    phoneDigits !== String(originalForm.phone_number || "").replace(/\D/g, "") ||
-    cleanBirthdate !== String(originalForm.birthdate || "") ||
-    Boolean(form.profile_picture);
-
-  if (!changed) {
-    window.alert("No profile changes detected.");
-    return;
-  }
-
-  const formData = new FormData();
-
-  // Send all current values so the backend can preserve unchanged fields safely.
-  formData.append("name", cleanName);
-  formData.append("phone_number", cleanPhone);
-  formData.append("birthdate", cleanBirthdate);
-
-  if (form.profile_picture) {
-    formData.append("profile_picture", form.profile_picture);
-  }
-
-  setSavingProfile(true);
-
-  try {
-    const res = await API.post("/user/update-profile.php", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-
-    if (res.data?.success) {
-      const updatedProfile = {
-        ...user,
-        name: res.data.name ?? cleanName,
-        phone_number: res.data.phone_number ?? cleanPhone,
-        birthdate: res.data.birthdate ?? cleanBirthdate,
-        profile_picture: res.data.profile_picture ?? user.profile_picture,
-      };
-
-      const nextForm = buildProfileForm(updatedProfile);
-
-      setUser(updatedProfile);
-      setForm(nextForm);
-      setOriginalForm(nextForm);
-      setPreview(null);
-
-      window.alert(res.data.message || "Profile updated successfully.");
-    } else {
-      window.alert(res.data?.error || "Update failed.");
+    if (phoneDigits && !/^9\d{9}$/.test(phoneDigits)) {
+      window.alert(
+        "Contact number must be a Philippine mobile number. Example: +63 912 345 6789."
+      );
+      return;
     }
-  } catch (err) {
-    console.error("Profile update error:", err);
 
-    window.alert(
-      err.response?.data?.error ||
-        err.response?.data?.message ||
-        "Error updating profile. Please try again."
-    );
-  } finally {
-    setSavingProfile(false);
-  }
-};
+    if (cleanBirthdate) {
+      const selectedDate = new Date(`${cleanBirthdate}T00:00:00`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (Number.isNaN(selectedDate.getTime()) || selectedDate > today) {
+        window.alert("Birthdate must be a valid date and cannot be in the future.");
+        return;
+      }
+    }
+
+    const changed =
+      !originalForm ||
+      cleanName !== String(originalForm.name || "").trim() ||
+      phoneDigits !== String(originalForm.phone_number || "").replace(/\D/g, "") ||
+      cleanBirthdate !== String(originalForm.birthdate || "") ||
+      Boolean(form.profile_picture);
+
+    if (!changed) {
+      window.alert("No profile changes detected.");
+      return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("name", cleanName);
+    formData.append("phone_number", cleanPhone);
+    formData.append("birthdate", cleanBirthdate);
+
+    if (form.profile_picture) {
+      formData.append("profile_picture", form.profile_picture);
+    }
+
+    setSavingProfile(true);
+
+    try {
+      const res = await API.post("/user/update-profile.php", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (res.data?.success) {
+        const updatedProfile = {
+          ...user,
+          name: res.data.name ?? cleanName,
+          phone_number: res.data.phone_number ?? cleanPhone,
+          birthdate: res.data.birthdate ?? cleanBirthdate,
+          profile_picture: res.data.profile_picture ?? user.profile_picture,
+        };
+
+        const nextForm = buildProfileForm(updatedProfile);
+
+        setUser(updatedProfile);
+        setForm(nextForm);
+        setOriginalForm(nextForm);
+        setPreview(null);
+
+        window.alert(res.data.message || "Profile updated successfully.");
+      } else {
+        window.alert(res.data?.error || "Update failed.");
+      }
+    } catch (err) {
+      console.error("Profile update error:", err);
+
+      window.alert(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Error updating profile. Please try again."
+      );
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -650,44 +675,51 @@ const handleSubmit = async (e) => {
     navigate("/login");
   };
 
-const handleCancelSuccess = (bookingId) => {
-  setBookings((prev) =>
-    prev.map((b) =>
-      Number(b.id) === Number(bookingId)
-        ? { ...b, cancel_requested: 1 }
-        : b
-    )
-  );
+  const handleCancelSuccess = (bookingId) => {
+    setBookings((prev) =>
+      prev.map((b) =>
+        Number(b.id) === Number(bookingId)
+          ? { ...b, cancel_requested: 1 }
+          : b
+      )
+    );
 
-  setCancelTarget(null);
-  alert("Cancellation request submitted. The admin will review your request shortly.");
-};
-
-const handlePayAction = (booking) => {
-  const action = getPaymentAction(booking);
-
-  if (!action) return;
-
-  const recordType = (booking.record_type || "booking").toLowerCase();
-
-  if (recordType === "workshop_registration") {
-    return;
-  }
-
-  const purposeMap = {
-    event: "event_booking",
-    workshop: "workshop_booking",
+    setCancelTarget(null);
+    alert("Cancellation request submitted. The admin will review your request shortly.");
   };
 
-  const purpose = purposeMap[booking.booking_type];
+  const handlePayAction = (booking) => {
+    const action = getPaymentAction(booking);
 
-  if (!purpose) {
-    alert("Invalid booking type for payment.");
-    return;
-  }
+    if (!action) return;
 
-  navigate(`/gcash-payment?purpose=${purpose}&booking_id=${booking.id}`);
-};
+    const recordType = (booking.record_type || "booking").toLowerCase();
+
+    if (recordType === "workshop_registration") {
+      return;
+    }
+
+    const bookingType = String(booking.booking_type || "").toLowerCase();
+
+    const purposeMap = {
+      event_booking: "event_booking",
+      private_workshop: "private_workshop",
+      custom: "custom",
+
+      // old data fallback
+      event: "event_booking",
+      workshop: "private_workshop",
+    };
+
+    const purpose = purposeMap[bookingType];
+
+    if (!purpose || purpose === "custom") {
+      alert("Invalid booking type for payment.");
+      return;
+    }
+
+    navigate(`/gcash-payment?purpose=${purpose}&booking_id=${booking.id}`);
+  };
 
   if (!user) return null;
 
@@ -709,10 +741,8 @@ const handlePayAction = (booking) => {
         <div className="profile-title">Profile</div>
 
         <div className="profile-card">
-          {/* PROFILE HEADER */}
           <div className="top-row">
             <div className="who">
-              {/* Profile Image & Upload Button Combined */}
               <div className="profile-pic-container">
                 <img
                   className="profile-pic"
@@ -755,7 +785,6 @@ const handlePayAction = (booking) => {
             )}
           </div>
 
-          {/* QUICK ACTIONS */}
           {!isAdmin && (
             <div className="quick-actions">
               <button
@@ -791,7 +820,6 @@ const handlePayAction = (booking) => {
             }}
           />
 
-          {/* PROFILE FORM */}
           <form onSubmit={handleSubmit} className="profile-form">
             <div className="field full">
               <label>Name</label>
@@ -802,9 +830,7 @@ const handlePayAction = (booking) => {
                 maxLength={120}
                 autoComplete="name"
                 aria-label={
-                  form.name.trim()
-                    ? `Name: ${form.name}`
-                    : "Enter Name"
+                  form.name.trim() ? `Name: ${form.name}` : "Enter Name"
                 }
                 onChange={handleChange}
                 required
@@ -859,11 +885,11 @@ const handlePayAction = (booking) => {
               </div>
 
               <p className="profile-field-hint">
-                Philippines only. Enter 10 digits after +63, for example 9123456789.
+                Philippines only. Enter 10 digits after +63, for example
+                9123456789.
               </p>
             </div>
 
-            {/* ── BOOKINGS SECTION ────────────────────────────────────────── */}
             {!isAdmin && (
               <div className="field full bookings-section">
                 <label className="bookings-label">My Bookings</label>
@@ -892,49 +918,65 @@ const handlePayAction = (booking) => {
                           const payAction = getPaymentAction(b);
                           const showCancel = canCancel(b);
                           const cancelPending =
-  Number(b.cancel_requested) === 1 || b.cancel_requested === true;
+                            Number(b.cancel_requested) === 1 ||
+                            b.cancel_requested === true;
 
                           return (
-                            <tr key={b.row_key || `${b.record_type || "booking"}-${b.id}`}>
+                            <tr
+                              key={
+                                b.row_key ||
+                                `${b.record_type || "booking"}-${b.id}`
+                              }
+                            >
                               <td
                                 className="td-date"
                                 aria-label={`Booking Date: ${b.booking_date}`}
                               >
-                                {b.booking_date}
+                                {b.booking_date || "—"}
                               </td>
 
                               <td
-  className="td-time"
-  aria-label={
-    b.start_time && b.end_time
-      ? `Booking Time: ${b.start_time?.slice(0, 5)} to ${b.end_time?.slice(0, 5)}`
-      : "Time not available"
-  }
->
-  {b.start_time && b.end_time
-    ? `${b.start_time?.slice(0, 5)} – ${b.end_time?.slice(0, 5)}`
-    : "—"}
-</td>
+                                className="td-time"
+                                aria-label={
+                                  b.start_time && b.end_time
+                                    ? `Booking Time: ${b.start_time?.slice(
+                                        0,
+                                        5
+                                      )} to ${b.end_time?.slice(0, 5)}`
+                                    : "Time not available"
+                                }
+                              >
+                                {b.start_time && b.end_time
+                                  ? `${b.start_time?.slice(
+                                      0,
+                                      5
+                                    )} – ${b.end_time?.slice(0, 5)}`
+                                  : "—"}
+                              </td>
 
                               <td
-  className="td-type"
-  aria-label={`Booking Type: ${
-    b.record_type === "workshop_registration"
-      ? `Workshop Registration, ${b.package} package`
-      : b.booking_type
-  }`}
->
-  {b.record_type === "workshop_registration" ? (
-    <>
-      <div>Workshop Registration</div>
-      <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "4px" }}>
-        {b.package} Package
-      </div>
-    </>
-  ) : (
-    b.booking_type
-  )}
-</td>
+                                className="td-type"
+                                aria-label={`Booking Type: ${displayBookingType(
+                                  b
+                                )}`}
+                              >
+                                {b.record_type === "workshop_registration" ? (
+                                  <>
+                                    <div>{displayBookingType(b)}</div>
+                                    <div
+                                      style={{
+                                        fontSize: "0.75rem",
+                                        color: "#666",
+                                        marginTop: "4px",
+                                      }}
+                                    >
+                                      {b.package} Package
+                                    </div>
+                                  </>
+                                ) : (
+                                  displayBookingType(b)
+                                )}
+                              </td>
 
                               <td>
                                 <span
@@ -964,7 +1006,9 @@ const handlePayAction = (booking) => {
                                 className="td-amount"
                                 aria-label={
                                   b.total_amount > 0
-                                    ? `Total Amount: ${money(b.total_amount)} pesos`
+                                    ? `Total Amount: ${money(
+                                        b.total_amount
+                                      )} pesos`
                                     : "No amount"
                                 }
                               >
@@ -972,16 +1016,27 @@ const handlePayAction = (booking) => {
                                   <>
                                     <div>Total: ₱{money(b.total_amount)}</div>
 
-                                    {b.payment_status?.toLowerCase() === "partial" && (
+                                    {Number(b.amount_paid || 0) > 0 && (
                                       <div
                                         style={{
-                                          color: "#e07b00",
+                                          color:
+                                            b.payment_status?.toLowerCase() ===
+                                            "paid"
+                                              ? "var(--green-2, #3a7d44)"
+                                              : "#e07b00",
                                           fontSize: "0.75rem",
                                           marginTop: "4px",
                                         }}
                                       >
                                         Paid: ₱{money(b.amount_paid)} <br />
-                                        Balance: ₱{money(Math.max(Number(b.total_amount || 0) - Number(b.amount_paid || 0), 0))}
+                                        Balance: ₱
+                                        {money(
+                                          Math.max(
+                                            Number(b.total_amount || 0) -
+                                              Number(b.amount_paid || 0),
+                                            0
+                                          )
+                                        )}
                                       </div>
                                     )}
                                   </>
@@ -991,7 +1046,6 @@ const handlePayAction = (booking) => {
                               </td>
 
                               <td className="td-actions">
-                                {/* Pay action */}
                                 {payAction && (
                                   <button
                                     type="button"
@@ -1003,7 +1057,6 @@ const handlePayAction = (booking) => {
                                   </button>
                                 )}
 
-                                {/* Cancel action */}
                                 {showCancel && (
                                   <button
                                     type="button"
@@ -1015,7 +1068,6 @@ const handlePayAction = (booking) => {
                                   </button>
                                 )}
 
-                                {/* Cancel pending indicator */}
                                 {cancelPending && (
                                   <span
                                     className="cancel-pending-badge"
@@ -1025,7 +1077,6 @@ const handlePayAction = (booking) => {
                                   </span>
                                 )}
 
-                                {/* No actions available */}
                                 {!payAction && !showCancel && !cancelPending && (
                                   <span
                                     className="hint"
@@ -1059,7 +1110,9 @@ const handlePayAction = (booking) => {
               <button
                 type="submit"
                 className="btn btn-save"
-                aria-label={savingProfile ? "Saving Profile Changes" : "Save Changes"}
+                aria-label={
+                  savingProfile ? "Saving Profile Changes" : "Save Changes"
+                }
                 disabled={savingProfile}
               >
                 {savingProfile ? "Saving..." : "Save Changes"}

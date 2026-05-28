@@ -5,204 +5,185 @@ require_once __DIR__ . "/../../config/db.php";
 
 header("Content-Type: application/json; charset=utf-8");
 
-if (!isset($_SESSION["user_id"])) {
-    http_response_code(401);
-    echo json_encode(["error" => "Unauthorized. Please login again."]);
+date_default_timezone_set("Asia/Manila");
+
+function jsonResponse($statusCode, $data) {
+    http_response_code($statusCode);
+    echo json_encode($data);
     exit();
+}
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    jsonResponse(405, [
+        "success" => false,
+        "error" => "Method not allowed."
+    ]);
+}
+
+if (!isset($_SESSION["user_id"])) {
+    jsonResponse(401, [
+        "success" => false,
+        "error" => "Unauthorized. Please login again."
+    ]);
 }
 
 $userId = (int) $_SESSION["user_id"];
 
-$private = [];
-$awaitingPayment = [];
+$input = [];
 
-/* ─────────────────────────────────────────────
-   NORMAL BOOKINGS
-───────────────────────────────────────────── */
+if (!empty($_POST)) {
+    $input = $_POST;
+} else {
+    $rawInput = file_get_contents("php://input");
+    $jsonInput = json_decode($rawInput, true);
+
+    if (is_array($jsonInput)) {
+        $input = $jsonInput;
+    }
+}
+
+$bookingId = isset($input["booking_id"]) ? (int) $input["booking_id"] : 0;
+$reason = isset($input["reason"]) ? trim((string) $input["reason"]) : "";
+
+if ($bookingId <= 0) {
+    jsonResponse(400, [
+        "success" => false,
+        "error" => "Invalid booking ID."
+    ]);
+}
+
+if (strlen($reason) < 10) {
+    jsonResponse(400, [
+        "success" => false,
+        "error" => "Please provide a reason of at least 10 characters."
+    ]);
+}
+
+if (strlen($reason) > 500) {
+    jsonResponse(400, [
+        "success" => false,
+        "error" => "Reason must not exceed 500 characters."
+    ]);
+}
 
 $stmt = $conn->prepare("
     SELECT
-        b.id,
-        b.booking_date,
-        b.start_time,
-        b.end_time,
-        b.booking_type,
-        b.status,
-        b.total_amount,
-
-        COALESCE(SUM(
-            CASE
-                WHEN p.status = 'paid' THEN p.amount
-                ELSE 0
-            END
-        ), 0) AS amount_paid,
-
-        CASE
-            WHEN COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) >= b.total_amount
-                 AND b.total_amount > 0 THEN 'paid'
-
-            WHEN COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0) > 0 THEN 'partial'
-
-            WHEN COALESCE(SUM(CASE WHEN p.status = 'pending' THEN 1 ELSE 0 END), 0) > 0 THEN 'pending'
-
-            ELSE 'unpaid'
-        END AS computed_payment_status,
-
-        b.cancel_requested,
-        b.cancel_reason,
-        b.cancel_requested_at,
-        b.created_at
-    FROM bookings b
-    LEFT JOIN payments p
-        ON p.booking_id = b.id
-    WHERE b.user_id = ?
-    GROUP BY
-        b.id,
-        b.booking_date,
-        b.start_time,
-        b.end_time,
-        b.booking_type,
-        b.status,
-        b.total_amount,
-        b.cancel_requested,
-        b.cancel_reason,
-        b.cancel_requested_at,
-        b.created_at
-    ORDER BY b.booking_date DESC, b.start_time DESC
+        id,
+        user_id,
+        booking_type,
+        status,
+        payment_status,
+        cancel_requested
+    FROM bookings
+    WHERE id = ?
+    LIMIT 1
 ");
 
 if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(["error" => "Database prepare failed: " . $conn->error]);
-    exit();
+    jsonResponse(500, [
+        "success" => false,
+        "error" => "Database error while checking booking."
+    ]);
 }
 
-$stmt->bind_param("i", $userId);
+$stmt->bind_param("i", $bookingId);
 $stmt->execute();
 
 $result = $stmt->get_result();
-
-while ($row = $result->fetch_assoc()) {
-    $row["record_type"] = "booking";
-    $row["row_key"] = "booking-" . $row["id"];
-
-    $row["status"] = $row["status"] ?? "pending";
-    $row["payment_status"] = $row["computed_payment_status"] ?? "unpaid";
-
-    $row["total_amount"] = (float) ($row["total_amount"] ?? 0);
-    $row["amount_paid"] = (float) ($row["amount_paid"] ?? 0);
-    $row["balance"] = max($row["total_amount"] - $row["amount_paid"], 0);
-
-    unset($row["computed_payment_status"]);
-
-    $row["cancel_requested"] = (int) ($row["cancel_requested"] ?? 0);
-    $row["cancel_reason"] = $row["cancel_reason"] ?? "";
-    $row["cancel_requested_at"] = $row["cancel_requested_at"] ?? null;
-
-    if ($row["status"] === "pending_payment") {
-        $row["display_status"] = "awaiting_payment";
-        $row["can_continue_payment"] = true;
-        $awaitingPayment[] = $row;
-        continue;
-    }
-
-    $row["display_status"] = $row["status"];
-    $row["can_continue_payment"] = false;
-
-    $private[] = $row;
-}
-
+$booking = $result->fetch_assoc();
 $stmt->close();
 
-/* ─────────────────────────────────────────────
-   WORKSHOP REGISTRATIONS
-───────────────────────────────────────────── */
+if (!$booking) {
+    jsonResponse(404, [
+        "success" => false,
+        "error" => "Booking not found."
+    ]);
+}
 
-$workshopStmt = $conn->prepare("
-    SELECT
-        wr.id,
-        wr.user_id,
-        wr.workshop_id,
-        wr.package,
-        wr.full_name,
-        wr.email,
-        wr.phone_number,
-        wr.created_at,
-        wr.status,
-        wr.payment_status,
-        wr.total_amount
-    FROM workshop_registrations wr
-    WHERE wr.user_id = ?
-    ORDER BY wr.created_at DESC
+if ((int) $booking["user_id"] !== $userId) {
+    jsonResponse(403, [
+        "success" => false,
+        "error" => "You are not allowed to cancel this booking."
+    ]);
+}
+
+$bookingType = strtolower(trim((string) ($booking["booking_type"] ?? "")));
+$status = strtolower(trim((string) ($booking["status"] ?? "")));
+
+$allowedBookingTypes = [
+    "event_booking",
+    "private_workshop",
+    "custom"
+];
+
+if (!in_array($bookingType, $allowedBookingTypes, true)) {
+    jsonResponse(400, [
+        "success" => false,
+        "error" => "This booking type cannot be cancelled from this page."
+    ]);
+}
+
+if (!in_array($status, ["pending", "approved"], true)) {
+    jsonResponse(400, [
+        "success" => false,
+        "error" => "This booking cannot be cancelled because its status is " . ($booking["status"] ?? "unknown") . "."
+    ]);
+}
+
+if ((int) ($booking["cancel_requested"] ?? 0) === 1) {
+    jsonResponse(409, [
+        "success" => false,
+        "error" => "A cancellation request has already been submitted for this booking."
+    ]);
+}
+
+$now = date("Y-m-d H:i:s");
+
+$upd = $conn->prepare("
+    UPDATE bookings
+    SET
+        cancel_requested = 1,
+        cancel_reason = ?,
+        cancel_requested_at = ?
+    WHERE id = ?
+      AND user_id = ?
+      AND cancel_requested = 0
 ");
 
-if (!$workshopStmt) {
-    http_response_code(500);
-    echo json_encode(["error" => "Workshop registration prepare failed: " . $conn->error]);
-    exit();
+if (!$upd) {
+    jsonResponse(500, [
+        "success" => false,
+        "error" => "Database error while preparing cancellation request."
+    ]);
 }
 
-$workshopStmt->bind_param("i", $userId);
-$workshopStmt->execute();
+$upd->bind_param("ssii", $reason, $now, $bookingId, $userId);
 
-$workshopResult = $workshopStmt->get_result();
+if (!$upd->execute()) {
+    $upd->close();
 
-while ($row = $workshopResult->fetch_assoc()) {
-    $paymentStatus = strtolower($row["payment_status"] ?? "unpaid");
-    $totalAmount = (float) ($row["total_amount"] ?? 0);
-
-    $createdAt = $row["created_at"] ?? null;
-    $bookingDate = $createdAt ? date("Y-m-d", strtotime($createdAt)) : null;
-
-    $registration = [
-        "id" => (int) $row["id"],
-        "record_type" => "workshop_registration",
-        "row_key" => "workshop-registration-" . $row["id"],
-
-        "booking_date" => $bookingDate,
-        "start_time" => null,
-        "end_time" => null,
-
-        "booking_type" => "workshop registration",
-        "workshop_id" => (int) $row["workshop_id"],
-        "package" => $row["package"],
-
-        "status" => $row["status"] ?? "pending",
-        "payment_status" => $row["payment_status"] ?? "unpaid",
-
-        "total_amount" => $totalAmount,
-        "amount_paid" => $paymentStatus === "paid" ? $totalAmount : 0,
-        "balance" => $paymentStatus === "paid" ? 0 : $totalAmount,
-
-        "cancel_requested" => 0,
-        "cancel_reason" => "",
-        "cancel_requested_at" => null,
-
-        "created_at" => $row["created_at"],
-        "display_status" => $row["status"] ?? "pending",
-        "can_continue_payment" => false,
-    ];
-
-    $private[] = $registration;
+    jsonResponse(500, [
+        "success" => false,
+        "error" => "Failed to submit cancellation request."
+    ]);
 }
 
-$workshopStmt->close();
+if ($upd->affected_rows <= 0) {
+    $upd->close();
 
-/* ─────────────────────────────────────────────
-   SORT BOOKINGS + WORKSHOP REGISTRATIONS
-───────────────────────────────────────────── */
+    jsonResponse(409, [
+        "success" => false,
+        "error" => "A cancellation request may have already been submitted for this booking."
+    ]);
+}
 
-usort($private, function ($a, $b) {
-    $dateA = $a["booking_date"] ?? $a["created_at"] ?? "";
-    $dateB = $b["booking_date"] ?? $b["created_at"] ?? "";
+$upd->close();
 
-    return strtotime($dateB) <=> strtotime($dateA);
-});
-
-echo json_encode([
+jsonResponse(200, [
     "success" => true,
-    "privateBookings" => $private,
-    "awaitingPaymentBookings" => $awaitingPayment
+    "message" => "Cancellation request submitted. The admin will review your request.",
+    "booking_id" => $bookingId,
+    "booking_type" => $bookingType,
+    "cancel_requested" => 1,
+    "cancel_requested_at" => $now
 ]);
-
-exit();

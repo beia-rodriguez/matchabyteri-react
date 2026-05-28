@@ -103,8 +103,8 @@ try {
     SELECT COUNT(*) AS c
     FROM bookings
     WHERE booking_date = ?
-      AND booking_type = 'event'
-      AND status IN ('pending','approved')
+      AND booking_type = 'event_booking'
+      AND status IN ('pending_payment', 'pending', 'approved')
   ");
 
   if (!$stmt) {
@@ -128,8 +128,8 @@ try {
     SELECT id
     FROM bookings
     WHERE booking_date = ?
-      AND booking_type = 'event'
-      AND status IN ('pending','approved')
+      AND booking_type = 'event_booking'
+      AND status IN ('pending_payment', 'pending', 'approved')
       AND (start_time < ? AND end_time > ?)
     LIMIT 1
   ");

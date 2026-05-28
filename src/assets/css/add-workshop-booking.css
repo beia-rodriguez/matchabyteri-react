@@ -661,3 +661,80 @@ body.screen-reader-on #readable-content .awb-summary-value:focus {
     width: min(100% - 18px, 860px);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   New fixed Private Workshop pricing flow
+   Keeps the current design, only adds missing classes/states.
+───────────────────────────────────────────────────────────── */
+
+.awb-btn-secondary,
+.awb-btn:not(.awb-btn-confirm):not(.awb-btn-next):not(.awb-btn-cancel):not(.awb-btn-edit) {
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--awb-green-2);
+  border: 2px solid var(--awb-green-2);
+}
+
+.awb-btn-secondary:hover:not(:disabled),
+.awb-btn:not(.awb-btn-confirm):not(.awb-btn-next):not(.awb-btn-cancel):not(.awb-btn-edit):hover:not(:disabled) {
+  background: var(--awb-green-soft);
+}
+
+.awb-summary-row.awb-summary-total {
+  margin-top: 4px;
+  border-top: 2px solid rgba(47, 90, 43, 0.14);
+  border-bottom: 1px solid rgba(47, 90, 43, 0.1);
+  padding-top: 14px;
+}
+
+.awb-summary-row.awb-summary-total .awb-summary-label,
+.awb-summary-row.awb-summary-total .awb-summary-value {
+  color: var(--awb-green-dark);
+  font-size: 1.02rem;
+  font-weight: 950;
+}
+
+.awb-field > input[type="number"] {
+  margin-top: 0;
+}
+
+.awb-options > .awb-option,
+.awb-options > label.awb-option {
+  width: 100%;
+  margin: 0;
+}
+
+.awb-option span {
+  min-width: 0;
+  display: inline-block;
+}
+
+.awb-summary + .awb-actions {
+  margin-top: 18px;
+}
+
+.awb-field textarea[name="other_request"] {
+  min-height: 104px;
+}
+
+.awb-card .awb-summary {
+  animation: awbFadeIn 0.24s ease-out both;
+}
+
+@keyframes awbFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 560px) {
+  .awb-summary + .awb-actions {
+    margin-top: 16px;
+  }
+}
+
