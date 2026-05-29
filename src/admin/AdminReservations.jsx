@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "@/assets/css/admin-reservations.css";
 
 // --- HELPER FUNCTIONS ---
 

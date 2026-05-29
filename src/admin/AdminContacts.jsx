@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "@/assets/css/admin-contacts.css";
 
 // --- HELPER FUNCTIONS ---
 const getInitials = (name) => {

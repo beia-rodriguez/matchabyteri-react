@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "@/assets/css/admin-payments.css";
 
 function badgeLabel(s) {
   const status = String(s || "pending").toLowerCase();

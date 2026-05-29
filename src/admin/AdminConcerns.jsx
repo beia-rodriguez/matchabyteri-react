@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "@/assets/css/admin-concerns.css";
 
 export default function AdminConcerns() {
   const [q, setQ] = useState("");

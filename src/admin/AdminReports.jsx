@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "@/assets/css/admin-reports.css";
 
 function money(value) {
   return `₱${Number(value || 0).toLocaleString("en-PH", {

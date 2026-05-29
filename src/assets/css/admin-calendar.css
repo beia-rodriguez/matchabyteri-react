@@ -1,0 +1,59 @@
+/* admin-calendar.css */
+
+.calendar-block-form-react{
+  margin-top:18px;
+  margin-bottom:18px;
+}
+
+.calendar-block-grid-react{
+  display:grid;
+  grid-template-columns:minmax(220px,.9fr) minmax(260px,1.4fr) auto;
+  gap:16px;
+  align-items:end;
+  max-width:980px;
+}
+
+.calendar-block-field-react{ min-width:0; }
+
+.calendar-block-label-react{
+  display:block;
+  margin-bottom:8px;
+  color:var(--muted);
+  font-weight:900;
+  font-size:.82rem;
+  text-transform:uppercase;
+  letter-spacing:.45px;
+}
+
+.calendar-block-grid-react .admin-input-react{ height:48px; }
+
+.calendar-block-action-react{
+  display:flex;
+  align-items:end;
+  justify-content:flex-start;
+}
+
+.calendar-block-action-react .admin-btn-react{
+  min-width:92px;
+  height:48px;
+  padding:0 20px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+@media (max-width:980px){
+  .calendar-block-grid-react{ grid-template-columns:1fr; max-width:none; }
+  .calendar-block-action-react .admin-btn-react{ width:100%; }
+}
+
+@media (max-width:720px){
+  .admin-table-react.rich-table{
+    min-width:760px;
+  }
+
+  .admin-panel-react:has(.admin-table-react.rich-table){
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+}

@@ -1,0 +1,39 @@
+/* admin-contacts.css */
+
+.c-booking-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:28px;
+  height:28px;
+  padding:0 8px;
+  border-radius:8px;
+  background:#f0f3f0;
+  color:var(--muted);
+  font-weight:900;
+  font-size:.85rem;
+}
+
+.c-booking-badge.active{
+  background:var(--green-2);
+  color:#fff;
+}
+
+@media (max-width:820px){
+  .admin-form-row-react{
+    grid-template-columns:1fr !important;
+  }
+
+  .admin-form-row-react .admin-pill-react{
+    width:100%;
+  }
+
+  .admin-table-react.rich-table{
+    min-width:720px;
+  }
+
+  .admin-panel-react:has(.admin-table-react.rich-table){
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+}

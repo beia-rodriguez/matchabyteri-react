@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
+import "@/assets/css/admin-dashboard.css";
 
 /**
  * AdminDashboard.jsx
