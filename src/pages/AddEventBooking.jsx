@@ -419,7 +419,7 @@ export default function AddEventBooking() {
             {error && <div className="error">{error}</div>}
 
             {loading ? (
-              <div className="title">Loading event booking...</div>
+              <div className="title">Loading event booking…</div>
             ) : step === "review" ? (
               <>
                 <div className="title">Please review your event booking</div>
@@ -531,7 +531,7 @@ export default function AddEventBooking() {
                     onClick={handleConfirm}
                     disabled={creating}
                   >
-                    {creating ? "Creating booking..." : "Confirm and Pay"}
+                    {creating ? "Creating booking…" : "Confirm and Pay"}
                   </button>
                 </div>
               </>
@@ -565,15 +565,16 @@ export default function AddEventBooking() {
                 />
 
                 <div className="field">
-                  <label className="label">
+                  <div className="label" id="event-contact-methods-label">
                     Are you available to contact in the following:
-                  </label>
+                  </div>
 
-                  <div className="options">
+                  <div className="options" role="group" aria-labelledby="event-contact-methods-label">
                     {CONTACT_METHODS.map((method) => (
                       <label className="opt" key={method.value}>
                         <input
                           type="checkbox"
+                          aria-label={method.label}
                           value={method.value}
                           checked={fixedInfo.contact_methods.includes(
                             method.value
@@ -589,9 +590,11 @@ export default function AddEventBooking() {
                 <div className="section-title">BOOKING INFORMATION</div>
 
                 <div className="field">
-                  <label className="label">Event Time</label>
+                  <div className="label" id="event-time-label">Event Time</div>
 
                   <div
+                    role="group"
+                    aria-labelledby="event-time-label"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "1fr 1fr",
@@ -600,6 +603,7 @@ export default function AddEventBooking() {
                   >
                     <input
                       type="time"
+                      aria-label="Event start time"
                       name="start_time"
                       value={fixedInfo.start_time}
                       onChange={handleFixedChange}
@@ -607,6 +611,7 @@ export default function AddEventBooking() {
 
                     <input
                       type="time"
+                      aria-label="Event end time"
                       name="end_time"
                       value={fixedInfo.end_time}
                       onChange={handleFixedChange}
@@ -617,14 +622,16 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Type of Event</label>
+                  <label className="label" htmlFor="event-type">Type of Event</label>
 
                   <select
+                    id="event-type"
                     name="event_type"
+                    aria-label="Type of event"
                     value={fixedInfo.event_type}
                     onChange={handleFixedChange}
                   >
-                    <option value=""></option>
+                    <option value="">Select event type</option>
                     <option value="Birthday Party">Birthday Party</option>
                     <option value="Corporate Event">Corporate Event</option>
                     <option value="Product Launch">Product Launch</option>
@@ -651,9 +658,9 @@ export default function AddEventBooking() {
                 <div className="section-title">CUP PACKAGE</div>
 
                 <div className="field">
-                  <label className="label">Cup Package</label>
+                  <div className="label" id="event-cup-package-label">Cup Package</div>
 
-                  <div className="options">
+                  <div className="options" role="radiogroup" aria-labelledby="event-cup-package-label">
                     {activeCupPackages.length === 0 ? (
                       <div className="small-note">
                         No active cup packages available.
@@ -663,6 +670,7 @@ export default function AddEventBooking() {
                         <label className="opt" key={pkg.id}>
                           <input
                             type="radio"
+                            aria-label={`${pkg.quantity} cups package`}
                             name="cup_package_id"
                             value={pkg.id}
                             checked={
@@ -670,7 +678,7 @@ export default function AddEventBooking() {
                             }
                             onChange={handleEventChange}
                           />
-                          {pkg.quantity} cups — ₱{money(pkg.price_per_cup)}/cup
+                          {pkg.quantity} cups, ₱{money(pkg.price_per_cup)}/cup
                         </label>
                       ))
                     )}
@@ -680,9 +688,9 @@ export default function AddEventBooking() {
                 <div className="section-title">MENU PACKAGE</div>
 
                 <div className="field">
-                  <label className="label">Menu Package</label>
+                  <div className="label" id="event-menu-package-label">Menu Package</div>
 
-                  <div className="options">
+                  <div className="options" role="radiogroup" aria-labelledby="event-menu-package-label">
                     {activeMenuPackages.length === 0 ? (
                       <div className="small-note">
                         No active menu packages available.
@@ -692,6 +700,7 @@ export default function AddEventBooking() {
                         <label className="opt" key={pkg.id}>
                           <input
                             type="radio"
+                            aria-label={`${pkg.label} menu package`}
                             name="menu_package_id"
                             value={pkg.id}
                             checked={
@@ -702,7 +711,7 @@ export default function AddEventBooking() {
                           />
 
                           <span>
-                            {pkg.label} — {pkg.description}
+                            {pkg.label}: {pkg.description}
                             {numberValue(pkg.addon_price) > 0
                               ? ` (+₱${money(pkg.addon_price)})`
                               : ""}
@@ -716,9 +725,9 @@ export default function AddEventBooking() {
                 <div className="section-title">DRINK OPTIONS</div>
 
                 <div className="field">
-                  <label className="label">Preferred Drinks</label>
+                  <div className="label" id="event-preferred-drinks-label">Preferred Drinks</div>
 
-                  <div className="options">
+                  <div className="options" role="group" aria-labelledby="event-preferred-drinks-label">
                     {activeDrinks.length === 0 ? (
                       <div className="small-note">No active drinks available.</div>
                     ) : (
@@ -726,6 +735,7 @@ export default function AddEventBooking() {
                         <label className="opt" key={drink.id}>
                           <input
                             type="checkbox"
+                            aria-label={drink.drink_name}
                             value={drink.id}
                             checked={eventInfo.selected_drink_ids.includes(
                               String(drink.id)
@@ -734,7 +744,7 @@ export default function AddEventBooking() {
                           />
                           {drink.drink_name}
                           {Number(drink.is_signature) === 1
-                            ? " — Signature"
+                            ? " (Signature)"
                             : ""}
                         </label>
                       ))
@@ -743,9 +753,11 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Other Preferred Drinks</label>
+                  <label className="label" htmlFor="event-custom-drinks">Other Preferred Drinks</label>
                   <textarea
+                    id="event-custom-drinks"
                     name="custom_drinks"
+                    aria-label="Other preferred drinks"
                     value={eventInfo.custom_drinks}
                     placeholder="Example: Strawberry Matcha Latte, Hojicha Latte"
                     onChange={handleEventChange}
@@ -753,10 +765,12 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Hojicha Versions</label>
+                  <label className="label" htmlFor="event-hojicha-options">Hojicha Versions</label>
 
                   <select
+                    id="event-hojicha-options"
                     name="hojicha_options"
+                    aria-label="Hojicha versions"
                     value={eventInfo.hojicha_options}
                     onChange={handleEventChange}
                   >
@@ -769,9 +783,11 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label">Other Request</label>
+                  <label className="label" htmlFor="event-other-request">Other Request</label>
                   <textarea
+                    id="event-other-request"
                     name="other_request"
+                    aria-label="Other request"
                     value={fixedInfo.other_request}
                     onChange={handleFixedChange}
                   />
@@ -798,7 +814,7 @@ export default function AddEventBooking() {
                     onClick={handleReview}
                     disabled={checking}
                   >
-                    {checking ? "Checking..." : "Next"}
+                    {checking ? "Checking…" : "Next"}
                   </button>
                 </div>
               </>
@@ -818,11 +834,15 @@ function TextField({
   type = "text",
   readOnly = false,
 }) {
+  const inputId = `event-${name}`;
+
   return (
     <div className="field">
-      <label className="label">{label}</label>
+      <label className="label" htmlFor={inputId}>{label}</label>
       <input
+        id={inputId}
         type={type}
+        aria-label={label}
         name={name}
         value={value}
         onChange={onChange}
@@ -833,10 +853,12 @@ function TextField({
 }
 
 function ReviewRow({ label, value }) {
+  const inputId = `event-review-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
   return (
     <div className="field">
-      <label className="label">{label}</label>
-      <input value={value || ""} readOnly />
+      <label className="label" htmlFor={inputId}>{label}</label>
+      <input id={inputId} aria-label={label} value={value || ""} readOnly />
     </div>
   );
 }

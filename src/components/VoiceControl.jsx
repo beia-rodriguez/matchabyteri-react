@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useReducer,
+  useEffectEvent,
+} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Accessibility,
@@ -34,6 +41,7 @@ const PRIVATE_WORKSHOP_PATH = "/private-workshop";
 function normalizeText(text = "") {
   return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
+
 
 function includesAny(text, phrases = []) {
   return phrases.some((phrase) => text.includes(phrase));
@@ -193,12 +201,14 @@ function findFirstFormError() {
 }
 
 function capitalizeWords(text = "") {
-  return String(text)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
+  const words = [];
+
+  for (const word of String(text).trim().split(/\s+/)) {
+    if (!word) continue;
+    words.push(word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+  }
+
+  return words.join(" ");
 }
 
 function spokenLettersToWord(text = "") {
@@ -261,31 +271,41 @@ function spokenLettersToWord(text = "") {
     zed: "z",
   };
 
-  const words = String(text)
+  const rawWords = String(text)
     .toLowerCase()
     .replace(/letter/gi, "")
     .replace(/dash/gi, "-")
     .replace(/hyphen/gi, "-")
     .replace(/underscore/gi, "_")
     .replace(/space/gi, " ")
-    .split(/\s+/)
-    .filter(Boolean);
+    .split(/\s+/);
 
-  if (!words.length) return null;
+  const converted = [];
 
-  const converted = words.map((word) => {
+  for (const word of rawWords) {
+    if (!word) continue;
+
     const clean = normalizeText(word);
 
-    if (letterMap[clean]) return letterMap[clean];
-    if (/^\d+$/.test(clean)) return clean;
-    if (word === "-" || word === "_") return word;
+    if (letterMap[clean]) {
+      converted.push(letterMap[clean]);
+      continue;
+    }
+
+    if (/^\d+$/.test(clean)) {
+      converted.push(clean);
+      continue;
+    }
+
+    if (word === "-" || word === "_") {
+      converted.push(word);
+      continue;
+    }
 
     return null;
-  });
+  }
 
-  const validCount = converted.filter(Boolean).length;
-
-  if (validCount < 2 || validCount !== converted.length) return null;
+  if (converted.length < 2) return null;
 
   return converted.join("");
 }
@@ -317,10 +337,13 @@ function formatNumbersForSpeech(text = "") {
 
     if (!digitsOnly) return match;
 
-    return digitsOnly
-      .split("")
-      .map((digit) => digitWords[digit] || digit)
-      .join(" ");
+    const spokenDigits = [];
+
+    for (const digit of digitsOnly) {
+      spokenDigits.push(digitWords[digit] || digit);
+    }
+
+    return spokenDigits.join(" ");
   });
 }
 
@@ -344,18 +367,25 @@ function getFieldLabelText(el) {
 }
 
 function getCurrentFormFields() {
-  return getVisibleElements("input, textarea, select").filter(
-    (el) =>
-      !el.closest(".accessibility-bubble-wrapper") &&
-      el.type !== "hidden" &&
-      !el.disabled &&
-      !el.readOnly
-  );
+  const fields = [];
+
+  for (const el of getVisibleElements("input, textarea, select")) {
+    if (el.closest(".accessibility-bubble-wrapper")) continue;
+    if (el.type === "hidden" || el.disabled || el.readOnly) continue;
+
+    fields.push(el);
+  }
+
+  return fields;
 }
 
 function findFieldByKeywords(keywords = []) {
   const fields = getCurrentFormFields();
-  const normalizedKeywords = keywords.map(normalizeText);
+  const normalizedKeywords = [];
+
+  for (const keyword of keywords) {
+    normalizedKeywords.push(normalizeText(keyword));
+  }
 
   return fields.find((el) => {
     const id = el.id || "";
@@ -398,16 +428,164 @@ function selectOptionByVoice(key, speak) {
   return false;
 }
 
+const CHECKABLE_OPTIONS = [
+  { key: "text", termPattern: /selecttext|choosetext|textmessage/, labelPattern: /text/ },
+  { key: "call", termPattern: /selectcall|choosecall|callme/, labelPattern: /call/ },
+  { key: "viber", termPattern: /selectviber|chooseviber|viber/, labelPattern: /viber/ },
+  {
+    key: "whatsapp",
+    termPattern: /selectwhatsapp|choosewhatsapp|whatsapp|whatsup/,
+    labelPattern: /whatsapp/,
+  },
+  { key: "50cups", termPattern: /50cups|fiftycups|select50cups/, labelPattern: /50cups/ },
+  { key: "75cups", termPattern: /75cups|seventyfivecups/, labelPattern: /75cups/ },
+  { key: "100cups", termPattern: /100cups|onehundredcups/, labelPattern: /100cups/ },
+  { key: "150cups", termPattern: /150cups|onehundredfiftycups/, labelPattern: /150cups/ },
+  { key: "200cups", termPattern: /200cups|twohundredcups/, labelPattern: /200cups/ },
+  { key: "4menu", termPattern: /4menu|fourmenu|4menuitems/, labelPattern: /4menu/ },
+  { key: "6menu", termPattern: /6menu|sixmenu|6menuitems/, labelPattern: /6menu/ },
+  { key: "8menu", termPattern: /8menu|eightmenu|8menuitems/, labelPattern: /8menu/ },
+  { key: "customized", termPattern: /customized|customizedcups/, labelPattern: /customized/ },
+  { key: "oatmilk", termPattern: /oatmilk|oat|outmilk/, labelPattern: /oatmilk/ },
+  { key: "dairymilk", termPattern: /dairymilk|dairy/, labelPattern: /dairymilk/ },
+  { key: "nonfat", termPattern: /nonfat|nonfatmilk/, labelPattern: /nonfat/ },
+  { key: "extrastaff", termPattern: /extrastaff|extraboard/, labelPattern: /extrastaff/ },
+  { key: "sintra", termPattern: /sintra|sintraboard|sintraboardsign/, labelPattern: /sintra/ },
+];
+
+const FORM_FIELDS = [
+  {
+    spoken: "full name",
+    keywords: ["fullname", "full name", "name"],
+  },
+  {
+    spoken: "phone number",
+    keywords: ["phonenumber", "phone number", "phone", "mobile", "contact"],
+  },
+  {
+    spoken: "email",
+    keywords: ["emailaddress", "email address", "email"],
+  },
+  {
+    spoken: "text",
+    keywords: ["text"],
+  },
+  {
+    spoken: "viber",
+    keywords: ["viber"],
+  },
+  {
+    spoken: "call",
+    keywords: ["call"],
+  },
+  {
+    spoken: "whatsapp",
+    keywords: ["whatsapp", "whats app", "whatsup"],
+  },
+  {
+    spoken: "work hours",
+    keywords: ["workhours", "workinghours", "work hours", "hours"],
+  },
+  {
+    spoken: "type of event",
+    keywords: ["typeofevent", "eventtype", "type of event", "event category", "category"],
+  },
+  {
+    spoken: "event name",
+    keywords: ["eventname", "event name"],
+  },
+  {
+    spoken: "location",
+    keywords: ["location", "venue", "address"],
+  },
+  {
+    spoken: "estimated number of guests",
+    keywords: ["estimatednumberofguest", "estimatednumberofguests", "guests", "guest", "numberofguest"],
+  },
+  {
+    spoken: "request",
+    keywords: ["otherrequest", "other request", "request", "message", "notes"],
+  },
+  {
+    spoken: "other request",
+    keywords: ["otherrequest", "other request", "request", "message", "notes"],
+  },
+];
+
+const FORM_FIELD_COMMAND_MAP = new Map();
+
+for (const field of FORM_FIELDS) {
+  const command = normalizeText(field.spoken);
+  FORM_FIELD_COMMAND_MAP.set(command, field);
+  FORM_FIELD_COMMAND_MAP.set(`select${command}`, field);
+}
+
 export default function VoiceControl() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { pathname } = useLocation();
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [showTools, setShowTools] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isHearing, setIsHearing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Microphone is off.");
+  const [voiceUiState, setVoiceUiState] = useReducer(
+    (current, update) => ({
+      ...current,
+      ...(typeof update === "function" ? update(current) : update),
+    }),
+    {
+      isOpen: false,
+      showTools: false,
+      showShortcuts: false,
+      isListening: false,
+      isHearing: false,
+      statusMessage: "Microphone is off.",
+    }
+  );
+
+  const {
+    isOpen,
+    showTools,
+    showShortcuts,
+    isListening,
+    isHearing,
+    statusMessage,
+  } = voiceUiState;
+
+  const setIsOpen = useCallback((value) => {
+    setVoiceUiState((current) => ({
+      isOpen: typeof value === "function" ? value(current.isOpen) : value,
+    }));
+  }, []);
+
+  const setShowTools = useCallback((value) => {
+    setVoiceUiState((current) => ({
+      showTools: typeof value === "function" ? value(current.showTools) : value,
+    }));
+  }, []);
+
+  const setShowShortcuts = useCallback((value) => {
+    setVoiceUiState((current) => ({
+      showShortcuts:
+        typeof value === "function" ? value(current.showShortcuts) : value,
+    }));
+  }, []);
+
+  const setIsListening = useCallback((value) => {
+    setVoiceUiState((current) => ({
+      isListening:
+        typeof value === "function" ? value(current.isListening) : value,
+    }));
+  }, []);
+
+  const setIsHearing = useCallback((value) => {
+    setVoiceUiState((current) => ({
+      isHearing: typeof value === "function" ? value(current.isHearing) : value,
+    }));
+  }, []);
+
+  const setStatusMessage = useCallback((value) => {
+    setVoiceUiState((current) => ({
+      statusMessage:
+        typeof value === "function" ? value(current.statusMessage) : value,
+    }));
+  }, []);
 
   const [isTabReaderOn, setIsTabReaderOn] = useState(
     () => localStorage.getItem("tabReader") === "on"
@@ -499,7 +677,7 @@ export default function VoiceControl() {
     hearingTimeoutRef.current = window.setTimeout(() => {
       setIsHearing(false);
     }, 900);
-  }, [clearHearingTimer]);
+  }, [clearHearingTimer, setIsHearing]);
 
   const startRecognitionSafely = useCallback(
     (message = "Listening...", attempt = 0) => {
@@ -562,7 +740,7 @@ export default function VoiceControl() {
         );
       }
     },
-    []
+    [setIsHearing, setIsListening, setStatusMessage]
   );
 
   const speak = useCallback(
@@ -656,7 +834,7 @@ export default function VoiceControl() {
 
       speakNext();
     },
-    [splitSpeechText, startRecognitionSafely]
+    [splitSpeechText, startRecognitionSafely, setIsHearing, setStatusMessage]
   );
 
   const speakInstructions = useCallback(() => {
@@ -701,7 +879,7 @@ export default function VoiceControl() {
         ? "Speech stopped. Microphone is still listening."
         : "Speech stopped."
     );
-  }, [startRecognitionSafely]);
+  }, [startRecognitionSafely, setStatusMessage]);
 
   const stopMicrophone = useCallback(() => {
     shouldRestartRef.current = false;
@@ -731,7 +909,7 @@ export default function VoiceControl() {
     recognitionActiveRef.current = false;
     setIsListening(false);
     setStatusMessage("Microphone is off.");
-  }, [clearHearingTimer]);
+  }, [clearHearingTimer, setIsHearing, setIsListening, setStatusMessage]);
 
   const startMicrophoneOnly = useCallback(() => {
     if (recognitionActiveRef.current || recognitionStartingRef.current) return;
@@ -800,31 +978,34 @@ export default function VoiceControl() {
             )
           );
 
-    const readableItems = readableElements
-      .filter((el) => {
-        if (el.closest(".accessibility-bubble-wrapper")) return false;
+    const readableItems = [];
 
-        const style = window.getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
+    for (const el of readableElements) {
+      if (el.closest(".accessibility-bubble-wrapper")) continue;
 
-        return (
-          style.display !== "none" &&
-          style.visibility !== "hidden" &&
-          rect.width > 0 &&
-          rect.height > 0
-        );
-      })
-      .map((el) => {
-        if (el.tagName === "IMG") {
-          return el.getAttribute("alt") || "";
-        }
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
 
-        return (
-          el.getAttribute("aria-label") || el.innerText || el.textContent || ""
-        );
-      })
-      .map((text) => text.replace(/\s+/g, " ").trim())
-      .filter(Boolean);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        continue;
+      }
+
+      const rawText =
+        el.tagName === "IMG"
+          ? el.getAttribute("alt") || ""
+          : el.getAttribute("aria-label") || el.innerText || el.textContent || "";
+
+      const cleanedText = rawText.replace(/\s+/g, " ").trim();
+
+      if (cleanedText) {
+        readableItems.push(cleanedText);
+      }
+    }
 
     if (!readableItems.length) {
       speak("No readable content found.");
@@ -835,10 +1016,17 @@ export default function VoiceControl() {
   }, [speak]);
 
   const readButtons = useCallback(() => {
-    const buttons = getVisibleElements("button, a")
-      .filter((el) => !el.closest(".accessibility-bubble-wrapper"))
-      .map((el) => getReadableText(el))
-      .filter(Boolean);
+    const buttons = [];
+
+    for (const el of getVisibleElements("button, a")) {
+      if (el.closest(".accessibility-bubble-wrapper")) continue;
+
+      const text = getReadableText(el);
+
+      if (text) {
+        buttons.push(text);
+      }
+    }
 
     if (!buttons.length) {
       speak("No visible buttons or links found.");
@@ -849,9 +1037,15 @@ export default function VoiceControl() {
   }, [speak]);
 
   const readFields = useCallback(() => {
-    const fields = getCurrentFormFields()
-      .map((el) => getFieldLabelText(el))
-      .filter(Boolean);
+    const fields = [];
+
+    for (const el of getCurrentFormFields()) {
+      const label = getFieldLabelText(el);
+
+      if (label) {
+        fields.push(label);
+      }
+    }
 
     if (!fields.length) {
       speak("No visible form fields found.");
@@ -868,13 +1062,21 @@ export default function VoiceControl() {
   const readSummary = useCallback(() => {
     const title = getPageName();
 
-    const buttons = getVisibleElements("button").filter(
-      (el) => !el.closest(".accessibility-bubble-wrapper")
-    ).length;
+    let buttons = 0;
 
-    const links = getVisibleElements("a").filter(
-      (el) => !el.closest(".accessibility-bubble-wrapper")
-    ).length;
+    for (const el of getVisibleElements("button")) {
+      if (!el.closest(".accessibility-bubble-wrapper")) {
+        buttons += 1;
+      }
+    }
+
+    let links = 0;
+
+    for (const el of getVisibleElements("a")) {
+      if (!el.closest(".accessibility-bubble-wrapper")) {
+        links += 1;
+      }
+    }
 
     const fields = getCurrentFormFields().length;
 
@@ -986,7 +1188,7 @@ export default function VoiceControl() {
     window.setTimeout(() => {
       setShowTools(false);
     }, 700);
-  }, []);
+  }, [setShowTools]);
 
   const handleMiniAction = useCallback(
     (action) => {
@@ -999,7 +1201,7 @@ export default function VoiceControl() {
   const speakFormVoiceGuide = useCallback(() => {
     const pageName = getPageName();
 
-    if (!isBookingPage(location.pathname)) {
+    if (!isBookingPage(pathname)) {
       speak(`Voice assistance is on. This is ${pageName} page.`);
       return;
     }
@@ -1024,7 +1226,7 @@ export default function VoiceControl() {
         firstField
       )}. Please say your answer.`
     );
-  }, [location.pathname, speak]);
+  }, [pathname, speak]);
 
   const readCurrentQuestion = useCallback(() => {
     const activeInput =
@@ -1133,7 +1335,7 @@ export default function VoiceControl() {
     setStatusMessage("Voice assistance is starting.");
 
     speakFormVoiceGuide();
-  }, [speakFormVoiceGuide, stopMicrophone]);
+  }, [speakFormVoiceGuide, stopMicrophone, setIsHearing, setIsListening, setStatusMessage]);
 
   const applyTextScale = useCallback(() => {
     const scalableSelectors = [
@@ -1230,7 +1432,7 @@ export default function VoiceControl() {
     return () => {
       observer.disconnect();
     };
-  }, [applyTextScale, textScale, location.pathname]);
+  }, [applyTextScale, textScale, pathname]);
 
   useEffect(() => {
     localStorage.setItem("accessButtonPosition", position);
@@ -1240,8 +1442,7 @@ export default function VoiceControl() {
     isListeningRef.current = isListening;
   }, [isListening]);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
+  const handleGlobalKeyDown = useEffectEvent((event) => {
       const target = event.target;
       const tag = target?.tagName?.toLowerCase();
       const key = event.key.toLowerCase();
@@ -1388,9 +1589,9 @@ export default function VoiceControl() {
           stopTalking();
         }
       }
-    };
+    });
 
-    const handleKeyUp = (event) => {
+  const handleGlobalKeyUp = useEffectEvent((event) => {
       const target = event.target;
       const tag = target?.tagName?.toLowerCase();
       const key = event.key.toLowerCase();
@@ -1428,7 +1629,18 @@ export default function VoiceControl() {
           setStatusMessage("Microphone is off.");
         }
       }
+    });
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      handleGlobalKeyDown(event);
     };
+
+    const handleKeyUp = (event) => {
+      handleGlobalKeyUp(event);
+    };
+
+    const shortcutState = shortcutRef.current;
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
@@ -1437,42 +1649,38 @@ export default function VoiceControl() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
 
-      if (shortcutRef.current.timer) {
-        clearTimeout(shortcutRef.current.timer);
+      if (shortcutState.timer) {
+        clearTimeout(shortcutState.timer);
       }
     };
-  }, [
-    isOpen,
-    toggleMicrophone,
-    toggleTabReader,
-    stopTalking,
-    startMicrophoneOnly,
-    speakInstructions,
-    readHelp,
-  ]);
+  }, []);
+
+  const handleTabReaderFocus = useEffectEvent((event) => {
+    const el = event.target;
+
+    if (!el || el === document.body || el === document.documentElement) {
+      return;
+    }
+
+    if (el.closest(".accessibility-bubble-wrapper")) return;
+
+    const textToRead = getReadableText(el);
+
+    if (!textToRead) return;
+    if (lastSpokenRef.current === textToRead) return;
+
+    lastSpokenRef.current = textToRead;
+    speak(textToRead, { rate: 0.9 });
+  });
 
   useEffect(() => {
     if (!isTabReaderOn) {
       window.speechSynthesis.cancel();
-      return;
+      return undefined;
     }
 
     const handleFocus = (event) => {
-      const el = event.target;
-
-      if (!el || el === document.body || el === document.documentElement) {
-        return;
-      }
-
-      if (el.closest(".accessibility-bubble-wrapper")) return;
-
-      const textToRead = getReadableText(el);
-
-      if (!textToRead) return;
-      if (lastSpokenRef.current === textToRead) return;
-
-      lastSpokenRef.current = textToRead;
-      speak(textToRead, { rate: 0.9 });
+      handleTabReaderFocus(event);
     };
 
     document.addEventListener("focus", handleFocus, true);
@@ -1481,7 +1689,7 @@ export default function VoiceControl() {
       document.removeEventListener("focus", handleFocus, true);
       window.speechSynthesis.cancel();
     };
-  }, [isTabReaderOn, speak]);
+  }, [isTabReaderOn]);
 
   useEffect(() => {
     return () => {
@@ -1957,158 +2165,44 @@ export default function VoiceControl() {
         }
       }
 
-      const checkables = {
-        text: ["selecttext", "choose text", "text message"],
-        call: ["selectcall", "choose call", "call me"],
-        viber: ["selectviber", "choose viber", "viber"],
-        whatsapp: [
-          "selectwhatsapp",
-          "choose whatsapp",
-          "whatsapp",
-          "what'sapp",
-          "what sup",
-          "whatsup",
-        ],
-        "50cups": ["50cups", "fiftycups", "select50cups"],
-        "75cups": ["75cups", "seventyfivecups"],
-        "100cups": ["100cups", "onehundredcups"],
-        "150cups": ["150cups", "onehundredfiftycups"],
-        "200cups": ["200cups", "twohundredcups"],
-        "4menu": ["4menu", "fourmenu", "4menuitems"],
-        "6menu": ["6menu", "sixmenu", "6menuitems"],
-        "8menu": ["8menu", "eightmenu", "8menuitems"],
-        customized: ["customized", "customizedcups"],
-        oatmilk: ["oatmilk", "oat", "outmilk"],
-        dairymilk: ["dairymilk", "dairy"],
-        nonfat: ["nonfat", "nonfatmilk"],
-        extrastaff: ["extrastaff", "extraboard"],
-        sintra: ["sintra", "sintraboard", "sintraboardsign"],
-      };
+      const optionLabelMap = new Map();
 
-      for (const [key, terms] of Object.entries(checkables)) {
-        if (terms.some((t) => cleanTranscript.includes(normalizeText(t)))) {
-          const optionLabels = Array.from(document.querySelectorAll("label.opt"));
+      for (const label of document.querySelectorAll("label.opt")) {
+        const normalizedLabelText = normalizeText(label.innerText);
 
-          const targetLabel = optionLabels.find((label) =>
-            normalizeText(label.innerText).includes(key)
-          );
-
-          if (targetLabel) {
-            const input = targetLabel.querySelector("input");
-
-            if (input) input.click();
-            else targetLabel.click();
-
-            speak(
-              `Selected ${key.replace("cups", " cups").replace("menu", " menu")}.`
-            );
-            return;
+        for (const option of CHECKABLE_OPTIONS) {
+          if (!optionLabelMap.has(option.key) && option.labelPattern.test(normalizedLabelText)) {
+            optionLabelMap.set(option.key, label);
           }
-
-          if (selectOptionByVoice(key, speak)) return;
         }
       }
 
-      const formFields = [
-        {
-          spoken: "full name",
-          keywords: ["fullname", "full name", "name"],
-        },
-        {
-          spoken: "phone number",
-          keywords: [
-            "phonenumber",
-            "phone number",
-            "phone",
-            "mobile",
-            "contact",
-          ],
-        },
-        {
-          spoken: "email",
-          keywords: ["emailaddress", "email address", "email"],
-        },
-        {
-          spoken: "text",
-          keywords: ["text"],
-        },
-        {
-          spoken: "viber",
-          keywords: ["viber"],
-        },
-        {
-          spoken: "call",
-          keywords: ["call"],
-        },
-        {
-          spoken: "whatsapp",
-          keywords: ["whatsapp", "whats app", "whatsup"],
-        },
-        {
-          spoken: "work hours",
-          keywords: ["workhours", "workinghours", "work hours", "hours"],
-        },
-        {
-          spoken: "type of event",
-          keywords: [
-            "typeofevent",
-            "eventtype",
-            "type of event",
-            "event category",
-            "category",
-          ],
-        },
-        {
-          spoken: "event name",
-          keywords: ["eventname", "event name"],
-        },
-        {
-          spoken: "location",
-          keywords: ["location", "venue", "address"],
-        },
-        {
-          spoken: "estimated number of guests",
-          keywords: [
-            "estimatednumberofguest",
-            "estimatednumberofguests",
-            "guests",
-            "guest",
-            "numberofguest",
-          ],
-        },
-        {
-          spoken: "request",
-          keywords: [
-            "otherrequest",
-            "other request",
-            "request",
-            "message",
-            "notes",
-          ],
-        },
-        {
-          spoken: "other request",
-          keywords: [
-            "otherrequest",
-            "other request",
-            "request",
-            "message",
-            "notes",
-          ],
-        },
-      ];
+      for (const option of CHECKABLE_OPTIONS) {
+        if (!option.termPattern.test(cleanTranscript)) continue;
 
-      for (const field of formFields) {
-        const fieldCommand = normalizeText(field.spoken);
+        const { key } = option;
+        const targetLabel = optionLabelMap.get(key);
 
-        if (
-          cleanTranscript === fieldCommand ||
-          cleanTranscript === `select${fieldCommand}` ||
-          cleanTranscript.includes(`select${fieldCommand}`)
-        ) {
-          selectField(field.spoken, field.keywords);
+        if (targetLabel) {
+          const input = targetLabel.querySelector("input");
+
+          if (input) input.click();
+          else targetLabel.click();
+
+          speak(
+            `Selected ${key.replace("cups", " cups").replace("menu", " menu")}.`
+          );
           return;
         }
+
+        if (selectOptionByVoice(key, speak)) return;
+      }
+
+      const directField = FORM_FIELD_COMMAND_MAP.get(cleanTranscript);
+
+      if (directField) {
+        selectField(directField.spoken, directField.keywords);
+        return;
       }
 
       if (
@@ -2198,11 +2292,11 @@ export default function VoiceControl() {
         return;
       }
 
-      const isOnDayPage = location.pathname.includes("/day");
+      const isOnDayPage = pathname.includes("/day");
       const isOnEventPage =
-        location.pathname.includes("/event") ||
-        location.pathname.includes("/add-booking") ||
-        location.pathname.includes("/booking");
+        pathname.includes("/event") ||
+        pathname.includes("/add-booking") ||
+        pathname.includes("/booking");
 
       if (
         lowerTranscript === "event" ||
@@ -2477,7 +2571,7 @@ export default function VoiceControl() {
     },
     [
       navigate,
-      location.pathname,
+      pathname,
       speak,
       stopMicrophone,
       stopTalking,
@@ -2494,185 +2588,205 @@ export default function VoiceControl() {
       readCurrentQuestion,
       readNextQuestion,
       addSpaceToActiveField,
+      setIsHearing,
+      setStatusMessage,
     ]
   );
 
-  useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+useEffect(() => {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
-      setStatusMessage(
-        "Voice assistance is not supported in this browser. Please use Chrome or Edge."
-      );
+  if (!SpeechRecognition) {
+    setStatusMessage(
+      "Voice assistance is not supported in this browser. Please use Chrome or Edge."
+    );
+    return undefined;
+  }
+
+  const recognition = new SpeechRecognition();
+  let restartTimer = null;
+  let isEffectCleanedUp = false;
+
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+  recognition.maxAlternatives = 3;
+
+  recognition.onstart = () => {
+    if (isEffectCleanedUp) return;
+
+    recognitionStartingRef.current = false;
+    recognitionActiveRef.current = true;
+    noSpeechRetryRef.current = 0;
+
+    setIsListening(true);
+    setStatusMessage("Microphone is active. Speak now.");
+  };
+
+  recognition.onresult = async (event) => {
+    if (isEffectCleanedUp) return;
+    if (isAssistantSpeakingRef.current) return;
+    if (Date.now() < ignoreVoiceUntilRef.current) return;
+
+    let finalTranscript = "";
+    let interimTranscript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      const transcript = event.results[i][0].transcript.trim();
+
+      if (event.results[i].isFinal) {
+        finalTranscript += ` ${transcript}`;
+      } else {
+        interimTranscript += ` ${transcript}`;
+      }
+    }
+
+    if (interimTranscript.trim()) {
+      markHearing();
+      setStatusMessage(`Hearing: "${interimTranscript.trim()}"`);
+    }
+
+    const cleanedFinal = finalTranscript.trim();
+
+    if (!cleanedFinal) return;
+
+    noSpeechRetryRef.current = 0;
+
+    const now = Date.now();
+
+    if (
+      lastTranscriptRef.current.text === cleanedFinal &&
+      now - lastTranscriptRef.current.time < 1500
+    ) {
       return;
     }
 
-    const recognition = new SpeechRecognition();
-
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognition.maxAlternatives = 3;
-
-    recognition.onstart = () => {
-      recognitionStartingRef.current = false;
-      recognitionActiveRef.current = true;
-      noSpeechRetryRef.current = 0;
-
-      setIsListening(true);
-      setStatusMessage("Microphone is active. Speak now.");
+    lastTranscriptRef.current = {
+      text: cleanedFinal,
+      time: now,
     };
 
-    recognition.onresult = async (event) => {
-      if (isAssistantSpeakingRef.current) return;
-      if (Date.now() < ignoreVoiceUntilRef.current) return;
+    await handleTranscript(cleanedFinal);
+  };
 
-      let finalTranscript = "";
-      let interimTranscript = "";
+  recognition.onerror = (event) => {
+    if (isEffectCleanedUp) return;
 
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const transcript = event.results[i][0].transcript.trim();
+    recognitionStartingRef.current = false;
 
-        if (event.results[i].isFinal) {
-          finalTranscript += ` ${transcript}`;
-        } else {
-          interimTranscript += ` ${transcript}`;
-        }
-      }
-
-      if (interimTranscript.trim()) {
-        markHearing();
-        setStatusMessage(`Hearing: "${interimTranscript.trim()}"`);
-      }
-
-      const cleanedFinal = finalTranscript.trim();
-
-      if (!cleanedFinal) return;
-
-      noSpeechRetryRef.current = 0;
-
-      const now = Date.now();
-
-      if (
-        lastTranscriptRef.current.text === cleanedFinal &&
-        now - lastTranscriptRef.current.time < 1500
-      ) {
-        return;
-      }
-
-      lastTranscriptRef.current = {
-        text: cleanedFinal,
-        time: now,
-      };
-
-      await handleTranscript(cleanedFinal);
-    };
-
-    recognition.onerror = (event) => {
-      recognitionStartingRef.current = false;
-
-      if (
-        event.error === "not-allowed" ||
-        event.error === "service-not-allowed"
-      ) {
-        shouldRestartRef.current = false;
-        keepListeningRef.current = false;
-        manualStopRef.current = true;
-        recognitionActiveRef.current = false;
-
-        setIsListening(false);
-        setIsHearing(false);
-        setStatusMessage("Microphone permission was denied.");
-        return;
-      }
-
-      if (event.error === "no-speech") {
-        noSpeechRetryRef.current += 1;
-        setStatusMessage("I did not hear anything.");
-
-        if (noSpeechRetryRef.current <= 3 && keepListeningRef.current) {
-          shouldRestartRef.current = true;
-          return;
-        }
-
-        speak("I did not hear anything. Press Alt Shift M to try again.");
-        stopMicrophone();
-        return;
-      }
-
-      if (event.error === "aborted") {
-        setStatusMessage("Voice recognition was interrupted.");
-        return;
-      }
-
-      if (event.error === "network") {
-        setStatusMessage("Voice recognition network error. Trying again.");
-
-        if (keepListeningRef.current) {
-          shouldRestartRef.current = true;
-        }
-
-        return;
-      }
-
-      setStatusMessage(`Voice error: ${event.error}`);
-    };
-
-    recognition.onend = () => {
-      recognitionActiveRef.current = false;
-      recognitionStartingRef.current = false;
-
-      if (pauseRecognitionForSpeechRef.current || isAssistantSpeakingRef.current) {
-        return;
-      }
-
-      if (manualStopRef.current || !keepListeningRef.current) {
-        setIsListening(false);
-        setIsHearing(false);
-        setStatusMessage("Microphone is off.");
-        return;
-      }
-
-      if (shouldRestartRef.current) {
-        if (recognitionRestartTimerRef.current) {
-          clearTimeout(recognitionRestartTimerRef.current);
-        }
-
-        recognitionRestartTimerRef.current = window.setTimeout(() => {
-          startRecognitionSafely("Listening...");
-        }, 800);
-
-        return;
-      }
-
-      setIsListening(false);
-      setIsHearing(false);
-      setStatusMessage("Microphone is off.");
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
+    if (
+      event.error === "not-allowed" ||
+      event.error === "service-not-allowed"
+    ) {
       shouldRestartRef.current = false;
       keepListeningRef.current = false;
       manualStopRef.current = true;
       recognitionActiveRef.current = false;
-      recognitionStartingRef.current = false;
 
-      if (recognitionRestartTimerRef.current) {
-        clearTimeout(recognitionRestartTimerRef.current);
+      setIsListening(false);
+      setIsHearing(false);
+      setStatusMessage("Microphone permission was denied.");
+      return;
+    }
+
+    if (event.error === "no-speech") {
+      noSpeechRetryRef.current += 1;
+      setStatusMessage("I did not hear anything.");
+
+      if (noSpeechRetryRef.current <= 3 && keepListeningRef.current) {
+        shouldRestartRef.current = true;
+        return;
       }
 
-      try {
-        recognition.stop();
-      } catch {
-        // ignore stop error
+      speak("I did not hear anything. Press Alt Shift M to try again.");
+      stopMicrophone();
+      return;
+    }
+
+    if (event.error === "aborted") {
+      setStatusMessage("Voice recognition was interrupted.");
+      return;
+    }
+
+    if (event.error === "network") {
+      setStatusMessage("Voice recognition network error. Trying again.");
+
+      if (keepListeningRef.current) {
+        shouldRestartRef.current = true;
       }
 
-      window.speechSynthesis.cancel();
-    };
-  }, [handleTranscript, markHearing, speak, startRecognitionSafely, stopMicrophone]);
+      return;
+    }
+
+    setStatusMessage(`Voice error: ${event.error}`);
+  };
+
+  recognition.onend = () => {
+    if (isEffectCleanedUp) return;
+
+    recognitionActiveRef.current = false;
+    recognitionStartingRef.current = false;
+
+    if (pauseRecognitionForSpeechRef.current || isAssistantSpeakingRef.current) {
+      return;
+    }
+
+    if (manualStopRef.current || !keepListeningRef.current) {
+      setIsListening(false);
+      setIsHearing(false);
+      setStatusMessage("Microphone is off.");
+      return;
+    }
+
+    if (shouldRestartRef.current) {
+      if (restartTimer) {
+        clearTimeout(restartTimer);
+      }
+
+      restartTimer = window.setTimeout(() => {
+        startRecognitionSafely("Listening...");
+      }, 800);
+
+      return;
+    }
+
+    setIsListening(false);
+    setIsHearing(false);
+    setStatusMessage("Microphone is off.");
+  };
+
+  recognitionRef.current = recognition;
+
+  return () => {
+    isEffectCleanedUp = true;
+
+    if (restartTimer) {
+      clearTimeout(restartTimer);
+    }
+
+    if (recognitionRef.current === recognition) {
+      recognitionRef.current = null;
+    }
+
+    try {
+      recognition.stop();
+    } catch {
+      // ignore stop error
+    }
+
+    window.speechSynthesis.cancel();
+  };
+}, [
+  handleTranscript,
+  markHearing,
+  setIsHearing,
+  setIsListening,
+  setStatusMessage,
+  speak,
+  startRecognitionSafely,
+  stopMicrophone,
+]);
 
   return (
     <div

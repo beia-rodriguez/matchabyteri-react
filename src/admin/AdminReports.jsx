@@ -17,6 +17,12 @@ import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "@/assets/css/admin-reports.css";
 
+const TABS = [
+  { id: "public", label: "Public Workshops", icon: GraduationCap },
+  { id: "private-workshop", label: "Private Workshops", icon: ClipboardList },
+  { id: "private-event", label: "Private Events", icon: PartyPopper },
+];
+
 function money(value) {
   return `₱${Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
@@ -233,12 +239,6 @@ export default function AdminReports() {
     loadData({});
   };
 
-  const tabs = [
-    { id: "public", label: "Public Workshops", icon: GraduationCap },
-    { id: "private-workshop", label: "Private Workshops", icon: ClipboardList },
-    { id: "private-event", label: "Private Events", icon: PartyPopper },
-  ];
-
   return (
     <AdminLayout title="Sales Reports">
       {error && (
@@ -255,24 +255,28 @@ export default function AdminReports() {
 
         <form onSubmit={applyFilters} className="reports-filter-form">
           <div className="reports-filter-field">
-            <label className="admin-muted-react">
+            <label className="admin-muted-react" htmlFor="reports-from-date">
               <CalendarDays size={14} /> From
             </label>
             <input
+              id="reports-from-date"
               className="admin-input-react"
               type="date"
+              aria-label="From date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
             />
           </div>
 
           <div className="reports-filter-field">
-            <label className="admin-muted-react">
+            <label className="admin-muted-react" htmlFor="reports-to-date">
               <CalendarDays size={14} /> To
             </label>
             <input
+              id="reports-to-date"
               className="admin-input-react"
               type="date"
+              aria-label="To date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
             />
@@ -284,7 +288,7 @@ export default function AdminReports() {
             disabled={loading}
           >
             <Filter size={16} />
-            {loading ? "Loading..." : "Apply"}
+            {loading ? "Loading…" : "Apply"}
           </button>
 
           {(from || to) && (
@@ -302,7 +306,7 @@ export default function AdminReports() {
 
       <div className="admin-panel-react reports-main-panel">
         <div className="admin-tabs-react reports-tabs">
-          {tabs.map((item) => {
+          {TABS.map((item) => {
             const Icon = item.icon;
 
             return (
@@ -311,6 +315,7 @@ export default function AdminReports() {
                 type="button"
                 className={`admin-tab-react ${tab === item.id ? "active" : ""}`}
                 onClick={() => setTab(item.id)}
+                aria-label={item.label}
               >
                 <Icon size={15} />
                 {item.label}
@@ -324,7 +329,7 @@ export default function AdminReports() {
         {loading ? (
           <div className="admin-muted-react reports-loading">
             <Clock3 size={17} />
-            Loading report data...
+            Loading report data…
           </div>
         ) : activeRows.length === 0 ? (
           <div className="reports-empty-state">

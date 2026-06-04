@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PlusCircle,
   Search,
@@ -131,19 +131,23 @@ export default function AdminWorkshops() {
     setErr("");
   };
 
-  const loadData = async (nextTab = tab, nextWorkshopId = selectedWorkshopId) => {
+  const loadData = useCallback(async (nextTab = "list", nextWorkshopId = 0) => {
     try {
       setLoading(true);
       setErr("");
 
-      const apiTab = (nextTab === "list" || nextTab === "add") ? "workshops" : nextTab;
+      const apiTab =
+        nextTab === "list" || nextTab === "add" ? "workshops" : nextTab;
+
       const params = { tab: apiTab };
 
       if (nextTab === "registrations" && Number(nextWorkshopId) > 0) {
         params.workshop_id = nextWorkshopId;
       }
 
-      const { data } = await adminApi.get("/admin/admin-workshops.php", { params });
+      const { data } = await adminApi.get("/admin/admin-workshops.php", {
+        params,
+      });
 
       if (data?.error) {
         setErr(data.error);
@@ -155,17 +159,19 @@ export default function AdminWorkshops() {
       setRegCounts(data?.regCounts || {});
       setSelectedWorkshopId(Number(data?.selectedWorkshopId || 0));
       setSelectedWorkshop(data?.selectedWorkshop || null);
-      setSelectedRegs(Array.isArray(data?.selectedRegs) ? data.selectedRegs : []);
+      setSelectedRegs(
+        Array.isArray(data?.selectedRegs) ? data.selectedRegs : []
+      );
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to load workshops.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData("list", 0);
-  }, []);
+  }, [loadData]);
 
   const filteredWorkshops = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -420,6 +426,7 @@ export default function AdminWorkshops() {
               <label className="admin-search-wrap" htmlFor="workshop-search" style={{ position: 'relative' }}>
                 <Search size={16} className="admin-search-icon" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} aria-hidden="true" />
                 <input
+                  aria-label="Search workshops"
                   id="workshop-search"
                   className="admin-input-react"
                   style={{ paddingLeft: '36px', width: '250px' }}
@@ -432,6 +439,7 @@ export default function AdminWorkshops() {
               </label>
 
               <select
+                aria-label="Workshop status filter"
                 id="workshop-status-filter"
                 className="admin-input-react"
                 value={statusFilter}
@@ -508,7 +516,7 @@ export default function AdminWorkshops() {
                             onError={(e) => { e.currentTarget.style.display = "none"; }}
                           />
                         ) : (
-                          <div className="poster-placeholder-react" style={{ width: '140px', height: '140px', background: '#f9fbf9', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--line)' }}>
+                          <div className="poster-placeholder-react aw-poster-placeholder">
                             <ImageIcon size={32} color="var(--muted)" />
                           </div>
                         )}
@@ -552,30 +560,30 @@ export default function AdminWorkshops() {
                         <div className="admin-form-row-react admin-form-row-three">
                           <div>
                             <FieldLabel htmlFor={`edit-title-${wid}`}>Title</FieldLabel>
-                            <input id={`edit-title-${wid}`} className="admin-input-react" type="text" value={form.title || ""} onChange={(e) => handleEditChange(wid, "title", e.target.value)} required />
+                            <input id={`edit-title-${wid}`} className="admin-input-react" type="text" aria-label="Edit workshop title" value={form.title || ""} onChange={(e) => handleEditChange(wid, "title", e.target.value)} required />
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-date-${wid}`}>Date</FieldLabel>
-                            <input id={`edit-date-${wid}`} className="admin-input-react" type="date" value={form.workshop_date || ""} onChange={(e) => handleEditChange(wid, "workshop_date", e.target.value)} required />
+                            <input id={`edit-date-${wid}`} className="admin-input-react" type="date" aria-label="Edit workshop date" value={form.workshop_date || ""} onChange={(e) => handleEditChange(wid, "workshop_date", e.target.value)} required />
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-location-${wid}`}>Location</FieldLabel>
-                            <input id={`edit-location-${wid}`} className="admin-input-react" type="text" value={form.location || ""} onChange={(e) => handleEditChange(wid, "location", e.target.value)} required />
+                            <input id={`edit-location-${wid}`} className="admin-input-react" type="text" aria-label="Edit workshop location" value={form.location || ""} onChange={(e) => handleEditChange(wid, "location", e.target.value)} required />
                           </div>
                         </div>
 
                         <div className="admin-form-row-react admin-form-row-three">
                           <div>
                             <FieldLabel htmlFor={`edit-start-${wid}`}>Start Time</FieldLabel>
-                            <input id={`edit-start-${wid}`} className="admin-input-react" type="time" value={form.start_time || ""} onChange={(e) => handleEditChange(wid, "start_time", e.target.value)} required />
+                            <input id={`edit-start-${wid}`} className="admin-input-react" type="time" aria-label="Edit workshop start time" value={form.start_time || ""} onChange={(e) => handleEditChange(wid, "start_time", e.target.value)} required />
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-end-${wid}`}>End Time</FieldLabel>
-                            <input id={`edit-end-${wid}`} className="admin-input-react" type="time" value={form.end_time || ""} onChange={(e) => handleEditChange(wid, "end_time", e.target.value)} />
+                            <input id={`edit-end-${wid}`} className="admin-input-react" type="time" aria-label="Edit workshop end time" value={form.end_time || ""} onChange={(e) => handleEditChange(wid, "end_time", e.target.value)} />
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-status-${wid}`}>Status</FieldLabel>
-                            <select id={`edit-status-${wid}`} className="admin-input-react" value={form.is_active || "0"} onChange={(e) => handleEditChange(wid, "is_active", e.target.value)}>
+                            <select id={`edit-status-${wid}`} className="admin-input-react" aria-label="Edit workshop status" value={form.is_active || "0"} onChange={(e) => handleEditChange(wid, "is_active", e.target.value)}>
                               <option value="1">Active</option>
                               <option value="0">Hidden</option>
                             </select>
@@ -585,15 +593,15 @@ export default function AdminWorkshops() {
                         <div className="admin-form-row-react admin-form-row-three">
                           <div>
                             <FieldLabel htmlFor={`edit-standard-price-${wid}`}>Standard Price</FieldLabel>
-                            <input id={`edit-standard-price-${wid}`} className="admin-input-react" type="number" min="0" step="0.01" value={form.standard_price || "0.00"} onChange={(e) => handleEditChange(wid, "standard_price", e.target.value)} />
+                            <input id={`edit-standard-price-${wid}`} className="admin-input-react" type="number" aria-label="Edit standard price" min="0" step="0.01" value={form.standard_price || "0.00"} onChange={(e) => handleEditChange(wid, "standard_price", e.target.value)} />
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-premium-price-${wid}`}>Premium Price</FieldLabel>
-                            <input id={`edit-premium-price-${wid}`} className="admin-input-react" type="number" min="0" step="0.01" value={form.premium_price || "0.00"} onChange={(e) => handleEditChange(wid, "premium_price", e.target.value)} />
+                            <input id={`edit-premium-price-${wid}`} className="admin-input-react" type="number" aria-label="Edit premium price" min="0" step="0.01" value={form.premium_price || "0.00"} onChange={(e) => handleEditChange(wid, "premium_price", e.target.value)} />
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-max-slots-${wid}`}>Max Slots (0 = unli)</FieldLabel>
-                            <input id={`edit-max-slots-${wid}`} className="admin-input-react" type="number" min="0" step="1" inputMode="numeric" value={form.max_slots || "0"} onKeyDown={blockInvalidIntegerKey} onChange={(e) => handleEditChange(wid, "max_slots", e.target.value)} />
+                            <input id={`edit-max-slots-${wid}`} className="admin-input-react" type="number" aria-label="Edit maximum slots" min="0" step="1" inputMode="numeric" value={form.max_slots || "0"} onKeyDown={blockInvalidIntegerKey} onChange={(e) => handleEditChange(wid, "max_slots", e.target.value)} />
                           </div>
                         </div>
 
@@ -638,6 +646,7 @@ export default function AdminWorkshops() {
                   <div className="aw-field">
                     <FieldLabel htmlFor="add-title">Workshop Title</FieldLabel>
                     <input
+                      aria-label="Workshop title"
                       id="add-title"
                       className="aw-input"
                       type="text"
@@ -652,6 +661,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-date">Date</FieldLabel>
                       <input
+                        aria-label="Workshop date"
                         id="add-date"
                         className="aw-input"
                         type="date"
@@ -665,6 +675,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-location">Location</FieldLabel>
                       <input
+                        aria-label="Workshop location"
                         id="add-location"
                         className="aw-input"
                         type="text"
@@ -680,6 +691,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-start-time">Start Time</FieldLabel>
                       <input
+                        aria-label="Workshop start time"
                         id="add-start-time"
                         className="aw-input"
                         type="time"
@@ -693,6 +705,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-end-time">End Time</FieldLabel>
                       <input
+                        aria-label="Workshop end time"
                         id="add-end-time"
                         className="aw-input"
                         type="time"
@@ -705,6 +718,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-is-active">Visibility</FieldLabel>
                       <select
+                        aria-label="Is Active"
                         id="add-is-active"
                         className="aw-input"
                         name="is_active"
@@ -725,6 +739,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-standard-price">Standard Price (₱)</FieldLabel>
                       <input
+                        aria-label="Standard price"
                         id="add-standard-price"
                         className="aw-input"
                         type="number"
@@ -739,6 +754,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-premium-price">Premium Price (₱)</FieldLabel>
                       <input
+                        aria-label="Premium price"
                         id="add-premium-price"
                         className="aw-input"
                         type="number"
@@ -754,6 +770,7 @@ export default function AdminWorkshops() {
                   <div className="aw-field">
                     <FieldLabel htmlFor="add-max-slots">Maximum Slots (0 = Unlimited)</FieldLabel>
                     <input
+                      aria-label="Maximum slots"
                       id="add-max-slots"
                       className="aw-input"
                       type="number"
@@ -774,6 +791,7 @@ export default function AdminWorkshops() {
                   <div className="aw-file-box">
                     <FieldLabel htmlFor="add-poster">Workshop Poster Image</FieldLabel>
                     <input
+                      aria-label="Workshop poster image"
                       id="add-poster"
                       className="aw-file-input"
                       type="file"
@@ -799,6 +817,7 @@ export default function AdminWorkshops() {
                   <div className="aw-field">
                     <FieldLabel htmlFor="add-description">Main Description</FieldLabel>
                     <textarea
+                      aria-label="Main description"
                       id="add-description"
                       className="aw-textarea aw-textarea-large"
                       name="description"
@@ -812,6 +831,7 @@ export default function AdminWorkshops() {
                   <div className="aw-field">
                     <FieldLabel htmlFor="add-register-points">Register Page Points</FieldLabel>
                     <textarea
+                      aria-label="Register page points"
                       id="add-register-points"
                       className="aw-textarea"
                       name="register_points"
@@ -826,6 +846,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-standard-points">Standard Package Inclusions</FieldLabel>
                       <textarea
+                        aria-label="Standard package inclusions"
                         id="add-standard-points"
                         className="aw-textarea"
                         name="standard_points"
@@ -838,6 +859,7 @@ export default function AdminWorkshops() {
                     <div className="aw-field">
                       <FieldLabel htmlFor="add-premium-points">Premium Package Inclusions</FieldLabel>
                       <textarea
+                        aria-label="Premium package inclusions"
                         id="add-premium-points"
                         className="aw-textarea"
                         name="premium_points"

@@ -1,93 +1,143 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useRef, useState } from "react";
 import "../assets/css/tabs.css";
 
+function slugify(value) {
+  return (
+    String(value || "tab")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "tab"
+  );
+}
+
+function getTabId(tab) {
+  return String(tab.id || tab.key || tab.value || slugify(tab.label));
+}
+
+function makeReadableContent(contentArea) {
+  if (!contentArea) return;
+
+  const readableElements = contentArea.querySelectorAll(
+    "h1, h2, h3, h4, h5, h6, p, li, span, button, a, img"
+  );
+
+  readableElements.forEach((element) => {
+    element.setAttribute("tabindex", "0");
+
+    if (!element.getAttribute("aria-label")) {
+      let textToRead = "";
+
+      if (element.tagName === "IMG") {
+        textToRead = element.getAttribute("alt") || "Image";
+      } else {
+        textToRead = element.innerText || element.textContent || "";
+      }
+
+      if (textToRead.trim() !== "") {
+        element.setAttribute("aria-label", textToRead.trim());
+      }
+    }
+  });
+}
+
 const TabControl = ({ tabs }) => {
-  const [activeTab, setActiveTab] = useState(0);
+  const normalizedTabs = useMemo(
+    () =>
+      tabs.map((tab) => ({
+        ...tab,
+        tabId: getTabId(tab),
+      })),
+    [tabs]
+  );
+
+  const [activeTabId, setActiveTabId] = useState(
+    () => normalizedTabs[0]?.tabId || ""
+  );
   const contentRef = useRef(null);
 
-  useEffect(() => {
-    const contentArea = contentRef.current;
+  const activeTabStillExists = normalizedTabs.some(
+    (tab) => tab.tabId === activeTabId
+  );
+  const safeActiveTabId = activeTabStillExists
+    ? activeTabId
+    : normalizedTabs[0]?.tabId || "";
 
-    if (!contentArea) return;
+  const activeTabIndex = normalizedTabs.findIndex(
+    (tab) => tab.tabId === safeActiveTabId
+  );
+  const safeActiveIndex = activeTabIndex >= 0 ? activeTabIndex : 0;
+  const activeTab = normalizedTabs[safeActiveIndex];
 
-    // Make all readable content inside the active tab focusable by Tab key
-    const readableElements = contentArea.querySelectorAll(
-      'h1, h2, h3, h4, h5, h6, p, li, span, button, a, img'
-    );
+  const handleContentRef = (node) => {
+    contentRef.current = node;
+    makeReadableContent(node);
+  };
 
-    readableElements.forEach((element) => {
-      element.setAttribute('tabindex', '0');
+  const handleTabKeyDown = (event, tabId) => {
+    if (!normalizedTabs.length) return;
 
-      // Add aria-label if missing, so your screen reader function can read it clearly
-      if (!element.getAttribute('aria-label')) {
-        let textToRead = '';
-
-        if (element.tagName === 'IMG') {
-          textToRead = element.getAttribute('alt') || 'Image';
-        } else {
-          textToRead = element.innerText || element.textContent || '';
-        }
-
-        if (textToRead.trim() !== '') {
-          element.setAttribute('aria-label', textToRead.trim());
-        }
-      }
-    });
-  }, [activeTab, tabs]);
-
-  const handleTabKeyDown = (event, index) => {
-    if (event.key === 'ArrowRight') {
+    if (event.key === "ArrowRight") {
       event.preventDefault();
-      setActiveTab((prev) => (prev + 1) % tabs.length);
+      const nextIndex = (safeActiveIndex + 1) % normalizedTabs.length;
+      setActiveTabId(normalizedTabs[nextIndex].tabId);
     }
 
-    if (event.key === 'ArrowLeft') {
+    if (event.key === "ArrowLeft") {
       event.preventDefault();
-      setActiveTab((prev) => (prev - 1 + tabs.length) % tabs.length);
+      const previousIndex =
+        (safeActiveIndex - 1 + normalizedTabs.length) % normalizedTabs.length;
+      setActiveTabId(normalizedTabs[previousIndex].tabId);
     }
 
-    if (event.key === 'Enter' || event.key === ' ') {
+    if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      setActiveTab(index);
+      setActiveTabId(tabId);
     }
   };
 
+  if (!activeTab) {
+    return null;
+  }
+
   return (
     <div className="tab-container">
-      {/* TAB HEADERS */}
       <div className="tab-headers" role="tablist" aria-label="Page tabs">
-        {tabs.map((tab, index) => (
-          <button
-            key={index}
-            type="button"
-            className={`tab-btn ${activeTab === index ? 'active' : ''}`}
-            onClick={() => setActiveTab(index)}
-            onKeyDown={(event) => handleTabKeyDown(event, index)}
-            role="tab"
-            aria-selected={activeTab === index}
-            aria-controls={`tab-panel-${index}`}
-            id={`tab-button-${index}`}
-            aria-label={`Switch to ${tab.label} tab`}
-            tabIndex="0"
-          >
-            {tab.label}
-          </button>
-        ))}
+        {normalizedTabs.map((tab) => {
+          const isActive = activeTab.tabId === tab.tabId;
+          const buttonId = `tab-button-${tab.tabId}`;
+          const panelId = `tab-panel-${tab.tabId}`;
+
+          return (
+            <button
+              key={tab.tabId}
+              type="button"
+              className={`tab-btn ${isActive ? "active" : ""}`}
+              onClick={() => setActiveTabId(tab.tabId)}
+              onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={panelId}
+              id={buttonId}
+              aria-label={`Switch to ${tab.label} tab`}
+              tabIndex={0}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* TAB CONTENT */}
       <div
-        ref={contentRef}
+        ref={handleContentRef}
         className="tab-content"
         id="voice-active-tab"
         role="tabpanel"
-        aria-labelledby={`tab-button-${activeTab}`}
-        tabIndex="0"
-        aria-label={`${tabs[activeTab].label} content`}
+        aria-labelledby={`tab-button-${activeTab.tabId}`}
+        tabIndex={0}
+        aria-label={`${activeTab.label} content`}
       >
-        <div id={`tab-panel-${activeTab}`}>
-          {tabs[activeTab].content}
-        </div>
+        <div id={`tab-panel-${activeTab.tabId}`}>{activeTab.content}</div>
       </div>
     </div>
   );

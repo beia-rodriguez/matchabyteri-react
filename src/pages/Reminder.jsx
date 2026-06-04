@@ -250,7 +250,7 @@ export default function Reminder() {
 
       <div className="reminder-page" id="readable-content">
         <div className="reminder-top">
-          <button className="back" aria-label="Back" onClick={handleBack}>
+          <button type="button" className="back" aria-label="Back" onClick={handleBack}>
             <img src="/images/left-book.png" alt="" aria-hidden="true" />
           </button>
 
@@ -270,7 +270,7 @@ export default function Reminder() {
 
             {loadingForms ? (
               <p className="reminder-note" role="status" aria-live="polite">
-                Loading booking reminders...
+                Loading booking reminders…
               </p>
             ) : (
               <div className="bullets">
@@ -306,7 +306,7 @@ export default function Reminder() {
           </div>
 
           <div className="actions">
-            <button className="btn-next" aria-label="Next" onClick={handleNext}>
+            <button type="button" className="btn-next" aria-label="Next" onClick={handleNext}>
               NEXT
             </button>
           </div>

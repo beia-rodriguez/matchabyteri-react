@@ -189,7 +189,7 @@ const TYPE_FILTERS = [
 ];
 
 function CalendarDayCard({ date, records, blocked }) {
-  const sortedRecords = [...records].sort((a, b) => {
+  const sortedRecords = records.toSorted((a, b) => {
     const aTime = String(a.start_time || "");
     const bTime = String(b.start_time || "");
     return aTime.localeCompare(bTime);
@@ -555,7 +555,7 @@ export default function AdminCalendar() {
               <span>Calendar Records</span>
             </div>
             <h4>Total Schedules</h4>
-            <div className="admin-big-react">{loading ? "..." : records.length}</div>
+            <div className="admin-big-react">{loading ? "…" : records.length}</div>
             <div className="admin-muted-react">Bookings and public workshops</div>
           </div>
 
@@ -565,7 +565,7 @@ export default function AdminCalendar() {
               <span>Blocked Dates</span>
             </div>
             <h4>Unavailable Days</h4>
-            <div className="admin-big-react">{loading ? "..." : blockedDates.length}</div>
+            <div className="admin-big-react">{loading ? "…" : blockedDates.length}</div>
             <div className="admin-muted-react">Full-day blocks</div>
           </div>
 
@@ -575,7 +575,7 @@ export default function AdminCalendar() {
               <span>Needs Attention</span>
             </div>
             <h4>Blocked With Schedules</h4>
-            <div className="admin-big-react">{loading ? "..." : totalBlockedWithSchedules}</div>
+            <div className="admin-big-react">{loading ? "…" : totalBlockedWithSchedules}</div>
             <div className="admin-muted-react">Blocked dates that still have active schedules</div>
           </div>
         </div>
@@ -661,14 +661,14 @@ export default function AdminCalendar() {
                   disabled={saving}
                 >
                   {saving ? <RefreshCw size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
-                  {saving ? "SAVING..." : "SAVE"}
+                  {saving ? "SAVING…" : "SAVE"}
                 </button>
               </div>
             </div>
           </form>
 
           {loading ? (
-            <div className="admin-muted-react">Loading blocked dates...</div>
+            <div className="admin-muted-react">Loading blocked dates…</div>
           ) : blockedDates.length === 0 ? (
             <div className="admin-muted-react">No blocked dates yet.</div>
           ) : (
@@ -708,7 +708,7 @@ export default function AdminCalendar() {
                             onClick={() => handleDelete(b.block_date)}
                           >
                             <Trash2 size={16} aria-hidden="true" />
-                            {deletingDate === b.block_date ? "REMOVING..." : "REMOVE"}
+                            {deletingDate === b.block_date ? "REMOVING…" : "REMOVE"}
                           </button>
                         </td>
                       </tr>
@@ -787,7 +787,7 @@ export default function AdminCalendar() {
 
           {loading ? (
             <div className="admin-muted-react calendar-state-pad">
-              Loading calendar overview...
+              Loading calendar overview…
             </div>
           ) : groupedRecords.length === 0 ? (
             <div className="admin-muted-react calendar-state-pad">
@@ -821,7 +821,7 @@ export default function AdminCalendar() {
 
           {loading ? (
             <div className="admin-muted-react calendar-state-pad">
-              Loading detailed records...
+              Loading detailed records…
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="admin-muted-react calendar-state-pad">

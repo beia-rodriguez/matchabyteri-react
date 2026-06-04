@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
@@ -10,9 +10,6 @@ export default function Login() {
   const location = useLocation();
   const { login } = useAuth();
 
-  const noticeRef = useRef(null);
-  const errorRef = useRef(null);
-
   const redirect = new URLSearchParams(location.search).get("redirect");
 
   const safeRedirect =
@@ -23,30 +20,28 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [notice, setNotice] = useState(location.state?.message || "");
+  const [notice, setNotice] = useState(() => location.state?.message || "");
   const [error, setError] = useState("");
 
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (location.state?.message) {
-      setNotice(location.state.message);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
+    const historyState = window.history.state;
 
-  useEffect(() => {
-    if (notice && noticeRef.current) {
-      noticeRef.current.setAttribute("tabindex", "0");
-      noticeRef.current.setAttribute("aria-label", notice);
+    if (historyState?.usr?.message) {
+      window.history.replaceState(
+        {
+          ...historyState,
+          usr: {
+            ...historyState.usr,
+            message: undefined,
+          },
+        },
+        document.title
+      );
     }
-
-    if (error && errorRef.current) {
-      errorRef.current.setAttribute("tabindex", "0");
-      errorRef.current.setAttribute("aria-label", error);
-    }
-  }, [notice, error]);
+  }, []);
 
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
@@ -183,7 +178,6 @@ export default function Login() {
 
           {notice && (
             <div
-              ref={noticeRef}
               className="auth-login-success"
               role="status"
               aria-live="polite"
@@ -197,7 +191,6 @@ export default function Login() {
 
           {error && (
             <div
-              ref={errorRef}
               className="auth-login-alert"
               role="alert"
               aria-live="assertive"

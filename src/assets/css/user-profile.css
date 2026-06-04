@@ -352,14 +352,14 @@ input:focus {
   text-align: right;
 }
 
-.logout a {
+.logout-link {
   color: var(--danger);
   font-weight: 900;
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
-.logout a:hover {
+.logout-link:hover {
   text-decoration: underline;
   opacity: 0.8;
 }

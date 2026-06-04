@@ -1,29 +1,78 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useReducer } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/workshop-register.scoped.css";
 import "../assets/css/universal.css";
 
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+const TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+const workshopRegisterInitialState = {
+  payload: null,
+  loading: true,
+  errorMsg: "",
+};
+
+function workshopRegisterReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        payload: null,
+        loading: true,
+        errorMsg: "",
+      };
+
+    case "success":
+      return {
+        payload: action.payload,
+        loading: false,
+        errorMsg: "",
+      };
+
+    case "error":
+      return {
+        payload: null,
+        loading: false,
+        errorMsg: action.message,
+      };
+
+    default:
+      return state;
+  }
+}
+
+function stableTextKey(value) {
+  const text = String(value ?? "");
+  let hash = 0;
+
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+
+  return `bullet-${hash.toString(36)}`;
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(`${dateStr}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
+  return DATE_FORMATTER.format(d);
 }
 
 function formatTime(timeStr) {
   if (!timeStr) return "";
   const t = timeStr.length >= 5 ? timeStr.slice(0, 5) : timeStr;
   const d = new Date(`1970-01-01T${t}:00`);
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d);
+  return TIME_FORMATTER.format(d);
 }
 
 function buildBullets(workshop) {
@@ -42,11 +91,15 @@ function buildBullets(workshop) {
     line = line.trim();
     if (!line) continue;
 
-    line = line.replace(/^[\-\*\u2022\u2023\u25E6\u2043\u2219•]+\s*/u, "").trim();
+    line = line
+      .replace(/^[\-\*\u2022\u2023\u25E6\u2043\u2219•]+\s*/u, "")
+      .trim();
+
     if (line) bullets.push(line);
   }
 
   if (bullets.length === 0 && raw) return [raw];
+
   return bullets;
 }
 
@@ -68,28 +121,49 @@ export default function WorkshopRegister() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [payload, setPayload] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [pageState, dispatchPageState] = useReducer(
+    workshopRegisterReducer,
+    workshopRegisterInitialState
+  );
+
+  const { payload, loading, errorMsg } = pageState;
 
   useEffect(() => {
-    setLoading(true);
-    setErrorMsg("");
+    let ignore = false;
 
-    API.get("/bookings/public-workshop/public-packages.php", { params: { id } })
+    dispatchPageState({ type: "loading" });
+
+    API.get("/bookings/public-workshop/public-packages.php", {
+      params: { id },
+    })
       .then((res) => {
+        if (ignore) return;
+
         if (!res.data?.workshop) {
           navigate("/public-workshops", { replace: true });
           return;
         }
-        setPayload(res.data);
+
+        dispatchPageState({
+          type: "success",
+          payload: res.data,
+        });
       })
       .catch((err) => {
+        if (ignore) return;
+
         console.error("Failed to load workshop packages:", err);
         console.error("Response data:", err.response?.data);
-        setErrorMsg(err.response?.data?.message || "Failed to load workshop.");
-      })
-      .finally(() => setLoading(false));
+
+        dispatchPageState({
+          type: "error",
+          message: err.response?.data?.message || "Failed to load workshop.",
+        });
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [id, navigate]);
 
   const view = useMemo(() => {
@@ -99,7 +173,10 @@ export default function WorkshopRegister() {
     const dateText = formatDate(w.workshop_date);
     const startText = formatTime(w.start_time);
     let timeText = startText;
-    if (w.end_time) timeText += ` – ${formatTime(w.end_time)}`;
+
+    if (w.end_time) {
+      timeText += ` – ${formatTime(w.end_time)}`;
+    }
 
     return {
       w,
@@ -195,9 +272,10 @@ export default function WorkshopRegister() {
     return (
       <>
         <Navbar />
+
         <div className="ws-reg-page" id="readable-content">
           <div className="ws-reg-wrap">
-            <div className="ws-reg-status">Loading workshop details...</div>
+            <div className="ws-reg-status">Loading workshop details…</div>
           </div>
         </div>
       </>
@@ -208,6 +286,7 @@ export default function WorkshopRegister() {
     return (
       <>
         <Navbar />
+
         <div className="ws-reg-page" id="readable-content">
           <div className="ws-reg-wrap">
             <div className="ws-reg-status">
@@ -249,7 +328,8 @@ export default function WorkshopRegister() {
                   Slots:{" "}
                   {view.maxSlots > 0 ? (
                     <>
-                      {view.regCount} / {view.maxSlots} (Remaining: {view.remaining})
+                      {view.regCount} / {view.maxSlots} (Remaining:{" "}
+                      {view.remaining})
                     </>
                   ) : (
                     <>Unlimited (Registered: {view.regCount})</>
@@ -267,12 +347,14 @@ export default function WorkshopRegister() {
 
               {view.bullets.length > 0 ? (
                 <ul className="ws-reg-bullets">
-                  {view.bullets.map((b, i) => (
-                    <li key={i}>{b}</li>
+                  {view.bullets.map((bullet) => (
+                    <li key={stableTextKey(bullet)}>{bullet}</li>
                   ))}
                 </ul>
               ) : (
-                <div className="ws-reg-meta">Workshop details will be posted soon.</div>
+                <div className="ws-reg-meta">
+                  Workshop details will be posted soon.
+                </div>
               )}
 
               <div className="ws-reg-meta">
@@ -304,43 +386,31 @@ export default function WorkshopRegister() {
                   </>
                 ) : (
                   <>
-                    <a
+                    <Link
                       className="ws-reg-btn"
-                      href={standardUrl}
+                      to={standardUrl}
                       aria-label="Standard"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(standardUrl);
-                      }}
                     >
                       STANDARD
-                    </a>
+                    </Link>
 
-                    <a
+                    <Link
                       className="ws-reg-btn"
-                      href={premiumUrl}
+                      to={premiumUrl}
                       aria-label="Premium"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(premiumUrl);
-                      }}
                     >
                       PREMIUM
-                    </a>
+                    </Link>
                   </>
                 )}
 
-                <a
+                <Link
                   className="ws-reg-btn ws-reg-btnBack"
-                  href={backUrl}
+                  to={backUrl}
                   aria-label="Back"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(backUrl);
-                  }}
                 >
                   Back
-                </a>
+                </Link>
               </div>
 
               {view.isFull && (

@@ -236,7 +236,6 @@ function CancelModal({ booking, onClose, onSuccess }) {
         aria-labelledby="cancel-request-modal-title"
         aria-describedby="cancel-request-modal-description"
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="cancel-request-modal__header">
           <h2
@@ -409,6 +408,21 @@ export default function UserProfile() {
   const [originalForm, setOriginalForm] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [notice, setNotice] = useState({ type: "", message: "" });
+  const [todayMaxDate, setTodayMaxDate] = useState("");
+
+  useEffect(() => {
+    setTodayMaxDate(new Date().toISOString().slice(0, 10));
+  }, []);
+
+  const applyLoadedProfile = (userData, privateBookings) => {
+    const nextForm = buildProfileForm(userData);
+
+    setUser(userData);
+    setUnreadReplies(userData.unreadReplies || 0);
+    setBookings(privateBookings);
+    setForm(nextForm);
+    setOriginalForm(nextForm);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -416,15 +430,10 @@ export default function UserProfile() {
       API.get("/user/get-bookings.php"),
     ])
       .then(([profileRes, bookingRes]) => {
-        const userData = profileRes.data;
-
-        setUser(userData);
-        setUnreadReplies(userData.unreadReplies || 0);
-        setBookings(bookingRes.data.privateBookings || []);
-
-        const nextForm = buildProfileForm(userData);
-        setForm(nextForm);
-        setOriginalForm(nextForm);
+        applyLoadedProfile(
+          profileRes.data,
+          bookingRes.data.privateBookings || []
+        );
       })
       .catch((err) => {
         if (err.response?.status === 401) {
@@ -747,7 +756,7 @@ export default function UserProfile() {
                 <img
                   className="profile-pic"
                   src={profilePictureSrc(preview || user.profile_picture)}
-                  alt="Profile picture"
+                  alt="User avatar"
                 />
 
                 <label className="btn-upload-photo" htmlFor="profile-picture-input">
@@ -774,7 +783,7 @@ export default function UserProfile() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <div className="admin-badge">You are an Admin</div>
 
-                <button
+                <button type="button"
                   onClick={() => navigate("/admin/dashboard")}
                   className="btn-admin"
                   aria-label="Admin Dashboard"
@@ -787,7 +796,7 @@ export default function UserProfile() {
 
           {!isAdmin && (
             <div className="quick-actions">
-              <button
+              <button type="button"
                 className="btn-soft btn-report"
                 aria-label="Report Concerns"
                 onClick={() => navigate("/report-concerns")}
@@ -795,7 +804,7 @@ export default function UserProfile() {
                 Report Concerns
               </button>
 
-              <button
+              <button type="button"
                 className="btn-soft"
                 aria-label={
                   unreadReplies > 0
@@ -822,8 +831,9 @@ export default function UserProfile() {
 
           <form onSubmit={handleSubmit} className="profile-form">
             <div className="field full">
-              <label>Name</label>
+              <label htmlFor="profile-name">Name</label>
               <input
+                id="profile-name"
                 type="text"
                 name="name"
                 value={form.name}
@@ -838,12 +848,13 @@ export default function UserProfile() {
             </div>
 
             <div className="field">
-              <label>Birthdate</label>
+              <label htmlFor="profile-birthdate">Birthdate</label>
               <input
+                id="profile-birthdate"
                 type="date"
                 name="birthdate"
                 value={form.birthdate || ""}
-                max={new Date().toISOString().slice(0, 10)}
+                max={todayMaxDate || undefined}
                 autoComplete="bday"
                 aria-label={
                   form.birthdate
@@ -892,7 +903,7 @@ export default function UserProfile() {
 
             {!isAdmin && (
               <div className="field full bookings-section">
-                <label className="bookings-label">My Bookings</label>
+                <div className="bookings-label">My Bookings</div>
 
                 {bookings.length === 0 ? (
                   <p className="hint">You haven't made any bookings yet.</p>
@@ -932,7 +943,7 @@ export default function UserProfile() {
                                 className="td-date"
                                 aria-label={`Booking Date: ${b.booking_date}`}
                               >
-                                {b.booking_date || "—"}
+                                {b.booking_date || "N/A"}
                               </td>
 
                               <td
@@ -951,7 +962,7 @@ export default function UserProfile() {
                                       0,
                                       5
                                     )} – ${b.end_time?.slice(0, 5)}`
-                                  : "—"}
+                                  : "N/A"}
                               </td>
 
                               <td
@@ -1041,7 +1052,7 @@ export default function UserProfile() {
                                     )}
                                   </>
                                 ) : (
-                                  "—"
+                                  "N/A"
                                 )}
                               </td>
 
@@ -1083,7 +1094,7 @@ export default function UserProfile() {
                                     style={{ fontSize: "0.75rem" }}
                                     aria-label="No actions available"
                                   >
-                                    —
+                                    N/A
                                   </span>
                                 )}
                               </td>
@@ -1120,11 +1131,14 @@ export default function UserProfile() {
             </div>
           </form>
 
-          <div className="logout">
-            <a href="#" aria-label="Logout" onClick={handleLogout}>
-              Logout
-            </a>
-          </div>
+          <button
+            type="button"
+            className="logout-link"
+            aria-label="Logout"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
         </div>
       </div>
     </>

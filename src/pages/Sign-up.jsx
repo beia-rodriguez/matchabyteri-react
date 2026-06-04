@@ -20,6 +20,10 @@ export default function SignUp() {
   const emailMessageRef = useRef(null);
   const passwordMatchRef = useRef(null);
 
+  const emailCheckTimerRef = useRef(null);
+  const emailCheckControllerRef = useRef(null);
+  const emailCheckRequestRef = useRef(0);
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -29,9 +33,15 @@ export default function SignUp() {
 
   const [error, setError] = useState("");
 
-  const [emailMessage, setEmailMessage] = useState("");
-  const [emailAvailable, setEmailAvailable] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailState, setEmailState] = useState({
+    message: "",
+    available: false,
+    checking: false,
+  });
+
+  const emailMessage = emailState.message;
+  const emailAvailable = emailState.available;
+  const checkingEmail = emailState.checking;
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -56,6 +66,119 @@ export default function SignUp() {
   const passwordMatchMessage =
     form.confirm_password &&
     (passwordsMatch ? "Passwords match" : "Passwords do not match");
+
+  const clearPendingEmailCheck = () => {
+    if (emailCheckTimerRef.current) {
+      clearTimeout(emailCheckTimerRef.current);
+      emailCheckTimerRef.current = null;
+    }
+
+    if (emailCheckControllerRef.current) {
+      emailCheckControllerRef.current.abort();
+      emailCheckControllerRef.current = null;
+    }
+  };
+
+  const scheduleEmailCheck = (value) => {
+    const email = value.trim().toLowerCase();
+
+    clearPendingEmailCheck();
+
+    if (!email) {
+      setEmailState({
+        message: "",
+        available: false,
+        checking: false,
+      });
+      return;
+    }
+
+    if (!emailRegex.test(email)) {
+      setEmailState({
+        message: "Invalid email format.",
+        available: false,
+        checking: false,
+      });
+      return;
+    }
+
+    const requestId = emailCheckRequestRef.current + 1;
+    emailCheckRequestRef.current = requestId;
+
+    setEmailState({
+      message: "Checking email",
+      available: false,
+      checking: true,
+    });
+
+    emailCheckTimerRef.current = setTimeout(async () => {
+      if (emailCheckRequestRef.current !== requestId) {
+        return;
+      }
+
+      const controller = new AbortController();
+      emailCheckControllerRef.current = controller;
+
+      try {
+        const body = new URLSearchParams();
+        body.set("email", email);
+
+        const res = await API.post("/auth/check_email.php", body, {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          signal: controller.signal,
+        });
+
+        if (emailCheckRequestRef.current === requestId) {
+          const data = res.data;
+
+          if (data.status === "taken") {
+            setEmailState({
+              message: "Email already exists",
+              available: false,
+              checking: false,
+            });
+          } else if (data.status === "available") {
+            setEmailState({
+              message: "Email available",
+              available: true,
+              checking: false,
+            });
+          } else {
+            setEmailState({
+              message: data.message || "Unable to check email.",
+              available: false,
+              checking: false,
+            });
+          }
+        }
+      } catch (err) {
+        const isCanceled =
+          err.name === "CanceledError" ||
+          err.name === "AbortError" ||
+          err.code === "ERR_CANCELED";
+
+        if (emailCheckRequestRef.current === requestId && !isCanceled) {
+          setEmailState({
+            message: "Unable to check email right now.",
+            available: false,
+            checking: false,
+          });
+        }
+      } finally {
+        if (emailCheckRequestRef.current === requestId) {
+          emailCheckControllerRef.current = null;
+        }
+      }
+    }, 350);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearPendingEmailCheck();
+    };
+  }, []);
 
   useEffect(() => {
     if (error && errorRef.current) {
@@ -172,68 +295,6 @@ export default function SignUp() {
     submitting,
   ]);
 
-  useEffect(() => {
-    const email = form.email.trim().toLowerCase();
-
-    setEmailAvailable(false);
-
-    if (!email) {
-      setEmailMessage("");
-      return;
-    }
-
-    if (!emailRegex.test(email)) {
-      setEmailMessage("Invalid email format.");
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const timer = setTimeout(async () => {
-      try {
-        setCheckingEmail(true);
-        setEmailMessage("Checking email...");
-
-        const res = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/check_email.php`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: `email=${encodeURIComponent(email)}`,
-            signal: controller.signal,
-          }
-        );
-
-        const data = await res.json();
-
-        if (data.status === "taken") {
-          setEmailMessage("Email already exists");
-          setEmailAvailable(false);
-        } else if (data.status === "available") {
-          setEmailMessage("Email available");
-          setEmailAvailable(true);
-        } else {
-          setEmailMessage(data.message || "Unable to check email.");
-          setEmailAvailable(false);
-        }
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          setEmailMessage("Unable to check email right now.");
-          setEmailAvailable(false);
-        }
-      } finally {
-        setCheckingEmail(false);
-      }
-    }, 350);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [form.email]);
-
   const allValid =
     form.name.trim().length >= 2 &&
     emailAvailable &&
@@ -249,6 +310,10 @@ export default function SignUp() {
       ...prev,
       [field]: value,
     }));
+
+    if (field === "email") {
+      scheduleEmailCheck(value);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -390,7 +455,7 @@ export default function SignUp() {
                   checkingEmail ? "Checking email" : cleanReaderText(emailMessage)
                 }
               >
-                {checkingEmail ? "Checking email..." : emailMessage}
+                {checkingEmail ? "Checking email" : emailMessage}
               </p>
             </div>
 
@@ -539,10 +604,10 @@ export default function SignUp() {
             <button
               className="auth-signup-btn"
               type="submit"
-              
+              disabled={submitting}
               aria-label={submitting ? "Signing up" : "Sign up"}
             >
-              {submitting ? "SIGNING UP..." : "SIGN UP"}
+              {submitting ? "SIGNING UP" : "SIGN UP"}
             </button>
           </form>
 

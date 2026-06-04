@@ -1,9 +1,57 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/day.css";
 import "../assets/css/universal.css";
+
+const dayInitialState = {
+  data: null,
+  loading: true,
+  error: "",
+};
+
+function dayReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        data: null,
+        loading: true,
+        error: "",
+      };
+
+    case "success":
+      return {
+        data: action.data,
+        loading: false,
+        error: "",
+      };
+
+    case "error":
+      return {
+        data: null,
+        loading: false,
+        error: action.message,
+      };
+
+    default:
+      return state;
+  }
+}
+
+function isValidDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const parsed = new Date(`${value}T00:00:00`);
+
+  return !Number.isNaN(parsed.getTime());
+}
+
+function getSafeStatusClass(status = "") {
+  return String(status)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "-");
+}
 
 export default function Day() {
   const [searchParams] = useSearchParams();
@@ -16,34 +64,20 @@ export default function Day() {
     ? typeParam
     : "both";
 
-  const [data, setData] = useState(null);
+  const [dayState, dispatchDayState] = useReducer(dayReducer, dayInitialState);
   const [activeTab, setActiveTab] = useState(type === "both" ? "event" : type);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const isValidDate = (value) => {
-    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-
-    const parsed = new Date(`${value}T00:00:00`);
-    return !Number.isNaN(parsed.getTime());
-  };
-
-  const getSafeStatusClass = (status = "") => {
-    return String(status)
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, "-");
-  };
+  const { data, loading, error } = dayState;
 
   useEffect(() => {
     if (!isValidDate(date)) {
       navigate("/calendar");
-      return;
+      return undefined;
     }
 
     let isMounted = true;
 
-    setLoading(true);
-    setError("");
+    dispatchDayState({ type: "loading" });
 
     API.get("/calendar/day-data.php", {
       params: { date },
@@ -61,7 +95,10 @@ export default function Day() {
             : [],
         };
 
-        setData(safeData);
+        dispatchDayState({
+          type: "success",
+          data: safeData,
+        });
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -75,11 +112,10 @@ export default function Day() {
           return;
         }
 
-        setError("Sorry, this day could not be loaded. Please try again.");
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setLoading(false);
+        dispatchDayState({
+          type: "error",
+          message: "Sorry, this day could not be loaded. Please try again.",
+        });
       });
 
     return () => {
@@ -211,9 +247,16 @@ export default function Day() {
       );
     }
 
-    return bookings.map((booking, index) => {
+    return bookings.map((booking) => {
       const status = booking.status || "";
       const safeStatusClass = getSafeStatusClass(status);
+
+      const bookingKey =
+        booking.id ||
+        booking.booking_id ||
+        `${bookingType}-${booking.start_time || "no-start"}-${
+          booking.end_time || "no-end"
+        }-${status || "no-status"}`;
 
       const readableLabel = `${bookingType}. ${data.monthDay}, ${data.year}.${
         booking.start_time
@@ -223,7 +266,7 @@ export default function Day() {
 
       return (
         <div
-          key={`${bookingType}-${index}`}
+          key={String(bookingKey)}
           className="day-booking-pill voice-readable"
           tabIndex="0"
           aria-label={readableLabel}
@@ -298,7 +341,7 @@ export default function Day() {
               tabIndex="0"
               aria-label="Loading day details"
             >
-              Loading day details...
+              Loading day details…
             </div>
           )}
 

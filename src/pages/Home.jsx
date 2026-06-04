@@ -69,7 +69,7 @@ function Home() {
         <div className="image-wrap">
           <img
             src="/images/MBT_white 1.png"
-            alt="Matcha By Teri Logo Banner"
+            alt="Matcha By Teri logo banner"
             tabIndex="0"
           />
 
@@ -106,7 +106,7 @@ function Home() {
             <div className="welcome-image-wrap">
               <img
                 src="/images/matchacoffee1.png"
-                alt="Image of a delicious Matcha drink"
+                alt="Iced matcha drink with cream"
                 className="welcome-image"
                 tabIndex="0"
               />
@@ -115,7 +115,7 @@ function Home() {
 
           <div className="welcome-pill">
             <p tabIndex="0">
-              We bring together everything you love about matcha — its calming
+              We bring together everything you love about matcha: its calming
               beauty, delicious taste, and meaningful tradition.
             </p>
           </div>
@@ -130,7 +130,7 @@ function Home() {
             <div className="workshop-image-wrap">
               <img
                 src="/images/1st pic 1.png"
-                alt="Image of a Matcha drink for workshops"
+                alt="Matcha drink prepared for a workshop"
                 className="workshop-image"
                 tabIndex="0"
               />
@@ -179,7 +179,7 @@ function Home() {
             <div className="welcome-image-wrap">
               <img
                 src="/images/2nd pic 1.png"
-                alt="Image of a Matcha drink for events"
+                alt="Matcha drink setup for an event"
                 className="welcome-image"
                 tabIndex="0"
               />
@@ -213,7 +213,7 @@ function Home() {
             <div className="welcome-image-wrap">
               <img
                 src="/images/lastpicmain.png"
-                alt="Image of our final Matcha creation"
+                alt="Finished matcha creation with toppings"
                 className="last-image"
                 tabIndex="0"
               />

@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
+
 import AdminLayout from "./AdminLayout";
+
 import adminApi from "@/services/adminApi";
 import "@/assets/css/admin-contacts.css";
 
@@ -7,38 +9,77 @@ import "@/assets/css/admin-contacts.css";
 const getInitials = (name) => {
   if (!name) return "?";
   const parts = name.trim().split(" ");
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
   return name.substring(0, 2).toUpperCase();
 };
 
 const getAvatarTheme = (name) => {
   const themes = [
-    { bg: '#e8f0eb', text: '#1a4f35' }, // Green
-    { bg: '#e3f2fd', text: '#0d47a1' }, // Blue
-    { bg: '#fff3cd', text: '#856404' }, // Yellow
-    { bg: '#fce4e4', text: '#cc0000' }, // Red
-    { bg: '#f3e5f5', text: '#4a148c' }, // Purple
+    { bg: "#e8f0eb", text: "#1a4f35" }, // Green
+    { bg: "#e3f2fd", text: "#0d47a1" }, // Blue
+    { bg: "#fff3cd", text: "#856404" }, // Yellow
+    { bg: "#fce4e4", text: "#cc0000" }, // Red
+    { bg: "#f3e5f5", text: "#4a148c" }, // Purple
   ];
+
   if (!name) return themes[0];
   const charCode = name.charCodeAt(0) || 0;
   return themes[charCode % themes.length];
 };
 
+const clampLimit = (value) => Math.min(Math.max(Number(value) || 100, 1), 300);
+
+const initialState = {
+  q: "",
+  limit: 100,
+  contacts: [],
+  loading: true,
+  err: "",
+};
+
+function contactsReducer(state, action) {
+  switch (action.type) {
+    case "fieldChanged":
+      return {
+        ...state,
+        [action.name]: action.value,
+      };
+    case "loadStarted":
+      return {
+        ...state,
+        loading: true,
+        err: "",
+      };
+    case "loadSucceeded":
+      return {
+        ...state,
+        contacts: action.contacts,
+        loading: false,
+        err: "",
+      };
+    case "loadFailed":
+      return {
+        ...state,
+        contacts: [],
+        loading: false,
+        err: action.error,
+      };
+    default:
+      return state;
+  }
+}
+
 export default function AdminContacts() {
-  const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(100);
-  const [contacts, setContacts] = useState([]);
+  const [state, dispatch] = useReducer(contactsReducer, initialState);
+  const { q, limit, contacts, loading, err } = state;
 
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const loadData = useCallback(async (search = "", lim = 100) => {
+    dispatch({ type: "loadStarted" });
 
-  const loadData = async (search = q, lim = limit) => {
     try {
-      setErr("");
-      setLoading(true);
-
-      const safeLimit = Math.min(Math.max(Number(lim) || 100, 1), 300);
-
+      const safeLimit = clampLimit(lim);
       const { data } = await adminApi.get("/admin/admin-contacts.php", {
         params: {
           q: search.trim(),
@@ -46,18 +87,18 @@ export default function AdminContacts() {
         },
       });
 
-      setContacts(data.contacts || []);
+      dispatch({ type: "loadSucceeded", contacts: data.contacts || [] });
     } catch (e) {
-      setErr(e.response?.data?.error || "Failed to load contacts.");
-      setContacts([]);
-    } finally {
-      setLoading(false);
+      dispatch({
+        type: "loadFailed",
+        error: e.response?.data?.error || "Failed to load contacts.",
+      });
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData("", 100);
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,12 +114,23 @@ export default function AdminContacts() {
       )}
 
       {/* --- FILTERS PANEL --- */}
-      <div className="admin-panel-react" style={{ paddingBottom: '20px', marginBottom: '20px' }}>
+      <div
+        className="admin-panel-react"
+        style={{ paddingBottom: "20px", marginBottom: "20px" }}
+      >
         <h3>Customers with Bookings</h3>
 
-        <form onSubmit={handleSubmit} className="admin-form-row-react" style={{ margin: 0, gridTemplateColumns: '1fr minmax(100px, 150px) auto' }}>
+        <form
+          onSubmit={handleSubmit}
+          className="admin-form-row-react"
+          style={{ margin: 0, gridTemplateColumns: "1fr minmax(100px, 150px) auto" }}
+        >
           <div>
-            <label className="admin-muted-react" htmlFor="contact-search" style={{ display: "block", marginBottom: 6 }}>
+            <label
+              className="admin-muted-react"
+              htmlFor="contact-search"
+              style={{ display: "block", marginBottom: 6 }}
+            >
               Search Directory
             </label>
             <input
@@ -86,14 +138,24 @@ export default function AdminContacts() {
               className="admin-input-react"
               type="text"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by Name, Email, or Phone..."
+              onChange={(e) =>
+                dispatch({
+                  type: "fieldChanged",
+                  name: "q",
+                  value: e.target.value,
+                })
+              }
+              placeholder="Search by Name, Email, or Phone…"
               autoComplete="off"
             />
           </div>
 
           <div>
-            <label className="admin-muted-react" htmlFor="contact-limit" style={{ display: "block", marginBottom: 6 }}>
+            <label
+              className="admin-muted-react"
+              htmlFor="contact-limit"
+              style={{ display: "block", marginBottom: 6 }}
+            >
               Result Limit
             </label>
             <input
@@ -103,34 +165,52 @@ export default function AdminContacts() {
               min="1"
               max="300"
               value={limit}
-              onChange={(e) => setLimit(e.target.value)}
+              onChange={(e) =>
+                dispatch({
+                  type: "fieldChanged",
+                  name: "limit",
+                  value: e.target.value,
+                })
+              }
             />
           </div>
 
-          <button className="admin-pill-react" type="submit" disabled={loading} style={{ height: '42px', padding: '0 24px' }}>
-            {loading ? "Searching..." : "Apply Filter"}
+          <button
+            className="admin-pill-react"
+            type="submit"
+            disabled={loading}
+            style={{ height: "42px", padding: "0 24px" }}
+          >
+            {loading ? "Searching…" : "Apply Filter"}
           </button>
         </form>
       </div>
 
       {/* --- CONTACTS DATA TABLE --- */}
-      <div className="admin-panel-react" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="admin-panel-react" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
-          <div className="admin-muted-react" role="status" aria-live="polite" style={{ padding: '24px' }}>
-            Loading contacts...
+          <div
+            className="admin-muted-react"
+            role="status"
+            aria-live="polite"
+            style={{ padding: "24px" }}
+          >
+            Loading contacts…
           </div>
         ) : contacts.length === 0 ? (
-          <div className="admin-muted-react" style={{ padding: '24px' }}>
-            {q.trim() ? "No contacts match your search criteria." : "No customers found in the database."}
+          <div className="admin-muted-react" style={{ padding: "24px" }}>
+            {q.trim()
+              ? "No contacts match your search criteria."
+              : "No customers found in the database."}
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: "auto" }}>
             <table className="admin-table-react rich-table">
               <thead>
                 <tr>
                   <th>Customer Information</th>
                   <th>Phone Number</th>
-                  <th style={{ textAlign: 'center' }}>Total Bookings</th>
+                  <th style={{ textAlign: "center" }}>Total Bookings</th>
                   <th>Last Booking</th>
                 </tr>
               </thead>
@@ -143,18 +223,33 @@ export default function AdminContacts() {
                     <tr key={c.id}>
                       {/* Rich Customer Column (Avatar + Name + Email) */}
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                          <div 
-                            className="c-avatar" 
+                        <div
+                          style={{ display: "flex", alignItems: "center", gap: "14px" }}
+                        >
+                          <div
+                            className="c-avatar"
                             style={{ backgroundColor: theme.bg, color: theme.text }}
                           >
                             {getInitials(c.name)}
                           </div>
+
                           <div>
-                            <div style={{ fontWeight: 900, color: 'var(--green-2)', fontSize: '0.95rem' }}>
+                            <div
+                              style={{
+                                fontWeight: 900,
+                                color: "var(--green-2)",
+                                fontSize: "0.95rem",
+                              }}
+                            >
                               {c.name || "Unknown Customer"}
                             </div>
-                            <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '2px' }}>
+                            <div
+                              style={{
+                                color: "var(--muted)",
+                                fontSize: "0.85rem",
+                                marginTop: "2px",
+                              }}
+                            >
                               {c.email || "No email provided"}
                             </div>
                           </div>
@@ -162,22 +257,40 @@ export default function AdminContacts() {
                       </td>
 
                       {/* Phone Column */}
-                      <td style={{ verticalAlign: 'middle', fontWeight: 600, color: 'var(--ink)' }}>
-                        {c.phone_number || <span style={{ color: '#ccc' }}>—</span>}
+                      <td
+                        style={{
+                          verticalAlign: "middle",
+                          fontWeight: 600,
+                          color: "var(--ink)",
+                        }}
+                      >
+                        {c.phone_number || <span style={{ color: "#ccc" }}>N/A</span>}
                       </td>
 
                       {/* Bookings Badge Column */}
-                      <td style={{ verticalAlign: 'middle', textAlign: 'center' }}>
-                        <span className={`c-booking-badge ${totalBookings > 0 ? 'active' : ''}`}>
+                      <td style={{ verticalAlign: "middle", textAlign: "center" }}>
+                        <span className={`c-booking-badge ${totalBookings > 0 ? "active" : ""}`}>
                           {totalBookings}
                         </span>
                       </td>
 
                       {/* Date Column */}
-                      <td style={{ verticalAlign: 'middle', color: 'var(--muted)', fontWeight: 600 }}>
-                        {c.last_booking_date
-                          ? new Date(c.last_booking_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-                          : <span style={{ color: '#ccc' }}>—</span>}
+                      <td
+                        style={{
+                          verticalAlign: "middle",
+                          color: "var(--muted)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {c.last_booking_date ? (
+                          new Date(c.last_booking_date).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        ) : (
+                          <span style={{ color: "#ccc" }}>N/A</span>
+                        )}
                       </td>
                     </tr>
                   );

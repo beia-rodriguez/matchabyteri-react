@@ -12,11 +12,14 @@ import "../assets/css/universal.css";
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 60;
+const OTP_DIGIT_KEYS = Array.from(
+  { length: OTP_LENGTH },
+  (_, index) => `otp-digit-${index + 1}`
+);
 
 function cleanReaderText(text = "") {
   return String(text).trim();
 }
-
 
 export default function ResetPasswordOtp() {
   const navigate = useNavigate();
@@ -30,10 +33,9 @@ export default function ResetPasswordOtp() {
   );
 
   const [email, setEmail] = useState(initialEmail);
-  const [otpValues, setOtpValues] = useState(Array(OTP_LENGTH).fill(""));
+  const [otpValues, setOtpValues] = useState(() => Array(OTP_LENGTH).fill(""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [message, setMessage] = useState(
     location.state?.justSent
       ? "If that email exists, a password reset code has been sent."
@@ -47,28 +49,30 @@ export default function ResetPasswordOtp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const otpRefs = useRef([]);
+
   const cleanEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const otp = useMemo(() => otpValues.join(""), [otpValues]);
-
-  const rules = useMemo(() => {
-    return {
+  const rules = useMemo(
+    () => ({
       length: password.length >= 8,
       upper: /[A-Z]/.test(password),
       lower: /[a-z]/.test(password),
       number: /[0-9]/.test(password),
       special: /[\W_]/.test(password),
-    };
-  }, [password]);
+    }),
+    [password]
+  );
 
   const passwordsMatch =
-    password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
-
+    password.length > 0 &&
+    confirmPassword.length > 0 &&
+    password === confirmPassword;
   const passwordMatchMessage =
     confirmPassword &&
     (passwordsMatch ? "Passwords match" : "Passwords do not match");
 
   useEffect(() => {
-    if (!resendSeconds) return;
+    if (!resendSeconds) return undefined;
 
     const timer = window.setInterval(() => {
       setResendSeconds((seconds) => Math.max(seconds - 1, 0));
@@ -79,13 +83,11 @@ export default function ResetPasswordOtp() {
 
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
-
     if (!readableContent) return;
 
     const isVisible = (element) => {
       const style = window.getComputedStyle(element);
       const rect = element.getBoundingClientRect();
-
       return (
         style.display !== "none" &&
         style.visibility !== "hidden" &&
@@ -134,7 +136,6 @@ export default function ResetPasswordOtp() {
         textToRead = element.getAttribute("alt") || "";
       } else if (tagName === "input") {
         const label = readableContent.querySelector(`label[for="${element.id}"]`);
-
         textToRead =
           element.getAttribute("aria-label") ||
           label?.innerText ||
@@ -151,7 +152,6 @@ export default function ResetPasswordOtp() {
       }
 
       textToRead = cleanReaderText(textToRead);
-
       if (!textToRead.trim()) return;
 
       if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
@@ -190,11 +190,9 @@ export default function ResetPasswordOtp() {
 
   const setOtpFromDigits = (digits) => {
     const next = Array(OTP_LENGTH).fill("");
-
     digits.slice(0, OTP_LENGTH).forEach((digit, index) => {
       next[index] = digit;
     });
-
     setOtpValues(next);
   };
 
@@ -213,14 +211,12 @@ export default function ResetPasswordOtp() {
     if (digits.length > 1) {
       const next = [...otpValues];
       let cursor = index;
-
       digits.split("").forEach((digit) => {
         if (cursor < OTP_LENGTH) {
           next[cursor] = digit;
           cursor += 1;
         }
       });
-
       setOtpValues(next);
       focusOtpIndex(Math.min(cursor, OTP_LENGTH - 1));
       return;
@@ -258,7 +254,6 @@ export default function ResetPasswordOtp() {
         });
         focusOtpIndex(index - 1);
       }
-
       return;
     }
 
@@ -275,10 +270,8 @@ export default function ResetPasswordOtp() {
 
   const handleOtpPaste = (event) => {
     event.preventDefault();
-
     const pasted = event.clipboardData.getData("text").replace(/\D/g, "");
     if (!pasted) return;
-
     setOtpFromDigits(pasted.split(""));
     focusOtpIndex(Math.min(pasted.length, OTP_LENGTH - 1));
   };
@@ -312,7 +305,6 @@ export default function ResetPasswordOtp() {
     if (!/[\W_]/.test(password)) {
       return "Password must include at least one special character.";
     }
-
     return "";
   };
 
@@ -361,7 +353,6 @@ export default function ResetPasswordOtp() {
     setMessage("");
 
     const validationError = validateBeforeSubmit();
-
     if (validationError) {
       setError(validationError);
       return;
@@ -369,7 +360,6 @@ export default function ResetPasswordOtp() {
 
     try {
       setResetting(true);
-
       const res = await API.post("/auth/reset-password.php", {
         email: cleanEmail,
         otp,
@@ -443,7 +433,6 @@ export default function ResetPasswordOtp() {
               <label className="rp-label" htmlFor="rp-reset-email">
                 Email
               </label>
-
               <input
                 id="rp-reset-email"
                 className="rp-input"
@@ -461,16 +450,15 @@ export default function ResetPasswordOtp() {
               <label className="rp-label rp-otp-label" htmlFor="rp-otp-digit-0">
                 Reset Code
               </label>
-
               <div
                 className="rp-otp-group"
                 onPaste={handleOtpPaste}
                 role="group"
                 aria-label="Six digit reset code"
               >
-                {otpValues.map((digit, index) => (
+                {OTP_DIGIT_KEYS.map((otpKey, index) => (
                   <input
-                    key={index}
+                    key={otpKey}
                     id={`rp-otp-digit-${index}`}
                     ref={(element) => {
                       otpRefs.current[index] = element;
@@ -480,7 +468,7 @@ export default function ResetPasswordOtp() {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={1}
-                    value={digit}
+                    value={otpValues[index]}
                     onChange={(e) => handleOtpInputChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
                     aria-label={`OTP digit ${index + 1}`}
@@ -488,7 +476,6 @@ export default function ResetPasswordOtp() {
                   />
                 ))}
               </div>
-
               <p className="rp-otp-helper-text">
                 The code expires in 10 minutes. You can paste the full code.
               </p>
@@ -498,7 +485,6 @@ export default function ResetPasswordOtp() {
               <label className="rp-label" htmlFor="rp-new-password">
                 New Password
               </label>
-
               <div className="rp-input-wrap">
                 <input
                   id="rp-new-password"
@@ -510,7 +496,6 @@ export default function ResetPasswordOtp() {
                   aria-label={password ? "New password entered" : "Enter new password"}
                   aria-describedby="rp-password-rules"
                 />
-
                 <button
                   type="button"
                   className="rp-password-toggle"
@@ -531,7 +516,6 @@ export default function ResetPasswordOtp() {
               <label className="rp-label" htmlFor="rp-confirm-password">
                 Confirm Password
               </label>
-
               <div className="rp-input-wrap">
                 <input
                   id="rp-confirm-password"
@@ -547,7 +531,6 @@ export default function ResetPasswordOtp() {
                   }
                   aria-describedby="rp-password-match-message"
                 />
-
                 <button
                   type="button"
                   className="rp-password-toggle"
@@ -570,14 +553,13 @@ export default function ResetPasswordOtp() {
 
             <ul id="rp-password-rules" className="rp-password-rules">
               {Object.entries(rules).map(([key, valid]) => {
-                const ruleText =
-                  {
-                    length: "At least 8 characters",
-                    upper: "At least 1 uppercase letter",
-                    lower: "At least 1 lowercase letter",
-                    number: "At least 1 number",
-                    special: "At least 1 special character",
-                  }[key];
+                const ruleText = {
+                  length: "At least 8 characters",
+                  upper: "At least 1 uppercase letter",
+                  lower: "At least 1 lowercase letter",
+                  number: "At least 1 number",
+                  special: "At least 1 special character",
+                }[key];
 
                 return (
                   <li

@@ -364,3 +364,14 @@
     width: 100% !important;
   }
 }
+
+.aw-poster-placeholder {
+  width: 140px;
+  height: 140px;
+  background: #f9fbf9;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+}

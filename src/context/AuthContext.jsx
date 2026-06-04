@@ -1,8 +1,16 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import API from "../services/api";
 import { login as loginAPI } from "../services/authService";
 
 const AuthContext = createContext();
+const AUTH_USER_STORAGE_KEY = "user:v1";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -15,13 +23,19 @@ export const AuthProvider = ({ children }) => {
 
         if (res.data.status === "success") {
           setUser(res.data.user);
-          localStorage.setItem("user", JSON.stringify(res.data.user));
+          localStorage.setItem(
+            AUTH_USER_STORAGE_KEY,
+            JSON.stringify(res.data.user)
+          );
+          localStorage.removeItem("user");
         } else {
           setUser(null);
+          localStorage.removeItem(AUTH_USER_STORAGE_KEY);
           localStorage.removeItem("user");
         }
       } catch {
         setUser(null);
+        localStorage.removeItem(AUTH_USER_STORAGE_KEY);
         localStorage.removeItem("user");
       } finally {
         setLoading(false);
@@ -31,18 +45,19 @@ export const AuthProvider = ({ children }) => {
     checkSession();
   }, []);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     const res = await loginAPI(credentials);
 
     if (res.status === "success") {
       setUser(res.user);
-      localStorage.setItem("user", JSON.stringify(res.user));
+      localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(res.user));
+      localStorage.removeItem("user");
     }
 
     return res;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await API.post("/auth/logout.php");
     } catch {
@@ -50,14 +65,26 @@ export const AuthProvider = ({ children }) => {
     }
 
     setUser(null);
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
     localStorage.removeItem("user");
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      user,
+      setUser,
+      loading,
+      login,
+      logout,
+    }),
+    [user, loading, login, logout]
+  );
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, logout }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => use(AuthContext);

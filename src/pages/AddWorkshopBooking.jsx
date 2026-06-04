@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
@@ -39,6 +39,7 @@ function pad(n) {
 
 function addHours(timeStr, hoursToAdd) {
   if (!timeStr) return "";
+
   const [h, m] = timeStr.split(":").map(Number);
 
   if (!Number.isFinite(h) || !Number.isFinite(m)) {
@@ -112,10 +113,9 @@ export default function AddWorkshopBooking() {
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [pricingResponse, setPricingResponse] = useState(null);
 
-  const [packages, setPackages] = useState(DEFAULT_PRIVATE_PACKAGES);
-  const [downpaymentPercentage, setDownpaymentPercentage] = useState(50);
+  const loading = pricingResponse === null && !error;
 
   const [fixedInfo, setFixedInfo] = useState({
     full_name: "",
@@ -133,6 +133,49 @@ export default function AddWorkshopBooking() {
     package_attendees: {},
   });
 
+  const packages = useMemo(() => {
+    const pricingForm = pricingResponse?.form || {};
+    const pricingSettings = pricingResponse?.pricing || {};
+    let loadedPackages = [];
+
+    if (Array.isArray(pricingForm.packages)) {
+      loadedPackages = pricingForm.packages;
+    } else if (Array.isArray(pricingSettings.packages)) {
+      loadedPackages = pricingSettings.packages;
+    } else if (
+      pricingSettings.private_workshop_standard_price ||
+      pricingSettings.private_workshop_premium_price
+    ) {
+      loadedPackages = [
+        {
+          ...DEFAULT_PRIVATE_PACKAGES[0],
+          price_per_person:
+            pricingSettings.private_workshop_standard_price ||
+            DEFAULT_PRIVATE_PACKAGES[0].price_per_person,
+        },
+        {
+          ...DEFAULT_PRIVATE_PACKAGES[1],
+          price_per_person:
+            pricingSettings.private_workshop_premium_price ||
+            DEFAULT_PRIVATE_PACKAGES[1].price_per_person,
+        },
+      ];
+    }
+
+    return normalizePackages(loadedPackages);
+  }, [pricingResponse]);
+
+  const downpaymentPercentage = useMemo(() => {
+    const pricingForm = pricingResponse?.form || {};
+    const pricingSettings = pricingResponse?.pricing || {};
+
+    return numberValue(
+      pricingForm.downpayment_percentage ||
+        pricingSettings.private_workshop_downpayment_percentage ||
+        50
+    );
+  }, [pricingResponse]);
+
   useEffect(() => {
     if (type !== "workshop" && type !== "private_workshop") {
       navigate(
@@ -144,15 +187,8 @@ export default function AddWorkshopBooking() {
     }
   }, [type, date, navigate]);
 
-  useEffect(() => {
-    loadPricing();
-    loadCurrentUser();
-    checkBlockedDate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadPricing = async () => {
-    setLoading(true);
+  const loadPricing = useCallback(async () => {
+    setPricingResponse(null);
     setError("");
 
     try {
@@ -160,71 +196,20 @@ export default function AddWorkshopBooking() {
         params: { type: "private_workshop" },
       });
 
-      const responseForm = data.form || {};
-      const responsePricing = data.pricing || {};
-
-      let loadedPackages = [];
-
-      if (Array.isArray(responseForm.packages)) {
-        loadedPackages = responseForm.packages;
-      } else if (Array.isArray(responsePricing.packages)) {
-        loadedPackages = responsePricing.packages;
-      } else if (
-        responsePricing.private_workshop_standard_price ||
-        responsePricing.private_workshop_premium_price
-      ) {
-        loadedPackages = [
-          {
-            ...DEFAULT_PRIVATE_PACKAGES[0],
-            price_per_person:
-              responsePricing.private_workshop_standard_price ||
-              DEFAULT_PRIVATE_PACKAGES[0].price_per_person,
-          },
-          {
-            ...DEFAULT_PRIVATE_PACKAGES[1],
-            price_per_person:
-              responsePricing.private_workshop_premium_price ||
-              DEFAULT_PRIVATE_PACKAGES[1].price_per_person,
-          },
-        ];
-      }
-
-      const nextPackages = normalizePackages(loadedPackages);
-
-      const nextDownpayment = numberValue(
-        responseForm.downpayment_percentage ||
-          responsePricing.private_workshop_downpayment_percentage ||
-          50
-      );
-
-      setPackages(nextPackages);
-      setDownpaymentPercentage(nextDownpayment);
-
-      setWorkshopInfo((prev) => {
-        const nextPackageAttendees = { ...(prev.package_attendees || {}) };
-
-        nextPackages.forEach((pkg) => {
-          const key = packageKey(pkg);
-
-          if (nextPackageAttendees[key] === undefined) {
-            nextPackageAttendees[key] = "";
-          }
-        });
-
-        return {
-          ...prev,
-          package_attendees: nextPackageAttendees,
-        };
-      });
+      setPricingResponse(data);
     } catch (err) {
       console.error(err);
+      setPricingResponse({
+        form: {
+          packages: DEFAULT_PRIVATE_PACKAGES,
+          downpayment_percentage: 50,
+        },
+      });
       setError("Failed to load private workshop pricing.");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
-  const loadCurrentUser = async () => {
+  const loadCurrentUser = useCallback(async () => {
     try {
       const { data } = await API.get("/user/current-user.php");
 
@@ -239,9 +224,9 @@ export default function AddWorkshopBooking() {
     } catch {
       // Keep empty fields.
     }
-  };
+  }, []);
 
-  const checkBlockedDate = async () => {
+  const checkBlockedDate = useCallback(async () => {
     try {
       const res = await API.post("/bookings/private-workshop/check-blocked.php", {
         date,
@@ -260,10 +245,16 @@ export default function AddWorkshopBooking() {
     } catch {
       setError("Failed to check blocked date.");
     }
-  };
+  }, [date]);
+
+  useEffect(() => {
+    loadPricing();
+    loadCurrentUser();
+    checkBlockedDate();
+  }, [loadPricing, loadCurrentUser, checkBlockedDate]);
 
   const packageBreakdown = useMemo(() => {
-    return packages.map((pkg) => {
+    return safeArray(packages).map((pkg) => {
       const key = packageKey(pkg);
       const attendees = numberValue(workshopInfo.package_attendees?.[key] || 0);
       const price = numberValue(pkg.price_per_person);
@@ -448,10 +439,12 @@ export default function AddWorkshopBooking() {
     standard_attendees: numberValue(standardPackage?.attendees || 0),
     premium_attendees: numberValue(premiumPackage?.attendees || 0),
     standard_price: numberValue(
-      standardPackage?.price_per_person || DEFAULT_PRIVATE_PACKAGES[0].price_per_person
+      standardPackage?.price_per_person ||
+        DEFAULT_PRIVATE_PACKAGES[0].price_per_person
     ),
     premium_price: numberValue(
-      premiumPackage?.price_per_person || DEFAULT_PRIVATE_PACKAGES[1].price_per_person
+      premiumPackage?.price_per_person ||
+        DEFAULT_PRIVATE_PACKAGES[1].price_per_person
     ),
 
     package_attendees: packageBreakdown.map((item) => ({
@@ -468,7 +461,7 @@ export default function AddWorkshopBooking() {
     due_now: dueNow,
 
     form_snapshot: {
-      packages,
+      packages: safeArray(packages),
       package_attendees: packageBreakdown,
       downpayment_percentage: numberValue(downpaymentPercentage),
       total_amount: totalAmount,
@@ -537,7 +530,7 @@ export default function AddWorkshopBooking() {
             {error && <div className="awb-error">{error}</div>}
 
             {loading ? (
-              <div className="awb-title">Loading private workshop booking...</div>
+              <div className="awb-title">Loading private workshop booking…</div>
             ) : step === "review" ? (
               <>
                 <div className="awb-title">
@@ -545,6 +538,7 @@ export default function AddWorkshopBooking() {
                 </div>
 
                 <div className="awb-section-title">CONTACT INFORMATION</div>
+
                 <ReviewRow label="Full Name" value={fixedInfo.full_name} />
                 <ReviewRow label="Phone Number" value={fixedInfo.phone_number} />
                 <ReviewRow label="Email Address" value={fixedInfo.email} />
@@ -554,6 +548,7 @@ export default function AddWorkshopBooking() {
                 />
 
                 <div className="awb-section-title">BOOKING INFORMATION</div>
+
                 <ReviewRow label="Date" value={date} />
                 <ReviewRow label="Start Time" value={fixedInfo.start_time} />
                 <ReviewRow label="End Time" value={fixedInfo.end_time} />
@@ -653,15 +648,16 @@ export default function AddWorkshopBooking() {
                 />
 
                 <div className="awb-field">
-                  <label className="awb-label">
+                  <div className="awb-label" id="awb-contact-methods-label">
                     Are you available to contact in the following:
-                  </label>
+                  </div>
 
-                  <div className="awb-options">
+                  <div className="awb-options" role="group" aria-labelledby="awb-contact-methods-label">
                     {CONTACT_METHODS.map((method) => (
                       <label className="awb-option" key={method.value}>
                         <input
                           type="checkbox"
+                          aria-label={method.label}
                           value={method.value}
                           checked={fixedInfo.contact_methods.includes(
                             method.value
@@ -677,11 +673,14 @@ export default function AddWorkshopBooking() {
                 <div className="awb-section-title">BOOKING INFORMATION</div>
 
                 <div className="awb-field">
-                  <label className="awb-label">Event Time of Workshop</label>
+                  <div className="awb-label" id="awb-workshop-time-label">
+                    Event Time of Workshop
+                  </div>
 
-                  <div className="awb-two-col">
+                  <div className="awb-two-col" role="group" aria-labelledby="awb-workshop-time-label">
                     <input
                       type="time"
+                      aria-label="Workshop start time"
                       name="start_time"
                       value={fixedInfo.start_time}
                       onChange={handleFixedChange}
@@ -689,6 +688,7 @@ export default function AddWorkshopBooking() {
 
                     <input
                       type="time"
+                      aria-label="Workshop end time"
                       name="end_time"
                       value={fixedInfo.end_time}
                       onChange={handleFixedChange}
@@ -733,9 +733,11 @@ export default function AddWorkshopBooking() {
                 })}
 
                 <div className="awb-field">
-                  <label className="awb-label">Other Request</label>
+                  <label className="awb-label" htmlFor="awb-other-request">Other Request</label>
                   <textarea
+                    id="awb-other-request"
                     name="other_request"
+                    aria-label="Other request"
                     value={fixedInfo.other_request}
                     onChange={handleFixedChange}
                   />
@@ -800,11 +802,15 @@ function TextField({
   type = "text",
   readOnly = false,
 }) {
+  const inputId = `awb-${name}`;
+
   return (
     <div className="awb-field">
-      <label className="awb-label">{label}</label>
+      <label className="awb-label" htmlFor={inputId}>{label}</label>
       <input
+        id={inputId}
         type={type}
+        aria-label={label}
         name={name}
         value={value}
         onChange={onChange}
@@ -815,11 +821,15 @@ function TextField({
 }
 
 function IntegerField({ label, name, value, onChange, readOnly = false }) {
+  const inputId = `awb-${name}`;
+
   return (
     <div className="awb-field">
-      <label className="awb-label">{label}</label>
+      <label className="awb-label" htmlFor={inputId}>{label}</label>
       <input
+        id={inputId}
         type="number"
+        aria-label={label}
         name={name}
         value={value}
         onChange={onChange}
@@ -845,10 +855,12 @@ function IntegerField({ label, name, value, onChange, readOnly = false }) {
 }
 
 function ReviewRow({ label, value }) {
+  const inputId = `awb-review-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
   return (
     <div className="awb-field">
-      <label className="awb-label">{label}</label>
-      <input value={value || ""} readOnly />
+      <label className="awb-label" htmlFor={inputId}>{label}</label>
+      <input id={inputId} aria-label={label} value={value || ""} readOnly />
     </div>
   );
 }

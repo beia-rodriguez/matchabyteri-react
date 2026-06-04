@@ -52,7 +52,7 @@ export default function About() {
               <h1 className="title">OUR STORY</h1>
 
               <p>
-                We share matcha the way it’s meant to be enjoyed—fresh, vibrant,
+                We share matcha the way it’s meant to be enjoyed: fresh, vibrant,
                 and rooted in tradition. Our goal is to help everyone discover
                 authentic matcha through thoughtful preparation and quality
                 ingredients

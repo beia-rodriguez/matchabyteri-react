@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "./../assets/css/AdminForms.css";
@@ -179,6 +179,7 @@ function PriceInput({
         {!suffix && <span className="afc-option-currency">₱</span>}
 
         <input
+          aria-label={label}
           className="afc-input"
           type={integer ? "text" : "number"}
           inputMode={integer ? "numeric" : "decimal"}
@@ -218,6 +219,7 @@ function TextInput({ label, value, onChange, helper, placeholder }) {
       <label className="afc-label">{label}</label>
 
       <input
+        aria-label={label}
         className="afc-input"
         type="text"
         value={value ?? ""}
@@ -236,6 +238,7 @@ function SelectInput({ label, value, onChange, children, helper }) {
       <label className="afc-label">{label}</label>
 
       <select
+        aria-label={label}
         className="afc-input"
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
@@ -266,6 +269,7 @@ function StatusButton({ item, onToggle }) {
       className={active ? "afc-btn-soft" : "afc-btn-muted"}
       onClick={onToggle}
       title={active ? "Disable" : "Enable"}
+      aria-label={active ? "Disable item" : "Enable item"}
     >
       {active ? <Eye size={15} /> : <EyeOff size={15} />}
       {active ? "Active" : "Hidden"}
@@ -286,24 +290,33 @@ function EventPricingEditor({ form, setForm }) {
   const [previewCupId, setPreviewCupId] = useState("");
   const [previewMenuId, setPreviewMenuId] = useState("");
 
-  useEffect(() => {
-    if (!previewCupId && activeCups.length > 0) {
-      setPreviewCupId(String(activeCups[0].id || activeCups[0]._local_id));
-    }
+  const defaultPreviewCupId = String(
+    activeCups[0]?.id || activeCups[0]?._local_id || ""
+  );
+  const defaultPreviewMenuId = String(
+    activeMenus[0]?.id || activeMenus[0]?._local_id || ""
+  );
 
-    if (!previewMenuId && activeMenus.length > 0) {
-      setPreviewMenuId(String(activeMenus[0].id || activeMenus[0]._local_id));
-    }
-  }, [activeCups, activeMenus, previewCupId, previewMenuId]);
+  const selectedPreviewCupId = activeCups.some(
+    (item) => String(item.id || item._local_id) === String(previewCupId)
+  )
+    ? previewCupId
+    : defaultPreviewCupId;
+
+  const selectedPreviewMenuId = activeMenus.some(
+    (item) => String(item.id || item._local_id) === String(previewMenuId)
+  )
+    ? previewMenuId
+    : defaultPreviewMenuId;
 
   const previewCup =
     activeCups.find(
-      (item) => String(item.id || item._local_id) === String(previewCupId)
+      (item) => String(item.id || item._local_id) === String(selectedPreviewCupId)
     ) || activeCups[0];
 
   const previewMenu =
     activeMenus.find(
-      (item) => String(item.id || item._local_id) === String(previewMenuId)
+      (item) => String(item.id || item._local_id) === String(selectedPreviewMenuId)
     ) || activeMenus[0];
 
   const previewBase =
@@ -561,6 +574,7 @@ function EventPricingEditor({ form, setForm }) {
                 type="button"
                 className="afc-btn-danger"
                 onClick={() => removeCup(index)}
+                aria-label="Remove item"
               >
                 <Trash2 size={15} />
                 Remove
@@ -647,6 +661,7 @@ function EventPricingEditor({ form, setForm }) {
                 type="button"
                 className="afc-btn-danger"
                 onClick={() => removeMenu(index)}
+                aria-label="Remove item"
               >
                 <Trash2 size={15} />
                 Remove
@@ -721,6 +736,7 @@ function EventPricingEditor({ form, setForm }) {
                 type="button"
                 className="afc-btn-danger"
                 onClick={() => removeDrink(index)}
+                aria-label="Remove item"
               >
                 <Trash2 size={15} />
                 Remove
@@ -755,7 +771,7 @@ function EventPricingEditor({ form, setForm }) {
         <div className="afc-settings-row">
           <SelectInput
             label="Preview cup package"
-            value={previewCupId}
+            value={selectedPreviewCupId}
             onChange={setPreviewCupId}
           >
             {activeCups.map((item) => (
@@ -770,7 +786,7 @@ function EventPricingEditor({ form, setForm }) {
 
           <SelectInput
             label="Preview menu package"
-            value={previewMenuId}
+            value={selectedPreviewMenuId}
             onChange={setPreviewMenuId}
           >
             {activeMenus.map((item) => (
@@ -988,6 +1004,7 @@ function PrivateWorkshopPricingEditor({ form, setForm }) {
                   type="button"
                   className="afc-btn-danger"
                   onClick={() => removePackage(index)}
+                aria-label="Remove item"
                 >
                   <Trash2 size={15} />
                   Remove
@@ -1101,23 +1118,33 @@ function AuditLogs({ logs }) {
 export default function AdminForms() {
   const [bookingType, setBookingType] = useState("event_booking");
   const [csrfToken, setCsrfToken] = useState("");
-  const [form, setForm] = useState(clone(DEFAULT_EVENT_FORM));
-  const [originalForm, setOriginalForm] = useState(clone(DEFAULT_EVENT_FORM));
-  const [auditLogs, setAuditLogs] = useState([]);
+  const [form, setForm] = useState(null);
+  const savedFormSnapshotRef = useRef(null);
+  const [auditLogs, setAuditLogs] = useState(null);
 
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+
+  const loading =
+    bookingType === "audit_logs"
+      ? auditLogs === null && !error
+      : form === null && !error;
 
   const hasUnsavedChanges = useMemo(() => {
     if (bookingType === "audit_logs") {
       return false;
     }
 
+    const originalForm = savedFormSnapshotRef.current;
+
+    if (!form || !originalForm) {
+      return false;
+    }
+
     return JSON.stringify(form) !== JSON.stringify(originalForm);
-  }, [form, originalForm, bookingType]);
+  }, [form, bookingType]);
 
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -1178,9 +1205,15 @@ export default function AdminForms() {
   };
 
   const loadForm = async (type) => {
-    setLoading(true);
     setNotice("");
     setError("");
+
+    if (type === "audit_logs") {
+      setAuditLogs(null);
+    } else {
+      setForm(null);
+      savedFormSnapshotRef.current = null;
+    }
 
     try {
       const { data } = await adminApi.get("/admin/get-booking-form.php", {
@@ -1194,29 +1227,27 @@ export default function AdminForms() {
       if (type === "audit_logs") {
         setAuditLogs(data.logs || []);
         setForm({});
-        setOriginalForm({});
+        savedFormSnapshotRef.current = {};
         return;
       }
 
       const nextForm = normalizeLoadedForm(type, data.form);
 
       setForm(clone(nextForm));
-      setOriginalForm(clone(nextForm));
+      savedFormSnapshotRef.current = clone(nextForm);
     } catch (err) {
       console.error(err);
       setError("Failed to load settings.");
 
       if (type === "event_booking") {
         setForm(clone(DEFAULT_EVENT_FORM));
-        setOriginalForm(clone(DEFAULT_EVENT_FORM));
+        savedFormSnapshotRef.current = clone(DEFAULT_EVENT_FORM);
       }
 
       if (type === "private_workshop") {
         setForm(clone(DEFAULT_PRIVATE_FORM));
-        setOriginalForm(clone(DEFAULT_PRIVATE_FORM));
+        savedFormSnapshotRef.current = clone(DEFAULT_PRIVATE_FORM);
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1537,6 +1568,7 @@ export default function AdminForms() {
                 type="button"
                 className="afc-btn-secondary"
                 onClick={handleResetDefaults}
+            aria-label="Add item"
                 disabled={saving || loading}
               >
                 <RefreshCw size={16} />

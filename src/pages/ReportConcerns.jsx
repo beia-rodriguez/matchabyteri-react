@@ -146,8 +146,9 @@ export default function ReportConcerns() {
 
           <form onSubmit={handleSubmit}>
             <div className="field">
-              <label>Concern Type</label>
+              <label htmlFor="concern-type">Concern Type</label>
               <select
+                id="concern-type"
                 name="concern_type"
                 value={form.concern_type}
                 aria-label={`Concern Type: ${form.concern_type}`}
@@ -164,8 +165,9 @@ export default function ReportConcerns() {
             </div>
 
             <div className="field">
-              <label>Booking ID (optional)</label>
+              <label htmlFor="concern-booking-id">Booking ID (optional)</label>
               <input
+                id="concern-booking-id"
                 type="number"
                 name="booking_id"
                 value={form.booking_id}
@@ -183,8 +185,9 @@ export default function ReportConcerns() {
             </div>
 
             <div className="field full">
-              <label>Subject</label>
+              <label htmlFor="concern-subject">Subject</label>
               <input
+                id="concern-subject"
                 type="text"
                 name="subject"
                 value={form.subject}
@@ -200,8 +203,9 @@ export default function ReportConcerns() {
             </div>
 
             <div className="field full">
-              <label>Details</label>
+              <label htmlFor="concern-details">Details</label>
               <textarea
+                id="concern-details"
                 name="details"
                 value={form.details}
                 aria-label={

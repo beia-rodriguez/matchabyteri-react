@@ -92,7 +92,7 @@ export default function PublicWorkshop() {
           <p>Book a workshop with us!</p>
 
           <div className="pw-workshop-image">
-            <img src="/images/menu-1.png" alt="Workshop image 1" />
+            <img src="/images/menu-1.png" alt="Matcha workshop setup" />
           </div>
 
           <p className="pw-workshop-text">
@@ -108,7 +108,7 @@ export default function PublicWorkshop() {
           <ul>
             <li>Minimum of 5 attendees, maximum of 15</li>
             <li>3-hour interactive workshop</li>
-            <li>Learn all about matcha — its history, process, and preparation</li>
+            <li>Learn all about matcha: its history, process, and preparation</li>
             <li>Taste different matcha drinks</li>
             <li>Create and whisk your own matcha beverages</li>
           </ul>
@@ -118,7 +118,7 @@ export default function PublicWorkshop() {
           <div className="pw-workshop-tier">
             <div className="pw-standard-tier">
               <div className="pw-standard-button">
-                <button aria-label="Standard">STANDARD</button>
+                <button type="button" aria-label="Standard">STANDARD</button>
               </div>
 
               <div className="pw-standard-desc">
@@ -138,7 +138,7 @@ export default function PublicWorkshop() {
 
             <div className="pw-premium-tier">
               <div className="pw-premium-button">
-                <button aria-label="Premium">PREMIUM</button>
+                <button type="button" aria-label="Premium">PREMIUM</button>
               </div>
 
               <div className="pw-premium-desc">
@@ -160,7 +160,7 @@ export default function PublicWorkshop() {
 
           <div className="pw-book-button">
             <Link to="/calendar?type=workshop" aria-label="Book now">
-              <button aria-label="Book now">BOOK NOW</button>
+              <button type="button" aria-label="Book now">BOOK NOW</button>
             </Link>
           </div>
         </section>

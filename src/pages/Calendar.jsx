@@ -1,9 +1,83 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/calendar.css";
 import "../assets/css/universal.css";
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const CALENDAR_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+const CALENDAR_DAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  weekday: "long",
+});
+
+const calendarInitialState = {
+  monthStatus: {},
+  loading: false,
+  error: "",
+};
+
+function calendarReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        ...state,
+        loading: true,
+        error: "",
+      };
+
+    case "success":
+      return {
+        monthStatus: action.monthStatus,
+        loading: false,
+        error: "",
+      };
+
+    case "error":
+      return {
+        monthStatus: {},
+        loading: false,
+        error: action.message,
+      };
+
+    default:
+      return state;
+  }
+}
+
+const pad = (n) => String(n).padStart(2, "0");
+
+const ymd = (date) =>
+  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+const startOfToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+const formatDateOnly = (date) => CALENDAR_DATE_FORMATTER.format(date);
+
+const formatDayOnly = (date) => CALENDAR_DAY_FORMATTER.format(date);
 
 export default function Calendar() {
   const [searchParams] = useSearchParams();
@@ -16,51 +90,12 @@ export default function Calendar() {
       : "both";
 
   const [view, setView] = useState(new Date());
-  const [monthStatus, setMonthStatus] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [calendarState, dispatchCalendarState] = useReducer(
+    calendarReducer,
+    calendarInitialState
+  );
 
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
-  const pad = (n) => String(n).padStart(2, "0");
-
-  const ymd = (date) =>
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-      date.getDate()
-    )}`;
-
-  const startOfToday = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return today;
-  };
-
-  const formatDateOnly = (date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(date);
-  };
-
-  const formatDayOnly = (date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-    }).format(date);
-  };
+  const { monthStatus, loading, error } = calendarState;
 
   const getCellLabel = (date, isPast, info, isOutsideMonth = false) => {
     const readableDate = formatDateOnly(date);
@@ -108,8 +143,7 @@ export default function Calendar() {
   useEffect(() => {
     let isMounted = true;
 
-    setLoading(true);
-    setError("");
+    dispatchCalendarState({ type: "loading" });
 
     API.get("/calendar/calendar_status.php", {
       params: {
@@ -120,7 +154,11 @@ export default function Calendar() {
     })
       .then((res) => {
         if (!isMounted) return;
-        setMonthStatus(res.data || {});
+
+        dispatchCalendarState({
+          type: "success",
+          monthStatus: res.data || {},
+        });
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -130,12 +168,10 @@ export default function Calendar() {
           return;
         }
 
-        setMonthStatus({});
-        setError("Sorry, calendar availability could not be loaded.");
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setLoading(false);
+        dispatchCalendarState({
+          type: "error",
+          message: "Sorry, calendar availability could not be loaded.",
+        });
       });
 
     return () => {
@@ -265,7 +301,7 @@ export default function Calendar() {
         try {
           await API.get("/auth/check-auth.php");
           navigate(`/day?date=${dateKey}&type=${bookingType}`);
-        } catch (err) {
+        } catch {
           navigate(
             `/login?redirect=${encodeURIComponent(
               `/day?date=${dateKey}&type=${bookingType}`
@@ -338,9 +374,9 @@ export default function Calendar() {
           <h1
             className="month-title voice-readable"
             tabIndex="0"
-            aria-label={`Month ${monthNames[view.getMonth()]}`}
+            aria-label={`Month ${MONTH_NAMES[view.getMonth()]}`}
           >
-            {monthNames[view.getMonth()]}
+            {MONTH_NAMES[view.getMonth()]}
           </h1>
 
           <div
@@ -368,7 +404,7 @@ export default function Calendar() {
             tabIndex="0"
             aria-label="Loading calendar availability"
           >
-            Loading calendar availability...
+            Loading calendar availability…
           </div>
         )}
 

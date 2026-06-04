@@ -133,20 +133,18 @@ function formatDetailValue(value, fallback = "—") {
     if (value.length === 0) return fallback;
 
     return value
-      .map((item) => {
-        if (item && typeof item === "object") {
-          return (
-            item.drink_name ||
-            item.label ||
-            item.name ||
-            item.package_code ||
-            JSON.stringify(item)
-          );
-        }
+      .flatMap((item) => {
+        const text =
+          item && typeof item === "object"
+            ? item.drink_name ||
+              item.label ||
+              item.name ||
+              item.package_code ||
+              JSON.stringify(item)
+            : String(item);
 
-        return String(item);
+        return text ? [text] : [];
       })
-      .filter(Boolean)
       .join(", ");
   }
 
@@ -314,7 +312,7 @@ export default function AdminReservations() {
           <span>Booking Status</span>
           <strong
             className={`p-badge-react ${bookingStatusClass(booking.status)}`}
-            style={{ padding: "2px 8px", fontSize: "0.7rem" }}
+            style={{ padding: "2px 8px", fontSize: "0.75rem" }}
           >
             {bookingStatus}
           </strong>
@@ -324,7 +322,7 @@ export default function AdminReservations() {
           <span>Payment Status</span>
           <strong
             className={`p-badge-react ${paymentBadgeClass(booking.payment_status)}`}
-            style={{ padding: "2px 8px", fontSize: "0.7rem" }}
+            style={{ padding: "2px 8px", fontSize: "0.75rem" }}
           >
             {paymentStatus}
           </strong>
@@ -591,7 +589,7 @@ export default function AdminReservations() {
 
         {loading ? (
           <div className="admin-muted-react" style={{ padding: "24px" }}>
-            Loading reservations...
+            Loading reservations…
           </div>
         ) : filteredBookings.length === 0 ? (
           <div className="admin-muted-react" style={{ padding: "24px" }}>
@@ -742,7 +740,7 @@ export default function AdminReservations() {
                               REQUESTED
                             </span>
                           ) : (
-                            <span className="admin-muted-react">—</span>
+                            <span className="admin-muted-react">None</span>
                           )}
                         </td>
 
@@ -763,21 +761,21 @@ export default function AdminReservations() {
                                   padding: "6px 12px",
                                   opacity: canApprove ? 1 : 0.5,
                                   cursor: canApprove ? "pointer" : "not-allowed",
-                                  fontSize: "0.72rem",
+                                  fontSize: "0.75rem",
                                 }}
                                 type="button"
                                 onClick={() => handleStatus(p, "approved")}
                                 disabled={!canApprove || isSaving}
                                 title={canApprove ? "Approve booking" : "Payment required"}
                               >
-                                {isSaving ? "..." : "APPROVE"}
+                                {isSaving ? "…" : "APPROVE"}
                               </button>
                             )}
 
                             {canCancel && (
                               <button
                                 className="admin-btn-react admin-btn-cancel-react"
-                                style={{ padding: "6px 12px", fontSize: "0.72rem" }}
+                                style={{ padding: "6px 12px", fontSize: "0.75rem" }}
                                 type="button"
                                 onClick={() => handleStatus(p, "cancelled")}
                                 disabled={isSaving}
@@ -789,7 +787,7 @@ export default function AdminReservations() {
                             {canReject && (
                               <button
                                 className="admin-btn-react admin-btn-cancel-react"
-                                style={{ padding: "6px 12px", fontSize: "0.72rem" }}
+                                style={{ padding: "6px 12px", fontSize: "0.75rem" }}
                                 type="button"
                                 onClick={() => handleStatus(p, "rejected")}
                                 disabled={isSaving}
@@ -801,7 +799,7 @@ export default function AdminReservations() {
                             {canComplete && (
                               <button
                                 className="admin-btn-react admin-btn-approve-react"
-                                style={{ padding: "6px 12px", fontSize: "0.72rem" }}
+                                style={{ padding: "6px 12px", fontSize: "0.75rem" }}
                                 type="button"
                                 onClick={() => handleStatus(p, "completed")}
                                 disabled={isSaving}

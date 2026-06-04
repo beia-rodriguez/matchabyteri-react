@@ -1,6 +1,19 @@
 import { Link } from "react-router-dom";
 import "../assets/css/public-workshop-package.css";
 
+const EMPTY_BULLETS = [];
+
+function stableTextKey(value) {
+  const text = String(value ?? "");
+  let hash = 0;
+
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+
+  return `bullet-${hash.toString(36)}`;
+}
+
 export default function PublicWorkshopPackageView({
   packageLabel,
   title,
@@ -8,7 +21,7 @@ export default function PublicWorkshopPackageView({
   dateText,
   timeText,
   location,
-  bullets = [],
+  bullets = EMPTY_BULLETS,
   emptyText,
   continueUrl,
   backUrl,
@@ -27,7 +40,6 @@ export default function PublicWorkshopPackageView({
           {slotInfo ? (
             <div className="wsPkg-badgeRow">
               <div className="wsPkg-badge">{packageLabel}</div>
-
               <div className={`wsPkg-pill ${isFull ? "wsPkg-pill-bad" : ""}`}>
                 {slotInfo}
               </div>
@@ -52,8 +64,8 @@ export default function PublicWorkshopPackageView({
             <div className="wsPkg-meta">{emptyText}</div>
           ) : (
             <ul className="wsPkg-bullets">
-              {bullets.map((b, i) => (
-                <li key={`${b}-${i}`}>{b}</li>
+              {bullets.map((bullet) => (
+                <li key={stableTextKey(bullet)}>{bullet}</li>
               ))}
             </ul>
           )}

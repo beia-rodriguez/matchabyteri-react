@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../assets/css/gcash-payment.css";
@@ -73,19 +73,29 @@ export default function GcashPayment() {
     purpose === "event_booking" || purpose === "private_workshop";
 
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [payerName, setPayerName] = useState("");
   const [referenceNo, setReferenceNo] = useState("");
   const [proof, setProof] = useState(null);
 
-  const [paymentData, setPaymentData] = useState(null);
-  const [gcash, setGcash] = useState({
-    number: "+639771277498",
-    name: "J*A*T",
-    qr: "/images/gcash-qr.jpg",
-  });
+  const [paymentResponse, setPaymentResponse] = useState(null);
+
+  const loading = !paymentResponse && !err;
+
+  const paymentData = useMemo(() => {
+    return paymentResponse?.booking || paymentResponse?.registration || null;
+  }, [paymentResponse]);
+
+  const gcash = useMemo(() => {
+    const qrPath = paymentResponse?.gcash_qr || "images/gcash-qr.jpg";
+
+    return {
+      number: paymentResponse?.gcash_number || "+639771277498",
+      name: paymentResponse?.gcash_name || "J*A*T",
+      qr: String(qrPath).startsWith("/") ? qrPath : `/${qrPath}`,
+    };
+  }, [paymentResponse]);
 
   const paymentStatus = String(
     paymentData?.payment_status || "unpaid"
@@ -109,35 +119,32 @@ export default function GcashPayment() {
     };
   }, [isPublicWorkshop, purpose, registrationId, bookingId]);
 
-  const loadPaymentInfo = async () => {
-    setLoading(true);
+  const loadPaymentInfo = useCallback(async () => {
+    setPaymentResponse(null);
     setErr("");
 
     try {
-      const { data } = await API.get("/payments/gcash-payment.php", {
+      const res = await API.get("/payments/gcash-payment.php", {
         params: paymentParams,
       });
 
-      if (!data.success) {
-        setErr(data.error || "Failed to load payment details.");
+      if (!res.data.success) {
+        setErr(res.data.error || "Failed to load payment details.");
         return;
       }
 
-      setPaymentData(data.booking || data.registration);
+      const nextPaymentData = res.data.booking || res.data.registration || null;
 
-      setGcash({
-        number: data.gcash_number || "+639771277498",
-        name: data.gcash_name || "J*A*T",
-        qr: data.gcash_qr?.startsWith("/")
-          ? data.gcash_qr
-          : `/${data.gcash_qr || "images/gcash-qr.jpg"}`,
-      });
+      if (!nextPaymentData) {
+        setErr("Payment record was not found.");
+        return;
+      }
+
+      setPaymentResponse(res.data);
     } catch (error) {
       setErr(error.response?.data?.error || "Failed to load payment details.");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [paymentParams]);
 
   useEffect(() => {
     const validPrivate = isPrivateBooking && bookingId > 0;
@@ -152,21 +159,21 @@ export default function GcashPayment() {
     }
 
     loadPaymentInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawPurpose, purpose, bookingId, registrationId, navigate]);
+  }, [
+    rawPurpose,
+    bookingId,
+    registrationId,
+    isPrivateBooking,
+    isPublicWorkshop,
+    loadPaymentInfo,
+    navigate,
+  ]);
 
-  useEffect(() => {
-    if (isPublicWorkshop) {
-      setPaymentChoice("full");
-      return;
-    }
-
-    if (paymentStatus === "partial") {
-      setPaymentChoice("remaining");
-    } else {
-      setPaymentChoice("downpayment");
-    }
-  }, [paymentStatus, isPublicWorkshop]);
+  const effectivePaymentChoice = useMemo(() => {
+    if (isPublicWorkshop) return "full";
+    if (paymentStatus === "partial") return "remaining";
+    return paymentChoice;
+  }, [isPublicWorkshop, paymentStatus, paymentChoice]);
 
   const totalAmount = useMemo(() => {
     return Number(paymentData?.total_amount || 0);
@@ -209,18 +216,11 @@ export default function GcashPayment() {
   }, [paymentData, totalAmount, amountPaid]);
 
   const amountToPay = useMemo(() => {
-    if (isPublicWorkshop) return totalAmount;
-    if (paymentChoice === "full") return totalAmount;
-    if (paymentChoice === "remaining") return remainingAmount;
+    if (effectivePaymentChoice === "full") return totalAmount;
+    if (effectivePaymentChoice === "remaining") return remainingAmount;
 
     return downpaymentAmount;
-  }, [
-    isPublicWorkshop,
-    paymentChoice,
-    totalAmount,
-    remainingAmount,
-    downpaymentAmount,
-  ]);
+  }, [effectivePaymentChoice, totalAmount, remainingAmount, downpaymentAmount]);
 
   const showInitialOptions =
     !isPublicWorkshop &&
@@ -281,7 +281,7 @@ export default function GcashPayment() {
     formData.append("payer_name", payerName.trim());
     formData.append("reference_no", referenceNo.trim());
     formData.append("amount", amountToPay.toFixed(2));
-    formData.append("payment_choice", paymentChoice);
+    formData.append("payment_choice", effectivePaymentChoice);
     formData.append("proof", proof);
 
     setSubmitting(true);
@@ -347,7 +347,7 @@ export default function GcashPayment() {
                   }
                 >
                   {loading
-                    ? "Loading payment details..."
+                    ? "Loading payment details…"
                     : `This payment is linked to ${
                         isPublicWorkshop
                           ? `public workshop registration #${registrationId}`
@@ -374,7 +374,7 @@ export default function GcashPayment() {
                 aria-label="Loading payment details. Please wait."
               >
                 <span className="gpmt-loader" aria-hidden="true"></span>
-                Loading payment details...
+                Loading payment details…
               </div>
             ) : (
               <>
@@ -521,13 +521,14 @@ export default function GcashPayment() {
                                   type="radio"
                                   name="payment_choice"
                                   value="downpayment"
-                                  checked={paymentChoice === "downpayment"}
+                                  checked={effectivePaymentChoice === "downpayment"}
                                   onChange={() =>
                                     setPaymentChoice("downpayment")
                                   }
                                 />
                                 <span>
-                                  Downpayment ({percent(downpaymentPercentage)}%)
+                                  Downpayment ({percent(downpaymentPercentage)}
+                                  %)
                                   <b>₱{money(downpaymentAmount)}</b>
                                 </span>
                               </label>
@@ -543,7 +544,7 @@ export default function GcashPayment() {
                                   type="radio"
                                   name="payment_choice"
                                   value="full"
-                                  checked={paymentChoice === "full"}
+                                  checked={effectivePaymentChoice === "full"}
                                   onChange={() => setPaymentChoice("full")}
                                 />
                                 <span>
@@ -685,7 +686,7 @@ export default function GcashPayment() {
                             : "Submit payment proof"
                         }
                       >
-                        {submitting ? "SUBMITTING..." : "SUBMIT PAYMENT PROOF"}
+                        {submitting ? "SUBMITTING…" : "SUBMIT PAYMENT PROOF"}
                       </button>
 
                       <div

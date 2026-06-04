@@ -1,29 +1,79 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useReducer, useState } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/workshop-signup.scoped.css";
 import "../assets/css/universal.css";
 
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+const TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+const workshopSignupInitialState = {
+  data: {
+    workshops: [],
+    hasMaxSlots: false,
+  },
+  loading: true,
+  errorMsg: "",
+};
+
+function workshopSignupReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        data: {
+          workshops: [],
+          hasMaxSlots: false,
+        },
+        loading: true,
+        errorMsg: "",
+      };
+
+    case "success":
+      return {
+        data: {
+          workshops: action.workshops,
+          hasMaxSlots: action.hasMaxSlots,
+        },
+        loading: false,
+        errorMsg: "",
+      };
+
+    case "error":
+      return {
+        data: {
+          workshops: [],
+          hasMaxSlots: false,
+        },
+        loading: false,
+        errorMsg: action.message,
+      };
+
+    default:
+      return state;
+  }
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(`${dateStr}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
+  return DATE_FORMATTER.format(d);
 }
 
 function formatTime(timeStr) {
   if (!timeStr) return "";
   const t = timeStr.length >= 5 ? timeStr.slice(0, 5) : timeStr;
   const d = new Date(`1970-01-01T${t}:00`);
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d);
+  return TIME_FORMATTER.format(d);
 }
 
 function timeRange(start, end) {
@@ -47,33 +97,48 @@ function posterSrc(path) {
 }
 
 export default function WorkshopSignup() {
-  const navigate = useNavigate();
-
   const [tab, setTab] = useState("upcoming");
-  const [data, setData] = useState({ workshops: [], hasMaxSlots: false });
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [pageState, dispatchPageState] = useReducer(
+    workshopSignupReducer,
+    workshopSignupInitialState
+  );
+
+  const { data, loading, errorMsg } = pageState;
 
   useEffect(() => {
-    setLoading(true);
-    setErrorMsg("");
+    let ignore = false;
+
+    dispatchPageState({ type: "loading" });
 
     API.get("/bookings/public-workshop/public-list.php", {
       params: { scope: tab },
     })
       .then((res) => {
-        setData({
-          workshops: Array.isArray(res.data?.workshops) ? res.data.workshops : [],
+        if (ignore) return;
+
+        dispatchPageState({
+          type: "success",
+          workshops: Array.isArray(res.data?.workshops)
+            ? res.data.workshops
+            : [],
           hasMaxSlots: !!res.data?.hasMaxSlots,
         });
       })
       .catch((err) => {
+        if (ignore) return;
+
         console.error("Failed to load workshops:", err);
         console.error("Response data:", err.response?.data);
-        setData({ workshops: [], hasMaxSlots: false });
-        setErrorMsg(err.response?.data?.message || "Failed to load workshops.");
-      })
-      .finally(() => setLoading(false));
+
+        dispatchPageState({
+          type: "error",
+          message: err.response?.data?.message || "Failed to load workshops.",
+        });
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [tab]);
 
   useEffect(() => {
@@ -177,7 +242,9 @@ export default function WorkshopSignup() {
           <div className="ws-signup-tabs">
             <button
               type="button"
-              className={`ws-signup-tab ${tab === "upcoming" ? "is-active" : ""}`}
+              className={`ws-signup-tab ${
+                tab === "upcoming" ? "is-active" : ""
+              }`}
               onClick={() => setTab("upcoming")}
             >
               Upcoming
@@ -185,7 +252,9 @@ export default function WorkshopSignup() {
 
             <button
               type="button"
-              className={`ws-signup-tab ${tab === "past" ? "is-active" : ""}`}
+              className={`ws-signup-tab ${
+                tab === "past" ? "is-active" : ""
+              }`}
               onClick={() => setTab("past")}
             >
               Past Workshops
@@ -195,7 +264,7 @@ export default function WorkshopSignup() {
           <div className="ws-signup-section-title">{sectionTitle}</div>
 
           {loading ? (
-            <div className="ws-signup-sub">Loading workshops...</div>
+            <div className="ws-signup-sub">Loading workshops…</div>
           ) : errorMsg ? (
             <div className="ws-signup-sub">{errorMsg}</div>
           ) : data.workshops.length === 0 ? (
@@ -204,7 +273,9 @@ export default function WorkshopSignup() {
             <div className="ws-signup-grid">
               {data.workshops.map((w) => {
                 const wid = Number(w.id);
-                const maxSlots = data.hasMaxSlots ? Number(w.max_slots || 0) : 0;
+                const maxSlots = data.hasMaxSlots
+                  ? Number(w.max_slots || 0)
+                  : 0;
                 const taken = Number(w.taken || 0);
 
                 let slotsLeft = null;
@@ -217,14 +288,10 @@ export default function WorkshopSignup() {
                 const locStr = w.location || "";
 
                 return (
-                  <a
+                  <Link
                     key={wid}
                     className="ws-signup-card"
-                    href={`/public-workshops/${wid}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(`/public-workshops/${wid}`);
-                    }}
+                    to={`/public-workshops/${wid}`}
                     aria-label={`View workshop: ${w.title || "Workshop"}`}
                   >
                     <img
@@ -274,7 +341,7 @@ export default function WorkshopSignup() {
                         {locStr && <>Location: {locStr}</>}
                       </div>
                     </div>
-                  </a>
+                  </Link>
                 );
               })}
             </div>

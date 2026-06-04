@@ -127,7 +127,7 @@ export default function MyConcerns() {
           </div>
 
           <div className="actions">
-            <button
+            <button type="button"
               className="btn btn-back"
               aria-label="Back to Profile"
               onClick={() => navigate("/profile")}
@@ -135,7 +135,7 @@ export default function MyConcerns() {
               Back to Profile
             </button>
 
-            <button
+            <button type="button"
               className="btn btn-new"
               aria-label="Report a Concern"
               onClick={() => navigate("/report-concerns")}

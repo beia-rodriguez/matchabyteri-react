@@ -150,10 +150,6 @@ export default function AdminDashboard() {
   const statusCanvasRef = useRef(null);
   const paymentCanvasRef = useRef(null);
 
-  const bookingChartRef = useRef(null);
-  const revenueChartRef = useRef(null);
-  const statusChartRef = useRef(null);
-  const paymentChartRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -221,10 +217,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!stats || !stats.labels.length) return;
 
-    bookingChartRef.current?.destroy();
-    revenueChartRef.current?.destroy();
-    statusChartRef.current?.destroy();
-    paymentChartRef.current?.destroy();
+
+    let bookingChart = null;
+    let revenueChart = null;
+    let statusChart = null;
+    let paymentChart = null;
 
     const frame = requestAnimationFrame(() => {
       const bookingCtx = bookingCanvasRef.current?.getContext("2d");
@@ -233,7 +230,7 @@ export default function AdminDashboard() {
       const paymentCtx = paymentCanvasRef.current?.getContext("2d");
 
       if (bookingCtx) {
-        bookingChartRef.current = new Chart(bookingCtx, {
+        bookingChart = new Chart(bookingCtx, {
           type: "bar",
           data: {
             labels: stats.labels,
@@ -307,7 +304,7 @@ export default function AdminDashboard() {
       }
 
       if (revenueCtx) {
-        revenueChartRef.current = new Chart(revenueCtx, {
+        revenueChart = new Chart(revenueCtx, {
           type: "line",
           data: {
             labels: stats.labels,
@@ -399,7 +396,7 @@ export default function AdminDashboard() {
       }
 
       if (statusCtx) {
-        statusChartRef.current = new Chart(statusCtx, {
+        statusChart = new Chart(statusCtx, {
           type: "doughnut",
           data: {
             labels: stats.statusLabels,
@@ -434,7 +431,7 @@ export default function AdminDashboard() {
       }
 
       if (paymentCtx) {
-        paymentChartRef.current = new Chart(paymentCtx, {
+        paymentChart = new Chart(paymentCtx, {
           type: "doughnut",
           data: {
             labels: stats.paymentStatusLabels,
@@ -472,15 +469,11 @@ export default function AdminDashboard() {
     return () => {
       cancelAnimationFrame(frame);
 
-      bookingChartRef.current?.destroy();
-      revenueChartRef.current?.destroy();
-      statusChartRef.current?.destroy();
-      paymentChartRef.current?.destroy();
+      bookingChart?.destroy();
+      revenueChart?.destroy();
+      statusChart?.destroy();
+      paymentChart?.destroy();
 
-      bookingChartRef.current = null;
-      revenueChartRef.current = null;
-      statusChartRef.current = null;
-      paymentChartRef.current = null;
     };
   }, [stats]);
 

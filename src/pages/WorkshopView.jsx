@@ -1,40 +1,81 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useReducer } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/workshop-view.scoped.css";
 import "../assets/css/universal.css";
 
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+const TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+const workshopViewInitialState = {
+  workshop: null,
+  loading: true,
+  errorMsg: "",
+};
+
+function workshopViewReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        workshop: null,
+        loading: true,
+        errorMsg: "",
+      };
+
+    case "success":
+      return {
+        workshop: action.workshop,
+        loading: false,
+        errorMsg: "",
+      };
+
+    case "error":
+      return {
+        workshop: null,
+        loading: false,
+        errorMsg: action.message,
+      };
+
+    default:
+      return state;
+  }
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return "";
   const d = new Date(`${dateStr}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
+  return DATE_FORMATTER.format(d);
 }
 
 function formatTime(timeStr) {
   if (!timeStr) return "";
   const t = timeStr.length >= 5 ? timeStr.slice(0, 5) : timeStr;
   const d = new Date(`1970-01-01T${t}:00`);
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d);
+  return TIME_FORMATTER.format(d);
 }
 
 function isPastDate(dateStr) {
   if (!dateStr) return false;
+
   const today = new Date();
   const todayDateOnly = new Date(
     today.getFullYear(),
     today.getMonth(),
     today.getDate()
   );
+
   const workshopDate = new Date(`${dateStr}T00:00:00`);
+
   return workshopDate < todayDateOnly;
 }
 
@@ -56,28 +97,52 @@ export default function WorkshopView() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [workshop, setWorkshop] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [pageState, dispatchPageState] = useReducer(
+    workshopViewReducer,
+    workshopViewInitialState
+  );
+
+  const { workshop, loading, errorMsg } = pageState;
 
   useEffect(() => {
-    setLoading(true);
-    setErrorMsg("");
+    let ignore = false;
 
-    API.get("/bookings/public-workshop/public-detail.php", { params: { id } })
+    dispatchPageState({ type: "loading" });
+
+    API.get("/bookings/public-workshop/public-detail.php", {
+      params: { id },
+    })
       .then((res) => {
+        if (ignore) return;
+
         if (!res.data?.workshop) {
-          setErrorMsg("Workshop not found.");
+          dispatchPageState({
+            type: "error",
+            message: "Workshop not found.",
+          });
           return;
         }
-        setWorkshop(res.data.workshop);
+
+        dispatchPageState({
+          type: "success",
+          workshop: res.data.workshop,
+        });
       })
       .catch((err) => {
+        if (ignore) return;
+
         console.error("Failed to load workshop detail:", err);
         console.error("Response data:", err.response?.data);
-        setErrorMsg(err.response?.data?.message || "Failed to load workshop.");
-      })
-      .finally(() => setLoading(false));
+
+        dispatchPageState({
+          type: "error",
+          message: err.response?.data?.message || "Failed to load workshop.",
+        });
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [id]);
 
   const paragraph = useMemo(() => {
@@ -86,17 +151,15 @@ export default function WorkshopView() {
     const dateText = formatDate(workshop.workshop_date);
     const startText = formatTime(workshop.start_time);
     let timeText = startText;
-    if (workshop.end_time) timeText += ` – ${formatTime(workshop.end_time)}`;
+
+    if (workshop.end_time) {
+      timeText += ` – ${formatTime(workshop.end_time)}`;
+    }
 
     const desc = (workshop.description || "").trim();
     const loc = (workshop.location || "").trim();
 
-    return [
-      desc,
-      `Date: ${dateText}`,
-      `Time: ${timeText}`,
-      `Location: ${loc}`,
-    ]
+    return [desc, `Date: ${dateText}`, `Time: ${timeText}`, `Location: ${loc}`]
       .filter(Boolean)
       .join("\n\n");
   }, [workshop]);
@@ -192,7 +255,7 @@ export default function WorkshopView() {
         <div className="wsv-page" id="readable-content">
           <section className="wsv-section">
             <div className="wsv-inner">
-              <div className="wsv-status">Loading workshop details...</div>
+              <div className="wsv-status">Loading workshop details…</div>
             </div>
           </section>
         </div>
@@ -213,16 +276,9 @@ export default function WorkshopView() {
               </div>
 
               <div className="wsv-actionRow">
-                <a
-                  className="wsv-backLink"
-                  href="/public-workshops"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/public-workshops");
-                  }}
-                >
+                <Link className="wsv-backLink" to="/public-workshops">
                   Back
-                </a>
+                </Link>
               </div>
             </div>
           </section>
@@ -242,7 +298,7 @@ export default function WorkshopView() {
               <img
                 className="wsv-image"
                 src={posterSrc(workshop.poster_path)}
-                alt="Workshop Poster"
+                alt="Workshop poster"
                 onError={(e) => {
                   e.currentTarget.src = "/pics/default-workshop.jpg";
                 }}
@@ -256,6 +312,7 @@ export default function WorkshopView() {
               <div className="wsv-actionRow">
                 {!isPast ? (
                   <button
+                    type="button"
                     className="wsv-primaryBtn"
                     onClick={() =>
                       navigate(`/public-workshops/${workshop.id}/register`)
@@ -265,6 +322,7 @@ export default function WorkshopView() {
                   </button>
                 ) : (
                   <button
+                    type="button"
                     className="wsv-primaryBtn is-disabled"
                     disabled
                   >
@@ -272,22 +330,13 @@ export default function WorkshopView() {
                   </button>
                 )}
 
-                <a
-                  className="wsv-backLink"
-                  href="/public-workshops"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/public-workshops");
-                  }}
-                >
+                <Link className="wsv-backLink" to="/public-workshops">
                   Back
-                </a>
+                </Link>
               </div>
 
               {isPast && (
-                <div className="wsv-note">
-                  This workshop is in the past.
-                </div>
+                <div className="wsv-note">This workshop is in the past.</div>
               )}
             </div>
           </div>

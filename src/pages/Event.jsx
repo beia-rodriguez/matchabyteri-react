@@ -68,7 +68,7 @@ export default function Event() {
 
           <p className="event-page__event-text">
             After the success of our Pop Up Event with Safe Space Club Pilates,
-            we can’t wait to help you host your own unforgettable experience—BOOK NOW!
+            we can’t wait to help you host your own unforgettable experience. BOOK NOW!
           </p>
         </section>
 

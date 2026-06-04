@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "@/assets/css/admin-payments.css";
@@ -89,7 +89,7 @@ export default function AdminPayments() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
 
-  const loadData = async (statusValue = status, qValue = q) => {
+  const loadData = useCallback(async (statusValue = "pending", qValue = "") => {
     try {
       setLoading(true);
       setErr("");
@@ -97,7 +97,7 @@ export default function AdminPayments() {
       const { data } = await adminApi.get("/admin/admin-payments.php", {
         params: {
           status: statusValue,
-          q: qValue.trim(),
+          q: String(qValue || "").trim(),
         },
       });
 
@@ -130,12 +130,11 @@ export default function AdminPayments() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData("pending", "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadData]);
 
   const applyFilters = async (e) => {
     e.preventDefault();
@@ -236,6 +235,7 @@ export default function AdminPayments() {
             </label>
 
             <select
+              aria-label="Payment Status"
               id="payment-status"
               className="admin-input-react"
               value={status}
@@ -258,6 +258,7 @@ export default function AdminPayments() {
             </label>
 
             <input
+              aria-label="Payment Search"
               id="payment-search"
               className="admin-input-react"
               type="text"
@@ -269,7 +270,7 @@ export default function AdminPayments() {
           </div>
 
           <button className="admin-pill-react" type="submit" disabled={loading}>
-            {loading ? "Loading..." : "Apply"}
+            {loading ? "Loading…" : "Apply"}
           </button>
         </form>
       </div>
@@ -279,7 +280,7 @@ export default function AdminPayments() {
 
         {loading ? (
           <div className="admin-muted-react" role="status" aria-live="polite">
-            Loading payments...
+            Loading payments…
           </div>
         ) : !payments.length ? (
           <>
@@ -433,6 +434,7 @@ export default function AdminPayments() {
 
                     <select
                       id={`payment-status-${paymentId}`}
+                      aria-label={`Update status for payment #${paymentId}`}
                       className="p-select-react"
                       value={selectedStatus}
                       disabled={isSaving}
@@ -457,8 +459,9 @@ export default function AdminPayments() {
                     <input
                       type="text"
                       id={`admin-note-${paymentId}`}
+                      aria-label={`Admin note for payment #${paymentId}`}
                       className="p-input-react"
-                      placeholder="Reason for rejection / general note..."
+                      placeholder="Reason for rejection / general note…"
                       value={notes[paymentId] || ""}
                       disabled={isSaving}
                       onChange={(e) =>
@@ -488,7 +491,7 @@ export default function AdminPayments() {
                         pointerEvents: "auto",
                       }}
                     >
-                      {isSaving ? "SAVING..." : "SAVE"}
+                      {isSaving ? "SAVING…" : "SAVE"}
                     </button>
                   </div>
                 </div>

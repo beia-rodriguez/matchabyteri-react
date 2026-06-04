@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -106,8 +106,6 @@ export default function AdminWorkshopEdit() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [posterFile, setPosterFile] = useState(null);
-  const [posterPreviewUrl, setPosterPreviewUrl] = useState("");
-
   const [form, setForm] = useState({
     title: "",
     workshop_date: "",
@@ -124,9 +122,9 @@ export default function AdminWorkshopEdit() {
     max_slots: "0",
   });
 
-  const [originalForm, setOriginalForm] = useState(null);
+  const originalWorkshopRef = useRef(null);
 
-  const loadWorkshop = async () => {
+  const loadWorkshop = useCallback(async () => {
     setErr("");
     setMsg("");
 
@@ -149,7 +147,7 @@ export default function AdminWorkshopEdit() {
       if (w) {
         const nextForm = buildFormFromWorkshop(w);
         setForm(nextForm);
-        setOriginalForm(nextForm);
+        originalWorkshopRef.current = w;
       }
     } catch (e) {
       const message = e.response?.data?.error || "Failed to load workshop.";
@@ -159,24 +157,22 @@ export default function AdminWorkshopEdit() {
         navigate("/admin/workshops", { replace: true });
       }
     }
-  };
+  }, [id, navigate]);
 
   useEffect(() => {
     loadWorkshop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [loadWorkshop]);
+
+  const posterPreviewUrl = useMemo(() => {
+    if (!posterFile) return "";
+    return URL.createObjectURL(posterFile);
+  }, [posterFile]);
 
   useEffect(() => {
-    if (!posterFile) {
-      setPosterPreviewUrl("");
-      return undefined;
-    }
+    if (!posterPreviewUrl) return undefined;
 
-    const objectUrl = URL.createObjectURL(posterFile);
-    setPosterPreviewUrl(objectUrl);
-
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [posterFile]);
+    return () => URL.revokeObjectURL(posterPreviewUrl);
+  }, [posterPreviewUrl]);
 
   const previewPoster = useMemo(() => {
     if (posterPreviewUrl) return posterPreviewUrl;
@@ -220,7 +216,11 @@ export default function AdminWorkshopEdit() {
   };
 
   const getChangedFields = () => {
-    if (!originalForm) return [];
+    const originalWorkshop = originalWorkshopRef.current;
+
+    if (!originalWorkshop) return [];
+
+    const originalForm = buildFormFromWorkshop(originalWorkshop);
 
     const labels = {
       title: "Title",
@@ -238,9 +238,15 @@ export default function AdminWorkshopEdit() {
       max_slots: "Max slots",
     };
 
-    return Object.keys(labels)
-      .filter((key) => String(form[key] ?? "") !== String(originalForm[key] ?? ""))
-      .map((key) => labels[key]);
+    const changedFields = [];
+
+    for (const [key, label] of Object.entries(labels)) {
+      if (String(form[key] ?? "") !== String(originalForm[key] ?? "")) {
+        changedFields.push(label);
+      }
+    }
+
+    return changedFields;
   };
 
   const hasUnsavedChanges = () => {
@@ -348,7 +354,7 @@ export default function AdminWorkshopEdit() {
           setWorkshop(w);
           const nextForm = buildFormFromWorkshop(w);
           setForm(nextForm);
-          setOriginalForm(nextForm);
+          originalWorkshopRef.current = w;
         }
 
         setRegCount(Number(data.regCount || 0));
@@ -402,11 +408,14 @@ export default function AdminWorkshopEdit() {
     }
   };
 
-  const topbarRight = (
-    <Link className="awe-back-link" to="/admin/workshops">
-      <ArrowLeft size={16} aria-hidden="true" />
-      Back to Workshops
-    </Link>
+  const topbarRight = useMemo(
+    () => (
+      <Link className="awe-back-link" to="/admin/workshops">
+        <ArrowLeft size={16} aria-hidden="true" />
+        Back to Workshops
+      </Link>
+    ),
+    []
   );
 
   return (

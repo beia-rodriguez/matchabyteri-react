@@ -1,56 +1,106 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/public-workshop-registration.css";
 import "../assets/css/universal.css";
 
+const initialState = {
+  loading: true,
+  submitting: false,
+  err: "",
+  data: null,
+  form: {
+    full_name: "",
+    email: "",
+    phone: "",
+  },
+};
+
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
   if (!path) return fallback;
   if (/^https?:\/\//i.test(path)) return path;
-
   const clean = String(path).trim().replace(/^\/+/, "");
   if (clean.startsWith("uploads/")) return `/api/${clean}`;
   return `/${clean}`;
 }
 
-export default function PublicWorkshopRegistration() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+function registrationReducer(state, action) {
+  switch (action.type) {
+    case "LOAD_STARTED":
+      return {
+        ...state,
+        loading: true,
+        err: "",
+      };
+    case "LOAD_SUCCEEDED":
+      return {
+        ...state,
+        loading: false,
+        data: action.payload,
+        form: {
+          full_name: action.payload.user?.name || "",
+          email: action.payload.user?.email || "",
+          phone: action.payload.user?.phone_number || "",
+        },
+      };
+    case "LOAD_FAILED":
+      return {
+        ...state,
+        loading: false,
+        err: action.payload,
+      };
+    case "FIELD_CHANGED":
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          [action.name]: action.value,
+        },
+      };
+    case "SUBMIT_STARTED":
+      return {
+        ...state,
+        submitting: true,
+        err: "",
+      };
+    case "SUBMIT_FAILED":
+      return {
+        ...state,
+        submitting: false,
+        err: action.payload,
+      };
+    case "SUBMIT_FINISHED":
+      return {
+        ...state,
+        submitting: false,
+      };
+    case "SET_ERROR":
+      return {
+        ...state,
+        err: action.payload,
+      };
+    default:
+      return state;
+  }
+}
 
-  const id = Number(searchParams.get("id") || 0);
-  const packageType = String(searchParams.get("package") || "").toLowerCase();
-
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState("");
-  const [data, setData] = useState(null);
-
-  const [form, setForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-  });
-
-  useEffect(() => {
-    if (!id || !["standard", "premium"].includes(packageType)) {
-      navigate("/public-workshops");
-      return;
-    }
-
-    loadRegistrationInfo();
-  }, [id, packageType, navigate]);
-
+function useReadableRegistrationContent({
+  loading,
+  submitting,
+  err,
+  data,
+  form,
+  packageType,
+}) {
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
-
     if (!readableContent) return;
 
     const isVisible = (element) => {
       const style = window.getComputedStyle(element);
       const rect = element.getBoundingClientRect();
-
       return (
         style.display !== "none" &&
         style.visibility !== "hidden" &&
@@ -90,7 +140,6 @@ export default function PublicWorkshopRegistration() {
       ) {
         const parentDiv = element.closest("div");
         const label = parentDiv?.querySelector("label");
-
         textToRead =
           element.getAttribute("aria-label") ||
           label?.innerText ||
@@ -124,71 +173,260 @@ export default function PublicWorkshopRegistration() {
       }
     });
   }, [loading, submitting, err, data, form, packageType]);
+}
 
-  const loadRegistrationInfo = async () => {
-    setLoading(true);
-    setErr("");
+function PageShell({ children }) {
+  return (
+    <>
+      <Navbar />
+      <div className="pwr-page" id="readable-content">
+        <div className="pwr-wrap">{children}</div>
+      </div>
+    </>
+  );
+}
 
-    try {
-      const { data } = await API.get(
-        "/bookings/public-workshop/register-public-workshop.php",
-        {
-          params: {
-            id,
-            package: packageType,
-          },
+function LoadingCard() {
+  return <div className="pwr-card">Loading registration…</div>;
+}
+
+function ErrorCard({ err, onBack }) {
+  return (
+    <div className="pwr-card">
+      <div className="pwr-alert pwr-alert-bad">{err}</div>
+      <button
+        className="pwr-back"
+        type="button"
+        aria-label="Back to Workshops"
+        onClick={onBack}
+      >
+        ← Back to Workshops
+      </button>
+    </div>
+  );
+}
+
+function WorkshopSummary({ workshop, price, packageType }) {
+  return (
+    <div className="pwr-top">
+      <div className="pwr-poster">
+        <img
+          src={posterSrc(workshop?.poster_path)}
+          alt="Workshop Poster"
+          onError={(e) => {
+            e.currentTarget.src = "/pics/default-workshop.jpg";
+          }}
+        />
+      </div>
+
+      <div className="pwr-title">
+        <h1>Register Now</h1>
+        <div className="pwr-meta">
+          {workshop?.title}
+          <br />
+          Date: {workshop?.dateText}
+          <br />
+          Time: {workshop?.timeText}
+          <br />
+          Location: {workshop?.location}
+          <br />
+          Price: ₱{Number(price || 0).toFixed(2)}
+        </div>
+        <div
+          className="pwr-package-pill"
+          aria-label={`Package: ${
+            packageType === "premium" ? "Premium" : "Standard"
+          }`}
+        >
+          Package: {packageType.toUpperCase()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RegistrationForm({ form, submitting, onChange, onSubmit }) {
+  return (
+    <form className="pwr-form" onSubmit={onSubmit}>
+      <div>
+        <label htmlFor="full_name">Full Name</label>
+        <input
+          type="text"
+          id="full_name"
+          name="full_name"
+          value={form.full_name}
+          onChange={onChange}
+          required
+          aria-label={
+            form.full_name.trim() ? `Full Name: ${form.full_name}` : "Enter Full Name"
+          }
+        />
+      </div>
+
+      <div className="pwr-row">
+        <div>
+          <label htmlFor="email">Email Address</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            value={form.email}
+            onChange={onChange}
+            required
+            aria-label={
+              form.email.trim() ? `Email Address: ${form.email}` : "Enter Email Address"
+            }
+          />
+        </div>
+
+        <div>
+          <label htmlFor="phone">Phone Number</label>
+          <input
+            type="text"
+            id="phone"
+            name="phone"
+            value={form.phone}
+            onChange={onChange}
+            required
+            aria-label={
+              form.phone.trim() ? `Phone Number: ${form.phone}` : "Enter Phone Number"
+            }
+          />
+        </div>
+      </div>
+
+      <button
+        className="pwr-submit"
+        type="submit"
+        disabled={submitting}
+        aria-label={submitting ? "Registering" : "Register"}
+      >
+        {submitting ? "REGISTERING..." : "REGISTER"}
+      </button>
+    </form>
+  );
+}
+
+function RegistrationCard({
+  err,
+  workshop,
+  price,
+  packageType,
+  form,
+  submitting,
+  onChange,
+  onSubmit,
+  onBackToPackages,
+}) {
+  return (
+    <div className="pwr-card">
+      {err && <div className="pwr-alert pwr-alert-bad">{err}</div>}
+
+      <WorkshopSummary
+        workshop={workshop}
+        price={price}
+        packageType={packageType}
+      />
+
+      <RegistrationForm
+        form={form}
+        submitting={submitting}
+        onChange={onChange}
+        onSubmit={onSubmit}
+      />
+
+      <button
+        className="pwr-back"
+        type="button"
+        aria-label="Back to Packages"
+        onClick={onBackToPackages}
+      >
+        ← Back to Packages
+      </button>
+    </div>
+  );
+}
+
+export default function PublicWorkshopRegistration() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const id = Number(searchParams.get("id") || 0);
+  const packageType = String(searchParams.get("package") || "").toLowerCase();
+  const [state, dispatch] = useReducer(registrationReducer, initialState);
+  const { loading, submitting, err, data, form } = state;
+
+  useReadableRegistrationContent({
+    loading,
+    submitting,
+    err,
+    data,
+    form,
+    packageType,
+  });
+
+  useEffect(() => {
+    const loadRegistrationInfo = async () => {
+      dispatch({ type: "LOAD_STARTED" });
+
+      try {
+        const response = await API.get(
+          "/bookings/public-workshop/register-public-workshop.php",
+          {
+            params: {
+              id,
+              package: packageType,
+            },
+          }
+        );
+
+        if (!response.data.success) {
+          dispatch({
+            type: "LOAD_FAILED",
+            payload: response.data.error || "Failed to load registration.",
+          });
+          return;
         }
-      );
 
-      if (!data.success) {
-        setErr(data.error || "Failed to load registration.");
-        return;
+        dispatch({ type: "LOAD_SUCCEEDED", payload: response.data });
+      } catch (error) {
+        if (error.response?.status === 401) {
+          navigate("/login");
+          return;
+        }
+
+        dispatch({
+          type: "LOAD_FAILED",
+          payload: error.response?.data?.error || "Failed to load registration.",
+        });
       }
+    };
 
-      setData(data);
-
-      setForm({
-        full_name: data.user?.name || "",
-        email: data.user?.email || "",
-        phone: data.user?.phone_number || "",
-      });
-    } catch (error) {
-      if (error.response?.status === 401) {
-        navigate("/login");
-        return;
-      }
-
-      setErr(error.response?.data?.error || "Failed to load registration.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (submitting) return;
-
-    setErr("");
-
-    if (!form.full_name.trim() || !form.email.trim() || !form.phone.trim()) {
-      setErr("Please complete all fields.");
+    if (!id || !["standard", "premium"].includes(packageType)) {
+      navigate("/public-workshops");
       return;
     }
 
-    setSubmitting(true);
+    loadRegistrationInfo();
+  }, [id, packageType, navigate]);
+
+  const updateRegistrationField = (e) => {
+    const { name, value } = e.target;
+    dispatch({ type: "FIELD_CHANGED", name, value });
+  };
+
+  const submitRegistration = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+
+    if (!form.full_name.trim() || !form.email.trim() || !form.phone.trim()) {
+      dispatch({ type: "SET_ERROR", payload: "Please complete all fields." });
+      return;
+    }
+
+    dispatch({ type: "SUBMIT_STARTED" });
 
     try {
-      const { data } = await API.post(
+      const response = await API.post(
         "/bookings/public-workshop/register-public-workshop.php",
         {
           id,
@@ -199,13 +437,16 @@ export default function PublicWorkshopRegistration() {
         }
       );
 
-      if (!data.success) {
-        setErr(data.error || "Failed to submit registration.");
+      if (!response.data.success) {
+        dispatch({
+          type: "SUBMIT_FAILED",
+          payload: response.data.error || "Failed to submit registration.",
+        });
         return;
       }
 
       navigate(
-        `/gcash-payment?purpose=workshop_public&registration_id=${data.registration_id}`
+        `/gcash-payment?purpose=workshop_public&registration_id=${response.data.registration_id}`
       );
     } catch (error) {
       if (error.response?.status === 401) {
@@ -213,169 +454,44 @@ export default function PublicWorkshopRegistration() {
         return;
       }
 
-      setErr(error.response?.data?.error || "Failed to submit registration.");
+      dispatch({
+        type: "SUBMIT_FAILED",
+        payload: error.response?.data?.error || "Failed to submit registration.",
+      });
     } finally {
-      setSubmitting(false);
+      dispatch({ type: "SUBMIT_FINISHED" });
     }
   };
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <div className="pwr-page" id="readable-content">
-          <div className="pwr-wrap">
-            <div className="pwr-card">Loading registration...</div>
-          </div>
-        </div>
-      </>
+      <PageShell>
+        <LoadingCard />
+      </PageShell>
     );
   }
 
   if (err && !data) {
     return (
-      <>
-        <Navbar />
-        <div className="pwr-page" id="readable-content">
-          <div className="pwr-wrap">
-            <div className="pwr-card">
-              <div className="pwr-alert pwr-alert-bad">{err}</div>
-              <button
-                className="pwr-back"
-                type="button"
-                aria-label="Back to Workshops"
-                onClick={() => navigate("/public-workshops")}
-              >
-                ← Back to Workshops
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
+      <PageShell>
+        <ErrorCard err={err} onBack={() => navigate("/public-workshops")} />
+      </PageShell>
     );
   }
 
-  const workshop = data?.workshop;
-
   return (
-    <>
-      <Navbar />
-
-      <div className="pwr-page" id="readable-content">
-        <div className="pwr-wrap">
-          <div className="pwr-card">
-            {err && <div className="pwr-alert pwr-alert-bad">{err}</div>}
-
-            <div className="pwr-top">
-              <div className="pwr-poster">
-                <img
-                  src={posterSrc(workshop?.poster_path)}
-                  alt="Workshop Poster"
-                  onError={(e) => {
-                    e.currentTarget.src = "/pics/default-workshop.jpg";
-                  }}
-                />
-              </div>
-
-              <div className="pwr-title">
-                <h1>Register Now</h1>
-
-                <div className="pwr-meta">
-                  {workshop?.title}
-                  <br />
-                  Date: {workshop?.dateText}
-                  <br />
-                  Time: {workshop?.timeText}
-                  <br />
-                  Location: {workshop?.location}
-                  <br />
-                  Price: ₱{Number(data?.price || 0).toFixed(2)}
-                </div>
-
-                <div
-                  className="pwr-package-pill"
-                  aria-label={`Package: ${
-                    packageType === "premium" ? "Premium" : "Standard"
-                  }`}
-                >
-                  Package: {packageType.toUpperCase()}
-                </div>
-              </div>
-            </div>
-
-            <form className="pwr-form" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="full_name">Full Name</label>
-                <input
-                  type="text"
-                  id="full_name"
-                  name="full_name"
-                  value={form.full_name}
-                  onChange={handleChange}
-                  required
-                  aria-label={
-                    form.full_name.trim()
-                      ? `Full Name: ${form.full_name}`
-                      : "Enter Full Name"
-                  }
-                />
-              </div>
-
-              <div className="pwr-row">
-                <div>
-                  <label htmlFor="email">Email Address</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    required
-                    aria-label={
-                      form.email.trim()
-                        ? `Email Address: ${form.email}`
-                        : "Enter Email Address"
-                    }
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="phone">Phone Number</label>
-                  <input
-                    type="text"
-                    id="phone"
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    required
-                    aria-label={
-                      form.phone.trim()
-                        ? `Phone Number: ${form.phone}`
-                        : "Enter Phone Number"
-                    }
-                  />
-                </div>
-              </div>
-
-              <input
-                type="submit"
-                value={submitting ? "REGISTERING..." : "REGISTER"}
-                disabled={submitting}
-                aria-label={submitting ? "Registering" : "Register"}
-              />
-            </form>
-
-            <button
-              className="pwr-back"
-              type="button"
-              aria-label="Back to Packages"
-              onClick={() => navigate(`/public-workshops/${id}/register`)}
-            >
-              ← Back to Packages
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
+    <PageShell>
+      <RegistrationCard
+        err={err}
+        workshop={data?.workshop}
+        price={data?.price}
+        packageType={packageType}
+        form={form}
+        submitting={submitting}
+        onChange={updateRegistrationField}
+        onSubmit={submitRegistration}
+        onBackToPackages={() => navigate(`/public-workshops/${id}/register`)}
+      />
+    </PageShell>
   );
 }
