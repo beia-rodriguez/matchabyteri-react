@@ -1,4 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  AlertTriangle,
+  Ban,
+  CalendarDays,
+  CalendarX2,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Eye,
+  FileText,
+  Landmark,
+  Lock,
+  PartyPopper,
+  RefreshCw,
+  Save,
+  Trash2,
+  UserRound,
+  Users,
+} from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "@/assets/css/admin-calendar.css";
@@ -13,8 +33,8 @@ function money(value) {
 function statusBadgeClass(status) {
   const s = String(status || "pending").toLowerCase();
 
-  if (s === "approved" || s === "completed") return "paid";
-  if (s === "cancelled" || s === "rejected") return "rejected";
+  if (["approved", "completed", "complete", "active"].includes(s)) return "paid";
+  if (["cancelled", "rejected", "hidden"].includes(s)) return "rejected";
 
   return "pending";
 }
@@ -22,14 +42,14 @@ function statusBadgeClass(status) {
 function paymentBadgeClass(status) {
   const s = String(status || "unpaid").toLowerCase();
 
-  if (s === "paid" || s === "partial") return "paid";
-  if (s === "rejected") return "rejected";
+  if (["paid", "partial"].includes(s)) return "paid";
+  if (["rejected", "cancelled"].includes(s)) return "rejected";
 
   return "pending";
 }
 
-function isCancelRequested(booking) {
-  return Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
+function isCancelRequested(record) {
+  return Number(record.cancel_requested) === 1 || record.cancel_requested === true;
 }
 
 function formatTime(time) {
@@ -37,33 +57,238 @@ function formatTime(time) {
   return String(time).slice(0, 5);
 }
 
-function getBookingGroup(booking) {
-  const type = String(booking.booking_type || "").toLowerCase();
+function formatTimeRange(start, end) {
+  const startText = formatTime(start);
+  const endText = formatTime(end);
 
-  if (type === "event") return "event";
-  if (type === "workshop") return "workshop";
+  if (!startText && !endText) return "No time set";
+  if (startText && !endText) return startText;
 
-  return "private";
+  return `${startText} - ${endText}`;
 }
 
-const TABS = [
-  { key: "all", label: "All Bookings" },
+function normalizeType(type = "") {
+  const value = String(type || "").toLowerCase();
+
+  if (value === "event") return "event_booking";
+  if (value === "workshop") return "private_workshop";
+
+  return value;
+}
+
+function getScheduleGroup(record) {
+  const type = normalizeType(record.calendar_type || record.booking_type);
+
+  if (type === "event_booking") return "event_booking";
+  if (type === "private_workshop") return "private_workshop";
+  if (type === "public_workshop") return "public_workshop";
+  if (type === "custom") return "private_workshop";
+
+  return "other";
+}
+
+function readableType(record) {
+  const type = getScheduleGroup(record);
+
+  if (type === "event_booking") return "Event Booking";
+  if (type === "private_workshop") return "Private Workshop";
+  if (type === "public_workshop") return "Public Workshop";
+
+  return String(record.booking_type || "Schedule")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getRecordTitle(record) {
+  const notes = record.notes_decoded || {};
+
+  if (record.record_kind === "public_workshop") {
+    return record.title || "Public Workshop";
+  }
+
+  if (getScheduleGroup(record) === "event_booking") {
+    return notes.event_name || notes.event_type || "Event Booking";
+  }
+
+  if (getScheduleGroup(record) === "private_workshop") {
+    return notes.workshop_location || notes.location || "Private Workshop";
+  }
+
+  return "Booking";
+}
+
+function isUpcoming(record, today) {
+  const date = String(record.booking_date || "");
+  const status = String(record.status || "").toLowerCase();
+
+  return (
+    date >= today &&
+    ["pending_payment", "pending", "approved", "active"].includes(status)
+  );
+}
+
+function isNeedsReview(record) {
+  const status = String(record.status || "").toLowerCase();
+  const payment = String(record.payment_status || "").toLowerCase();
+
+  return (
+    status === "pending_payment" ||
+    payment === "pending" ||
+    isCancelRequested(record)
+  );
+}
+
+function filterByStatus(record, statusFilter, today) {
+  const status = String(record.status || "").toLowerCase();
+  const payment = String(record.payment_status || "").toLowerCase();
+
+  if (statusFilter === "all") return true;
+  if (statusFilter === "upcoming") return isUpcoming(record, today);
+  if (statusFilter === "pending_payment") {
+    return status === "pending_payment" || payment === "pending";
+  }
+  if (statusFilter === "completed") {
+    return ["completed", "complete"].includes(status);
+  }
+  if (statusFilter === "cancelled_rejected") {
+    return ["cancelled", "rejected", "hidden"].includes(status);
+  }
+  if (statusFilter === "cancel_requests") {
+    return isCancelRequested(record);
+  }
+
+  return status === statusFilter;
+}
+
+const MAIN_FILTERS = [
+  { key: "all", label: "All Schedules", icon: CalendarDays },
+  { key: "bookings", label: "Bookings", icon: FileText },
+  { key: "public_workshops", label: "Public Workshops", icon: Landmark },
+  { key: "needs_review", label: "Needs Review", icon: AlertTriangle },
+  { key: "blocked_dates", label: "Blocked Dates", icon: CalendarX2 },
+];
+
+const STATUS_FILTERS = [
+  { key: "all", label: "All statuses" },
   { key: "upcoming", label: "Upcoming" },
+  { key: "pending_payment", label: "Pending payment" },
+  { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "completed", label: "Completed" },
-  { key: "cancelled", label: "Cancelled / Rejected" },
-  { key: "cancel_requests", label: "Cancel Requests" },
-  { key: "event", label: "Events" },
-  { key: "workshop", label: "Workshops" },
-  { key: "private", label: "Private / Custom" },
+  { key: "cancelled_rejected", label: "Cancelled / Rejected" },
+  { key: "cancel_requests", label: "Cancel requests" },
+  { key: "active", label: "Active public workshops" },
+  { key: "hidden", label: "Hidden public workshops" },
 ];
+
+const TYPE_FILTERS = [
+  { key: "all", label: "All types" },
+  { key: "event_booking", label: "Event bookings" },
+  { key: "private_workshop", label: "Private workshops" },
+  { key: "public_workshop", label: "Public workshops" },
+];
+
+function CalendarDayCard({ date, records, blocked }) {
+  const sortedRecords = [...records].sort((a, b) => {
+    const aTime = String(a.start_time || "");
+    const bTime = String(b.start_time || "");
+    return aTime.localeCompare(bTime);
+  });
+
+  return (
+    <article className="calendar-day-card">
+      <div className="calendar-day-head">
+        <div>
+          <div className="calendar-day-title">
+            <CalendarDays size={16} aria-hidden="true" />
+            {date}
+          </div>
+
+          {blocked && (
+            <div className="calendar-day-blocked">
+              <CalendarX2 size={14} aria-hidden="true" />
+              Blocked{blocked.reason ? `: ${blocked.reason}` : ""}
+            </div>
+          )}
+        </div>
+
+        <span className="pill-mini-react">
+          {records.length} {records.length === 1 ? "record" : "records"}
+        </span>
+      </div>
+
+      <div className="calendar-day-records">
+        {sortedRecords.map((record) => {
+          const key = `${record.record_kind || "booking"}-${record.id}`;
+          const status = String(record.status || "pending").toLowerCase();
+          const payment = String(record.payment_status || "unpaid").toLowerCase();
+          const group = getScheduleGroup(record);
+
+          return (
+            <div className="calendar-record-card" key={key}>
+              <div className="calendar-record-top">
+                <div>
+                  <div className="calendar-record-title">{getRecordTitle(record)}</div>
+
+                  <div className="calendar-record-meta">
+                    <span>
+                      <Clock size={13} aria-hidden="true" />
+                      {formatTimeRange(record.start_time, record.end_time)}
+                    </span>
+
+                    <span>{readableType(record)}</span>
+                  </div>
+                </div>
+
+                <div className="calendar-badge-row">
+                  <span className={`p-badge-react ${statusBadgeClass(status)}`}>
+                    {status === "pending_payment" ? "AWAITING PAYMENT" : status.toUpperCase()}
+                  </span>
+                  <span className={`p-badge-react ${paymentBadgeClass(payment)}`}>
+                    {payment.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="calendar-record-bottom">
+                <div className="calendar-record-subtext">
+                  {group === "public_workshop"
+                    ? `${Number(record.registration_count || 0)} registrations`
+                    : `${record.user_name || "Guest"}${record.user_email ? ` • ${record.user_email}` : ""}`}
+                </div>
+
+                {group === "public_workshop" ? (
+                  <Link
+                    className="admin-pill-react"
+                    to={`/admin/workshops/edit/${Number(record.id || 0)}`}
+                  >
+                    <Eye size={14} aria-hidden="true" />
+                    View Workshop
+                  </Link>
+                ) : (
+                  <Link className="admin-pill-react" to="/admin/reservations">
+                    <Eye size={14} aria-hidden="true" />
+                    View Reservation
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
 
 export default function AdminCalendar() {
   const [csrf, setCsrf] = useState("");
   const [blockedDates, setBlockedDates] = useState([]);
-  const [bookings, setBookings] = useState([]);
+  const [records, setRecords] = useState([]);
 
-  const [activeTab, setActiveTab] = useState("all");
+  const [mainFilter, setMainFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -74,6 +299,7 @@ export default function AdminCalendar() {
   const [form, setForm] = useState({
     block_date: "",
     reason: "",
+    block_mode: "full_day",
   });
 
   const loadData = async () => {
@@ -83,8 +309,19 @@ export default function AdminCalendar() {
 
       const { data } = await adminApi.get("/admin/admin-calendar.php");
 
-      setBlockedDates(data.blockedDates || []);
-      setBookings(data.bookings || []);
+      if (data.error) {
+        setErr(data.error);
+        return;
+      }
+
+      setBlockedDates(Array.isArray(data.blockedDates) ? data.blockedDates : []);
+      setRecords(
+        Array.isArray(data.calendarItems)
+          ? data.calendarItems
+          : Array.isArray(data.bookings)
+          ? data.bookings
+          : []
+      );
       setCsrf(data.csrf || "");
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to load calendar data.");
@@ -99,77 +336,89 @@ export default function AdminCalendar() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const filteredBookings = useMemo(() => {
-    const sorted = [...bookings].sort((a, b) => {
+  const blockedByDate = useMemo(() => {
+    const map = {};
+    blockedDates.forEach((item) => {
+      if (item.block_date) {
+        map[item.block_date] = item;
+      }
+    });
+    return map;
+  }, [blockedDates]);
+
+  const mainCounts = useMemo(() => {
+    return {
+      all: records.length,
+      bookings: records.filter((record) => getScheduleGroup(record) !== "public_workshop").length,
+      public_workshops: records.filter((record) => getScheduleGroup(record) === "public_workshop").length,
+      needs_review: records.filter(isNeedsReview).length,
+      blocked_dates: blockedDates.length,
+    };
+  }, [records, blockedDates]);
+
+  const filteredRecords = useMemo(() => {
+    let next = [...records];
+
+    if (mainFilter === "bookings") {
+      next = next.filter((record) => getScheduleGroup(record) !== "public_workshop");
+    } else if (mainFilter === "public_workshops") {
+      next = next.filter((record) => getScheduleGroup(record) === "public_workshop");
+    } else if (mainFilter === "needs_review") {
+      next = next.filter(isNeedsReview);
+    } else if (mainFilter === "blocked_dates") {
+      next = next.filter((record) => Boolean(blockedByDate[record.booking_date]));
+    }
+
+    if (typeFilter !== "all") {
+      next = next.filter((record) => getScheduleGroup(record) === typeFilter);
+    }
+
+    if (statusFilter !== "all") {
+      next = next.filter((record) => filterByStatus(record, statusFilter, today));
+    }
+
+    return next.sort((a, b) => {
       const dateA = `${a.booking_date || ""} ${a.start_time || ""}`;
       const dateB = `${b.booking_date || ""} ${b.start_time || ""}`;
 
       return dateB.localeCompare(dateA);
     });
+  }, [records, mainFilter, typeFilter, statusFilter, blockedByDate, today]);
 
-    if (activeTab === "all") return sorted;
+  const groupedRecords = useMemo(() => {
+    const grouped = {};
 
-    if (activeTab === "upcoming") {
-      return sorted.filter(
-        (b) =>
-          String(b.booking_date || "") >= today &&
-          ["pending", "approved"].includes(String(b.status || "").toLowerCase())
-      );
-    }
+    filteredRecords.forEach((record) => {
+      const date = record.booking_date || "No date";
+      if (!grouped[date]) grouped[date] = [];
+      grouped[date].push(record);
+    });
 
-    if (activeTab === "approved") {
-      return sorted.filter((b) => String(b.status || "").toLowerCase() === "approved");
-    }
+    return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
+  }, [filteredRecords]);
 
-    if (activeTab === "completed") {
-      return sorted.filter((b) => String(b.status || "").toLowerCase() === "completed");
-    }
+  const blockedRows = useMemo(() => {
+    if (mainFilter !== "blocked_dates") return blockedDates;
 
-    if (activeTab === "cancelled") {
-      return sorted.filter((b) =>
-        ["cancelled", "rejected"].includes(String(b.status || "").toLowerCase())
-      );
-    }
+    return blockedDates.filter((item) => {
+      if (statusFilter === "all") return true;
+      if (statusFilter === "upcoming") return String(item.block_date || "") >= today;
 
-    if (activeTab === "cancel_requests") {
-      return sorted.filter((b) => isCancelRequested(b));
-    }
+      return true;
+    });
+  }, [blockedDates, mainFilter, statusFilter, today]);
 
-    return sorted.filter((b) => getBookingGroup(b) === activeTab);
-  }, [bookings, activeTab, today]);
+  const saveBlockedDate = async (force = false) => {
+    const { data } = await adminApi.post("/admin/admin-calendar.php", {
+      action: "add_block",
+      csrf_token: csrf,
+      block_date: form.block_date,
+      reason: form.reason.trim(),
+      block_mode: form.block_mode,
+      force,
+    });
 
-  const getTabCount = (tabKey) => {
-    if (tabKey === "all") return bookings.length;
-
-    if (tabKey === "upcoming") {
-      return bookings.filter(
-        (b) =>
-          String(b.booking_date || "") >= today &&
-          ["pending", "approved"].includes(String(b.status || "").toLowerCase())
-      ).length;
-    }
-
-    if (tabKey === "approved") {
-      return bookings.filter((b) => String(b.status || "").toLowerCase() === "approved")
-        .length;
-    }
-
-    if (tabKey === "completed") {
-      return bookings.filter((b) => String(b.status || "").toLowerCase() === "completed")
-        .length;
-    }
-
-    if (tabKey === "cancelled") {
-      return bookings.filter((b) =>
-        ["cancelled", "rejected"].includes(String(b.status || "").toLowerCase())
-      ).length;
-    }
-
-    if (tabKey === "cancel_requests") {
-      return bookings.filter((b) => isCancelRequested(b)).length;
-    }
-
-    return bookings.filter((b) => getBookingGroup(b) === tabKey).length;
+    return data;
   };
 
   const handleSave = async (e) => {
@@ -183,15 +432,28 @@ export default function AdminCalendar() {
       return;
     }
 
+    if (form.block_mode !== "full_day") {
+      setErr("Partial time blocking is planned, but this database currently supports full-day blocking only.");
+      return;
+    }
+
     try {
       setSaving(true);
 
-      const { data } = await adminApi.post("/admin/admin-calendar.php", {
-        action: "add_block",
-        csrf_token: csrf,
-        block_date: form.block_date,
-        reason: form.reason.trim(),
-      });
+      let data = await saveBlockedDate(false);
+
+      if (data.requires_confirmation) {
+        const confirmed = window.confirm(
+          `${data.message}\n\nActive bookings: ${Number(data.active_booking_count || 0)}\nPublic workshops: ${Number(data.public_workshop_count || 0)}\n\nContinue blocking this full day?`
+        );
+
+        if (!confirmed) {
+          setErr("Blocked date was not saved.");
+          return;
+        }
+
+        data = await saveBlockedDate(true);
+      }
 
       if (data.error) {
         setErr(data.error);
@@ -199,11 +461,39 @@ export default function AdminCalendar() {
       }
 
       setMsg(data.message || "Blocked date saved.");
-      setForm({ block_date: "", reason: "" });
+      setForm({ block_date: "", reason: "", block_mode: "full_day" });
 
       await loadData();
     } catch (e) {
-      setErr(e.response?.data?.error || "Failed to save blocked date.");
+      const response = e.response?.data;
+
+      if (response?.requires_confirmation) {
+        const confirmed = window.confirm(
+          `${response.message}\n\nActive bookings: ${Number(response.active_booking_count || 0)}\nPublic workshops: ${Number(response.public_workshop_count || 0)}\n\nContinue blocking this full day?`
+        );
+
+        if (!confirmed) {
+          setErr("Blocked date was not saved.");
+          return;
+        }
+
+        try {
+          const retry = await saveBlockedDate(true);
+
+          if (retry.error) {
+            setErr(retry.error);
+            return;
+          }
+
+          setMsg(retry.message || "Blocked date saved.");
+          setForm({ block_date: "", reason: "", block_mode: "full_day" });
+          await loadData();
+        } catch (retryError) {
+          setErr(retryError.response?.data?.error || "Failed to save blocked date.");
+        }
+      } else {
+        setErr(response?.error || "Failed to save blocked date.");
+      }
     } finally {
       setSaving(false);
     }
@@ -239,305 +529,429 @@ export default function AdminCalendar() {
     }
   };
 
+  const totalBlockedWithSchedules = blockedDates.filter(
+    (item) => Number(item.active_booking_count || 0) + Number(item.public_workshop_count || 0) > 0
+  ).length;
+
   return (
     <AdminLayout title="Calendar Management">
-      {msg && (
-        <div className="admin-notice-react ok" role="status" aria-live="polite">
-          {msg}
-        </div>
-      )}
-
-      {err && (
-        <div className="admin-notice-react bad" role="alert" aria-live="assertive">
-          {err}
-        </div>
-      )}
-
-      <div className="admin-panel-react">
-        <h3>Block Dates</h3>
-
-        <p className="admin-muted-react" style={{ marginTop: -6 }}>
-          Use this to block dates that should not be available for new bookings.
-        </p>
-
-        <form onSubmit={handleSave} className="calendar-block-form-react">
-          <div className="calendar-block-grid-react">
-            <div className="calendar-block-field-react">
-              <label className="calendar-block-label-react" htmlFor="block-date">
-                Block Date
-              </label>
-
-              <input
-                id="block-date"
-                className="admin-input-react"
-                type="date"
-                required
-                value={form.block_date}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    block_date: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="calendar-block-field-react">
-              <label className="calendar-block-label-react" htmlFor="block-reason">
-                Reason
-              </label>
-
-              <input
-                id="block-reason"
-                className="admin-input-react"
-                type="text"
-                placeholder="e.g., Holiday / Fully booked"
-                value={form.reason}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    reason: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="calendar-block-action-react">
-              <button
-                className="admin-btn-react admin-btn-approve-react"
-                type="submit"
-                disabled={saving}
-              >
-                {saving ? "SAVING..." : "SAVE"}
-              </button>
-            </div>
+      <div className="admin-calendar-page">
+        {msg && (
+          <div className="admin-notice-react ok" role="status" aria-live="polite">
+            {msg}
           </div>
-        </form>
-
-        {loading ? (
-          <div className="admin-muted-react">Loading blocked dates...</div>
-        ) : blockedDates.length === 0 ? (
-          <div className="admin-muted-react">No blocked dates yet.</div>
-        ) : (
-          <table className="admin-table-react">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Reason</th>
-                <th>Remove</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {blockedDates.map((b) => (
-                <tr key={b.block_date}>
-                  <td>{b.block_date}</td>
-                  <td>{b.reason || ""}</td>
-                  <td>
-                    <button
-                      className="admin-btn-react admin-btn-cancel-react"
-                      type="button"
-                      disabled={deletingDate === b.block_date}
-                      onClick={() => handleDelete(b.block_date)}
-                    >
-                      {deletingDate === b.block_date ? "REMOVING..." : "REMOVE"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
-      </div>
 
-      <div className="admin-panel-react" style={{ marginTop: 18, padding: 0, overflow: "hidden" }}>
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: "1px solid var(--line)",
-            background: "#fff",
-          }}
-        >
-          <h3 style={{ margin: 0 }}>Booking Calendar History</h3>
+        {err && (
+          <div className="admin-notice-react bad" role="alert" aria-live="assertive">
+            {err}
+          </div>
+        )}
 
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "var(--muted)",
-              fontSize: "0.9rem",
-            }}
-          >
-            Approved bookings remain visible here together with pending, completed,
-            cancelled, and customer cancellation requests.
+        <div className="calendar-summary-grid">
+          <div className="admin-card-react admin-card-feature-react">
+            <div className="admin-card-label-react">
+              <CalendarDays size={14} aria-hidden="true" />
+              <span>Calendar Records</span>
+            </div>
+            <h4>Total Schedules</h4>
+            <div className="admin-big-react">{loading ? "..." : records.length}</div>
+            <div className="admin-muted-react">Bookings and public workshops</div>
+          </div>
+
+          <div className="admin-card-react admin-card-feature-react">
+            <div className="admin-card-label-react">
+              <Lock size={14} aria-hidden="true" />
+              <span>Blocked Dates</span>
+            </div>
+            <h4>Unavailable Days</h4>
+            <div className="admin-big-react">{loading ? "..." : blockedDates.length}</div>
+            <div className="admin-muted-react">Full-day blocks</div>
+          </div>
+
+          <div className="admin-card-react admin-card-feature-react">
+            <div className="admin-card-label-react">
+              <AlertTriangle size={14} aria-hidden="true" />
+              <span>Needs Attention</span>
+            </div>
+            <h4>Blocked With Schedules</h4>
+            <div className="admin-big-react">{loading ? "..." : totalBlockedWithSchedules}</div>
+            <div className="admin-muted-react">Blocked dates that still have active schedules</div>
+          </div>
+        </div>
+
+        <div className="admin-panel-react">
+          <h3 className="calendar-section-title">
+            <CalendarX2 size={18} aria-hidden="true" />
+            Block Dates
+          </h3>
+
+          <p className="admin-muted-react">
+            Use this to block days that should not be available for new bookings. Partial time blocking is shown as a planned option, but the current database stores full-day blocked dates only.
           </p>
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-            padding: "14px 18px",
-            borderBottom: "1px solid var(--line)",
-            background: "#fcfdfc",
-          }}
-        >
-          {TABS.map((tab) => {
-            const active = activeTab === tab.key;
+          <form onSubmit={handleSave} className="calendar-block-form-react">
+            <div className="calendar-block-grid-react">
+              <div className="calendar-block-field-react">
+                <label className="calendar-block-label-react" htmlFor="block-date">
+                  Block Date
+                </label>
 
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className="admin-btn-react"
-                style={{
-                  padding: "8px 14px",
-                  fontSize: "0.78rem",
-                  borderRadius: "999px",
-                  background: active ? "var(--green-2)" : "#fff",
-                  color: active ? "#fff" : "var(--green-2)",
-                  border: "1px solid var(--green-2)",
-                }}
-              >
-                {tab.label} ({getTabCount(tab.key)})
-              </button>
-            );
-          })}
-        </div>
+                <input
+                  id="block-date"
+                  className="admin-input-react"
+                  type="date"
+                  required
+                  value={form.block_date}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      block_date: e.target.value,
+                    }))
+                  }
+                />
+              </div>
 
-        {loading ? (
-          <div className="admin-muted-react" style={{ padding: 24 }}>
-            Loading booking history...
-          </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="admin-muted-react" style={{ padding: 24 }}>
-            No bookings found for this tab.
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              className="admin-table-react rich-table"
-              style={{ border: "none", borderRadius: 0 }}
-            >
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Type</th>
-                  <th>Customer</th>
-                  <th>Status</th>
-                  <th>Payment</th>
-                  <th>Total</th>
-                  <th>Cancel Request</th>
-                </tr>
-              </thead>
+              <div className="calendar-block-field-react">
+                <label className="calendar-block-label-react" htmlFor="block-mode">
+                  Block Mode
+                </label>
 
-              <tbody>
-                {filteredBookings.map((b) => {
-                  const status = String(b.status || "pending").toLowerCase();
-                  const payment = String(b.payment_status || "unpaid").toLowerCase();
-                  const cancelRequested = isCancelRequested(b);
+                <select
+                  id="block-mode"
+                  className="admin-input-react"
+                  value={form.block_mode}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      block_mode: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="full_day">Block full day</option>
+                  <option value="time_range">Block specific time range - planned</option>
+                </select>
+              </div>
 
-                  return (
-                    <tr key={b.id}>
-                      <td style={{ fontWeight: 900, color: "var(--green-2)" }}>
-                        #{b.id}
-                      </td>
+              <div className="calendar-block-field-react">
+                <label className="calendar-block-label-react" htmlFor="block-reason">
+                  Reason
+                </label>
 
-                      <td style={{ fontWeight: 800 }}>{b.booking_date}</td>
+                <input
+                  id="block-reason"
+                  className="admin-input-react"
+                  type="text"
+                  placeholder="Holiday / fully booked / maintenance"
+                  value={form.reason}
+                  maxLength={255}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      reason: e.target.value,
+                    }))
+                  }
+                />
+              </div>
 
-                      <td>
-                        {formatTime(b.start_time)} - {formatTime(b.end_time)}
-                      </td>
+              <div className="calendar-block-action-react">
+                <button
+                  className="admin-btn-react admin-btn-approve-react"
+                  type="submit"
+                  disabled={saving}
+                >
+                  {saving ? <RefreshCw size={16} aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
+                  {saving ? "SAVING..." : "SAVE"}
+                </button>
+              </div>
+            </div>
+          </form>
 
-                      <td style={{ textTransform: "uppercase", fontWeight: 800 }}>
-                        {b.booking_type}
-                      </td>
+          {loading ? (
+            <div className="admin-muted-react">Loading blocked dates...</div>
+          ) : blockedDates.length === 0 ? (
+            <div className="admin-muted-react">No blocked dates yet.</div>
+          ) : (
+            <div className="calendar-table-scroll">
+              <table className="admin-table-react calendar-blocked-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Reason</th>
+                    <th>Active Schedules</th>
+                    <th>Remove</th>
+                  </tr>
+                </thead>
 
-                      <td>
-                        <div style={{ fontWeight: 800, color: "var(--green-2)" }}>
-                          {b.user_name || "Guest"}
-                        </div>
-                        <div style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-                          {b.user_email || "No email"}
-                        </div>
-                      </td>
+                <tbody>
+                  {blockedRows.map((b) => {
+                    const activeSchedules = Number(b.active_booking_count || 0) + Number(b.public_workshop_count || 0);
 
-                      <td>
-                        <span className={`p-badge-react ${statusBadgeClass(status)}`}>
-                          {status.toUpperCase()}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span className={`p-badge-react ${paymentBadgeClass(payment)}`}>
-                          {payment.toUpperCase()}
-                        </span>
-                      </td>
-
-                      <td style={{ fontWeight: 800 }}>
-                        ₱{money(b.total_amount)}
-                      </td>
-
-                      <td>
-                        {cancelRequested ? (
-                          <div
-                            style={{
-                              background: "#fff7ed",
-                              border: "1px solid #fed7aa",
-                              borderRadius: 10,
-                              padding: "8px 10px",
-                              maxWidth: 320,
-                            }}
+                    return (
+                      <tr key={b.block_date}>
+                        <td className="calendar-strong-cell">{b.block_date}</td>
+                        <td>{b.reason || "No reason provided"}</td>
+                        <td>
+                          {activeSchedules > 0 ? (
+                            <span className="p-badge-react rejected calendar-warn-badge">
+                              {activeSchedules} active
+                            </span>
+                          ) : (
+                            <span className="p-badge-react paid">Clear</span>
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            className="admin-btn-react admin-btn-cancel-react"
+                            type="button"
+                            disabled={deletingDate === b.block_date}
+                            onClick={() => handleDelete(b.block_date)}
                           >
-                            <div
-                              style={{
-                                color: "#9a3412",
-                                fontWeight: 900,
-                                fontSize: "0.75rem",
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              Requested
-                            </div>
+                            <Trash2 size={16} aria-hidden="true" />
+                            {deletingDate === b.block_date ? "REMOVING..." : "REMOVE"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-                            <div
-                              style={{
-                                color: "#7c2d12",
-                                fontSize: "0.82rem",
-                                marginTop: 4,
-                                lineHeight: 1.4,
-                              }}
-                            >
-                              {b.cancel_reason || "No reason provided."}
-                            </div>
+        <div className="admin-panel-react calendar-panel-flat">
+          <div className="calendar-panel-head">
+            <h3>
+              <CalendarDays size={18} aria-hidden="true" />
+              Calendar Overview
+            </h3>
 
-                            {b.cancel_requested_at && (
-                              <div
-                                style={{
-                                  color: "#9a3412",
-                                  fontSize: "0.72rem",
-                                  marginTop: 4,
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {b.cancel_requested_at}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="admin-muted-react">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <p>
+              View bookings and public workshops by date. Pending payment records are included because they still hold schedule space.
+            </p>
           </div>
-        )}
+
+          <div className="calendar-filter-area">
+            <div className="calendar-main-filters">
+              {MAIN_FILTERS.map((filter) => {
+                const active = mainFilter === filter.key;
+                const Icon = filter.icon;
+
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => setMainFilter(filter.key)}
+                    className={`calendar-filter-pill ${active ? "active" : ""}`}
+                  >
+                    <Icon size={14} aria-hidden="true" />
+                    {filter.label} ({mainCounts[filter.key] || 0})
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="calendar-dropdown-filters">
+              <label>
+                <span>Type</span>
+                <select
+                  className="admin-input-react"
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                >
+                  {TYPE_FILTERS.map((item) => (
+                    <option value={item.key} key={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>Status</span>
+                <select
+                  className="admin-input-react"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  {STATUS_FILTERS.map((item) => (
+                    <option value={item.key} key={item.key}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="admin-muted-react calendar-state-pad">
+              Loading calendar overview...
+            </div>
+          ) : groupedRecords.length === 0 ? (
+            <div className="admin-muted-react calendar-state-pad">
+              No records found for the selected filters.
+            </div>
+          ) : (
+            <div className="calendar-day-grid">
+              {groupedRecords.map(([date, dayRecords]) => (
+                <CalendarDayCard
+                  key={date}
+                  date={date}
+                  records={dayRecords}
+                  blocked={blockedByDate[date]}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="admin-panel-react calendar-panel-flat">
+          <div className="calendar-panel-head">
+            <h3>
+              <FileText size={18} aria-hidden="true" />
+              Detailed Schedule Table
+            </h3>
+
+            <p>
+              Use this table when you need to scan exact IDs, customer details, payments, and action links.
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="admin-muted-react calendar-state-pad">
+              Loading detailed records...
+            </div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="admin-muted-react calendar-state-pad">
+              No records found for the selected filters.
+            </div>
+          ) : (
+            <div className="calendar-table-scroll">
+              <table className="admin-table-react rich-table calendar-detail-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Customer / Record</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Total</th>
+                    <th>Cancel Request</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredRecords.map((record) => {
+                    const status = String(record.status || "pending").toLowerCase();
+                    const payment = String(record.payment_status || "unpaid").toLowerCase();
+                    const cancelRequested = isCancelRequested(record);
+                    const isPublicWorkshop = record.record_kind === "public_workshop";
+                    const rowKey = `${record.record_kind || "booking"}-${record.id}`;
+
+                    return (
+                      <tr key={rowKey}>
+                        <td className="calendar-strong-cell">#{record.id}</td>
+
+                        <td style={{ fontWeight: 800 }}>{record.booking_date}</td>
+
+                        <td>{formatTimeRange(record.start_time, record.end_time)}</td>
+
+                        <td style={{ fontWeight: 800 }}>{readableType(record)}</td>
+
+                        <td>
+                          <div className="calendar-record-person">
+                            {isPublicWorkshop ? (
+                              <Users size={16} aria-hidden="true" />
+                            ) : (
+                              <UserRound size={16} aria-hidden="true" />
+                            )}
+                            <div>
+                              <div className="calendar-record-person-name">
+                                {isPublicWorkshop ? getRecordTitle(record) : record.user_name || "Guest"}
+                              </div>
+                              <div className="calendar-record-person-sub">
+                                {isPublicWorkshop
+                                  ? `${Number(record.registration_count || 0)} registrations`
+                                  : record.user_email || "No email"}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td>
+                          <span className={`p-badge-react ${statusBadgeClass(status)}`}>
+                            {status === "pending_payment" ? "AWAITING PAYMENT" : status.toUpperCase()}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className={`p-badge-react ${paymentBadgeClass(payment)}`}>
+                            {payment.toUpperCase()}
+                          </span>
+                        </td>
+
+                        <td style={{ fontWeight: 800 }}>₱{money(record.total_amount)}</td>
+
+                        <td>
+                          {cancelRequested ? (
+                            <div className="calendar-cancel-box">
+                              <div className="calendar-cancel-title">
+                                <AlertTriangle size={14} aria-hidden="true" />
+                                Requested
+                              </div>
+
+                              <div className="calendar-cancel-reason">
+                                {record.cancel_reason || "No reason provided."}
+                              </div>
+
+                              {record.cancel_requested_at && (
+                                <div className="calendar-cancel-date">
+                                  {record.cancel_requested_at}
+                                </div>
+                              )}
+
+                              <Link
+                                className="admin-pill-react"
+                                to="/admin/reservations"
+                              >
+                                <Eye size={13} aria-hidden="true" />
+                                Review in Reservations
+                              </Link>
+                            </div>
+                          ) : (
+                            <span className="admin-muted-react">None</span>
+                          )}
+                        </td>
+
+                        <td>
+                          {isPublicWorkshop ? (
+                            <Link
+                              className="admin-pill-react"
+                              to={`/admin/workshops/edit/${Number(record.id || 0)}`}
+                            >
+                              <Eye size={14} aria-hidden="true" />
+                              View Workshop
+                            </Link>
+                          ) : (
+                            <Link className="admin-pill-react" to="/admin/reservations">
+                              <Eye size={14} aria-hidden="true" />
+                              View Reservation
+                            </Link>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );

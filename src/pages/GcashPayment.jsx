@@ -5,10 +5,20 @@ import "../assets/css/gcash-payment.css";
 import API from "../services/api";
 
 function money(value) {
-  return Number(value || 0).toLocaleString(undefined, {
+  return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function percent(value) {
+  const n = Number(value || 0);
+
+  if (!Number.isFinite(n)) {
+    return "0";
+  }
+
+  return n % 1 === 0 ? String(n) : n.toFixed(2);
 }
 
 function digitsForReader(value = "") {
@@ -166,58 +176,17 @@ export default function GcashPayment() {
     return Number(paymentData?.amount_paid || 0);
   }, [paymentData]);
 
-  const formSnapshot = useMemo(() => {
-    const snapshotRaw = paymentData?.form_snapshot;
-
-    if (!snapshotRaw) return null;
-
-    try {
-      return typeof snapshotRaw === "string"
-        ? JSON.parse(snapshotRaw)
-        : snapshotRaw;
-    } catch {
-      return null;
-    }
-  }, [paymentData]);
-
-  const bookingBaseRate = useMemo(() => {
-    const snapshotBaseRate = Number(formSnapshot?.base_rate || 0);
-
-    if (Number.isFinite(snapshotBaseRate) && snapshotBaseRate > 0) {
-      return snapshotBaseRate;
-    }
-
-    const contextRaw = paymentData?.context_json;
-
-    if (!contextRaw) return 0;
-
-    try {
-      const context =
-        typeof contextRaw === "string" ? JSON.parse(contextRaw) : contextRaw;
-
-      const contextBaseRate = Number(
-        context?.base_rate || context?.form_snapshot?.base_rate || 0
-      );
-
-      return Number.isFinite(contextBaseRate) && contextBaseRate > 0
-        ? contextBaseRate
-        : 0;
-    } catch {
-      return 0;
-    }
-  }, [formSnapshot, paymentData]);
-
   const downpaymentPercentage = useMemo(() => {
     if (isPublicWorkshop) return 100;
 
     const fromApi = Number(paymentData?.downpayment_percentage || 0);
-    if (fromApi > 0 && fromApi <= 100) return fromApi;
 
-    const fromSnapshot = Number(formSnapshot?.downpayment_percentage || 0);
-    if (fromSnapshot > 0 && fromSnapshot <= 100) return fromSnapshot;
+    if (fromApi > 0 && fromApi <= 100) {
+      return fromApi;
+    }
 
     return 50;
-  }, [paymentData, formSnapshot, isPublicWorkshop]);
+  }, [paymentData, isPublicWorkshop]);
 
   const downpaymentAmount = useMemo(() => {
     const fromApi = Number(paymentData?.downpayment_amount || 0);
@@ -265,10 +234,6 @@ export default function GcashPayment() {
 
   const readableGcashNumber = digitsForReader(gcash.number);
   const readableTotalAmount = `Total amount is ${money(totalAmount)} pesos.`;
-  const readableBaseRate =
-    bookingBaseRate > 0
-      ? `Base booking rate is ${money(bookingBaseRate)} pesos.`
-      : "No separate base booking rate was found for this booking.";
   const readableAmountToPay = `Amount to pay is ${money(amountToPay)} pesos.`;
 
   const handleProofChange = (e) => {
@@ -493,17 +458,6 @@ export default function GcashPayment() {
                           </div>
                         )}
 
-                        {bookingBaseRate > 0 && (
-                          <div
-                            className="gpmt-summary-item voice-readable"
-                            tabIndex="0"
-                            aria-label={readableBaseRate}
-                          >
-                            <span>Base Booking Rate</span>
-                            <strong>₱{money(bookingBaseRate)}</strong>
-                          </div>
-                        )}
-
                         <div
                           className="gpmt-summary-item voice-readable"
                           tabIndex="0"
@@ -557,7 +511,7 @@ export default function GcashPayment() {
                               <label
                                 className="gpmt-radio-option voice-readable"
                                 tabIndex="0"
-                                aria-label={`Downpayment option. ${money(
+                                aria-label={`Downpayment option. ${percent(
                                   downpaymentPercentage
                                 )} percent. Amount is ${money(
                                   downpaymentAmount
@@ -573,7 +527,7 @@ export default function GcashPayment() {
                                   }
                                 />
                                 <span>
-                                  Downpayment ({money(downpaymentPercentage)}%)
+                                  Downpayment ({percent(downpaymentPercentage)}%)
                                   <b>₱{money(downpaymentAmount)}</b>
                                 </span>
                               </label>

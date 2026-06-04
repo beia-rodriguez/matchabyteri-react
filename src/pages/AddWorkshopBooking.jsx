@@ -12,6 +12,27 @@ const CONTACT_METHODS = [
   { value: "Whatsapp", label: "WhatsApp" },
 ];
 
+const DEFAULT_PRIVATE_PACKAGES = [
+  {
+    id: "STANDARD",
+    package_code: "STANDARD",
+    label: "Standard Package",
+    price_per_person: 3000,
+    description: "Private workshop standard package",
+    is_active: 1,
+    sort_order: 1,
+  },
+  {
+    id: "PREMIUM",
+    package_code: "PREMIUM",
+    label: "Premium Package",
+    price_per_person: 3800,
+    description: "Private workshop premium package",
+    is_active: 1,
+    sort_order: 2,
+  },
+];
+
 function pad(n) {
   return String(n).padStart(2, "0");
 }
@@ -19,8 +40,14 @@ function pad(n) {
 function addHours(timeStr, hoursToAdd) {
   if (!timeStr) return "";
   const [h, m] = timeStr.split(":").map(Number);
+
+  if (!Number.isFinite(h) || !Number.isFinite(m)) {
+    return "";
+  }
+
   const d = new Date(2000, 0, 1, h, m, 0);
   d.setHours(d.getHours() + hoursToAdd);
+
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
@@ -29,6 +56,45 @@ function money(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function numberValue(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function integerValue(value) {
+  const text = String(value ?? "").replace(/[^\d]/g, "");
+  return text === "" ? "" : text;
+}
+
+function packageKey(pkg) {
+  return String(pkg.id || pkg.package_code || pkg.label || "");
+}
+
+function packageCode(pkg) {
+  return String(pkg.package_code || pkg.id || "").toUpperCase();
+}
+
+function normalizePackages(packages) {
+  const activePackages = safeArray(packages)
+    .filter((pkg) => Number(pkg.is_active ?? 1) === 1)
+    .sort((a, b) => {
+      const sortA = numberValue(a.sort_order);
+      const sortB = numberValue(b.sort_order);
+
+      if (sortA !== sortB) return sortA - sortB;
+
+      return String(a.label || a.package_code || "").localeCompare(
+        String(b.label || b.package_code || "")
+      );
+    });
+
+  return activePackages.length > 0 ? activePackages : DEFAULT_PRIVATE_PACKAGES;
 }
 
 export default function AddWorkshopBooking() {
@@ -48,11 +114,8 @@ export default function AddWorkshopBooking() {
   const [blockReason, setBlockReason] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [pricing, setPricing] = useState({
-    private_workshop_standard_price: 3000,
-    private_workshop_premium_price: 3800,
-    private_workshop_downpayment_percentage: 50,
-  });
+  const [packages, setPackages] = useState(DEFAULT_PRIVATE_PACKAGES);
+  const [downpaymentPercentage, setDownpaymentPercentage] = useState(50);
 
   const [fixedInfo, setFixedInfo] = useState({
     full_name: "",
@@ -67,15 +130,17 @@ export default function AddWorkshopBooking() {
 
   const [workshopInfo, setWorkshopInfo] = useState({
     total_attendees: "",
-    standard_attendees: "",
-    premium_attendees: "",
+    package_attendees: {},
   });
 
   useEffect(() => {
     if (type !== "workshop" && type !== "private_workshop") {
-      navigate(`/day?date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`, {
-        replace: true,
-      });
+      navigate(
+        `/day?date=${encodeURIComponent(date)}&type=${encodeURIComponent(type)}`,
+        {
+          replace: true,
+        }
+      );
     }
   }, [type, date, navigate]);
 
@@ -83,6 +148,7 @@ export default function AddWorkshopBooking() {
     loadPricing();
     loadCurrentUser();
     checkBlockedDate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadPricing = async () => {
@@ -94,9 +160,62 @@ export default function AddWorkshopBooking() {
         params: { type: "private_workshop" },
       });
 
-      if (data.pricing) {
-        setPricing((prev) => ({ ...prev, ...data.pricing }));
+      const responseForm = data.form || {};
+      const responsePricing = data.pricing || {};
+
+      let loadedPackages = [];
+
+      if (Array.isArray(responseForm.packages)) {
+        loadedPackages = responseForm.packages;
+      } else if (Array.isArray(responsePricing.packages)) {
+        loadedPackages = responsePricing.packages;
+      } else if (
+        responsePricing.private_workshop_standard_price ||
+        responsePricing.private_workshop_premium_price
+      ) {
+        loadedPackages = [
+          {
+            ...DEFAULT_PRIVATE_PACKAGES[0],
+            price_per_person:
+              responsePricing.private_workshop_standard_price ||
+              DEFAULT_PRIVATE_PACKAGES[0].price_per_person,
+          },
+          {
+            ...DEFAULT_PRIVATE_PACKAGES[1],
+            price_per_person:
+              responsePricing.private_workshop_premium_price ||
+              DEFAULT_PRIVATE_PACKAGES[1].price_per_person,
+          },
+        ];
       }
+
+      const nextPackages = normalizePackages(loadedPackages);
+
+      const nextDownpayment = numberValue(
+        responseForm.downpayment_percentage ||
+          responsePricing.private_workshop_downpayment_percentage ||
+          50
+      );
+
+      setPackages(nextPackages);
+      setDownpaymentPercentage(nextDownpayment);
+
+      setWorkshopInfo((prev) => {
+        const nextPackageAttendees = { ...(prev.package_attendees || {}) };
+
+        nextPackages.forEach((pkg) => {
+          const key = packageKey(pkg);
+
+          if (nextPackageAttendees[key] === undefined) {
+            nextPackageAttendees[key] = "";
+          }
+        });
+
+        return {
+          ...prev,
+          package_attendees: nextPackageAttendees,
+        };
+      });
     } catch (err) {
       console.error(err);
       setError("Failed to load private workshop pricing.");
@@ -118,7 +237,7 @@ export default function AddWorkshopBooking() {
         }));
       }
     } catch {
-      // keep empty fields
+      // Keep empty fields.
     }
   };
 
@@ -143,30 +262,44 @@ export default function AddWorkshopBooking() {
     }
   };
 
-  const standardTotal = useMemo(() => {
-    return (
-      Number(workshopInfo.standard_attendees || 0) *
-      Number(pricing.private_workshop_standard_price || 0)
-    );
-  }, [workshopInfo.standard_attendees, pricing.private_workshop_standard_price]);
+  const packageBreakdown = useMemo(() => {
+    return packages.map((pkg) => {
+      const key = packageKey(pkg);
+      const attendees = numberValue(workshopInfo.package_attendees?.[key] || 0);
+      const price = numberValue(pkg.price_per_person);
+      const subtotal = attendees * price;
 
-  const premiumTotal = useMemo(() => {
-    return (
-      Number(workshopInfo.premium_attendees || 0) *
-      Number(pricing.private_workshop_premium_price || 0)
-    );
-  }, [workshopInfo.premium_attendees, pricing.private_workshop_premium_price]);
+      return {
+        key,
+        package_id: pkg.id,
+        package_code: pkg.package_code,
+        label: pkg.label,
+        price_per_person: price,
+        attendees,
+        subtotal,
+      };
+    });
+  }, [packages, workshopInfo.package_attendees]);
+
+  const packageAttendeesTotal = useMemo(() => {
+    return packageBreakdown.reduce((sum, item) => sum + item.attendees, 0);
+  }, [packageBreakdown]);
 
   const totalAmount = useMemo(() => {
-    return standardTotal + premiumTotal;
-  }, [standardTotal, premiumTotal]);
+    return packageBreakdown.reduce((sum, item) => sum + item.subtotal, 0);
+  }, [packageBreakdown]);
 
   const dueNow = useMemo(() => {
-    return (
-      totalAmount *
-      (Number(pricing.private_workshop_downpayment_percentage || 50) / 100)
-    );
-  }, [totalAmount, pricing.private_workshop_downpayment_percentage]);
+    return totalAmount * (numberValue(downpaymentPercentage || 50) / 100);
+  }, [totalAmount, downpaymentPercentage]);
+
+  const standardPackage = useMemo(() => {
+    return packageBreakdown.find((item) => packageCode(item) === "STANDARD");
+  }, [packageBreakdown]);
+
+  const premiumPackage = useMemo(() => {
+    return packageBreakdown.find((item) => packageCode(item) === "PREMIUM");
+  }, [packageBreakdown]);
 
   const handleFixedChange = (e) => {
     const { name, value } = e.target;
@@ -183,12 +316,22 @@ export default function AddWorkshopBooking() {
     setFixedInfo((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleWorkshopChange = (e) => {
-    const { name, value } = e.target;
+  const handleTotalAttendeesChange = (e) => {
+    const value = integerValue(e.target.value);
 
     setWorkshopInfo((prev) => ({
       ...prev,
-      [name]: value,
+      total_attendees: value,
+    }));
+  };
+
+  const handlePackageAttendeesChange = (key, value) => {
+    setWorkshopInfo((prev) => ({
+      ...prev,
+      package_attendees: {
+        ...(prev.package_attendees || {}),
+        [key]: integerValue(value),
+      },
     }));
   };
 
@@ -204,22 +347,43 @@ export default function AddWorkshopBooking() {
   };
 
   const validateForm = () => {
-    const totalAttendees = Number(workshopInfo.total_attendees || 0);
-    const standardAttendees = Number(workshopInfo.standard_attendees || 0);
-    const premiumAttendees = Number(workshopInfo.premium_attendees || 0);
+    const totalAttendees = numberValue(workshopInfo.total_attendees || 0);
 
     if (blocked) return blockReason || "This date is not available.";
     if (!fixedInfo.full_name.trim()) return "Full name is required.";
     if (!fixedInfo.phone_number.trim()) return "Phone number is required.";
     if (!fixedInfo.email.trim()) return "Email is required.";
-    if (!fixedInfo.start_time || !fixedInfo.end_time) return "Start time is required.";
-    if (!fixedInfo.workshop_location.trim()) return "Workshop location is required.";
-    if (totalAttendees <= 0) return "Total attendees is required.";
-    if (standardAttendees < 0 || premiumAttendees < 0) return "Attendee counts cannot be negative.";
-    if (standardAttendees + premiumAttendees !== totalAttendees) {
-      return "Standard attendees plus Premium attendees must equal Total attendees.";
+
+    if (!fixedInfo.start_time || !fixedInfo.end_time) {
+      return "Start time is required.";
     }
+
+    if (!fixedInfo.workshop_location.trim()) {
+      return "Workshop location is required.";
+    }
+
+    if (totalAttendees <= 0) return "Total attendees is required.";
+
+    if (!Number.isInteger(totalAttendees)) {
+      return "Total attendees must be a whole number.";
+    }
+
+    for (const item of packageBreakdown) {
+      if (!Number.isInteger(item.attendees)) {
+        return `${item.label} attendees must be a whole number.`;
+      }
+
+      if (item.attendees < 0) {
+        return "Attendee counts cannot be negative.";
+      }
+    }
+
+    if (packageAttendeesTotal !== totalAttendees) {
+      return "Package attendees must equal Total attendees.";
+    }
+
     if (totalAmount <= 0) return "Invalid total amount.";
+
     return "";
   };
 
@@ -277,14 +441,39 @@ export default function AddWorkshopBooking() {
 
   const buildDraft = () => ({
     ...fixedInfo,
-    ...workshopInfo,
     booking_type: "private_workshop",
-    total_attendees: Number(workshopInfo.total_attendees || 0),
-    standard_attendees: Number(workshopInfo.standard_attendees || 0),
-    premium_attendees: Number(workshopInfo.premium_attendees || 0),
-    standard_price: Number(pricing.private_workshop_standard_price || 0),
-    premium_price: Number(pricing.private_workshop_premium_price || 0),
+
+    total_attendees: numberValue(workshopInfo.total_attendees || 0),
+
+    standard_attendees: numberValue(standardPackage?.attendees || 0),
+    premium_attendees: numberValue(premiumPackage?.attendees || 0),
+    standard_price: numberValue(
+      standardPackage?.price_per_person || DEFAULT_PRIVATE_PACKAGES[0].price_per_person
+    ),
+    premium_price: numberValue(
+      premiumPackage?.price_per_person || DEFAULT_PRIVATE_PACKAGES[1].price_per_person
+    ),
+
+    package_attendees: packageBreakdown.map((item) => ({
+      package_id: item.package_id,
+      package_code: item.package_code,
+      label: item.label,
+      attendees: item.attendees,
+      price_per_person: item.price_per_person,
+      subtotal: item.subtotal,
+    })),
+
+    downpayment_percentage: numberValue(downpaymentPercentage),
     total_amount: totalAmount,
+    due_now: dueNow,
+
+    form_snapshot: {
+      packages,
+      package_attendees: packageBreakdown,
+      downpayment_percentage: numberValue(downpaymentPercentage),
+      total_amount: totalAmount,
+      due_now: dueNow,
+    },
   });
 
   const handleConfirm = async (e) => {
@@ -300,7 +489,9 @@ export default function AddWorkshopBooking() {
       });
 
       if (res.data.success || res.data.booking_id) {
-        navigate(`/gcash-payment?purpose=workshop_booking&booking_id=${res.data.booking_id}`);
+        navigate(
+          `/gcash-payment?purpose=workshop_booking&booking_id=${res.data.booking_id}`
+        );
       } else {
         setError(res.data.error || "Something went wrong. Please try again.");
         setStep("review");
@@ -337,7 +528,9 @@ export default function AddWorkshopBooking() {
             {blocked && (
               <>
                 <div className="awb-blocked">This date is not available.</div>
-                {blockReason && <div className="awb-small-note awb-center">{blockReason}</div>}
+                {blockReason && (
+                  <div className="awb-small-note awb-center">{blockReason}</div>
+                )}
               </>
             )}
 
@@ -355,32 +548,49 @@ export default function AddWorkshopBooking() {
                 <ReviewRow label="Full Name" value={fixedInfo.full_name} />
                 <ReviewRow label="Phone Number" value={fixedInfo.phone_number} />
                 <ReviewRow label="Email Address" value={fixedInfo.email} />
-                <ReviewRow label="Contact Methods" value={fixedInfo.contact_methods.join(", ")} />
+                <ReviewRow
+                  label="Contact Methods"
+                  value={fixedInfo.contact_methods.join(", ")}
+                />
 
                 <div className="awb-section-title">BOOKING INFORMATION</div>
                 <ReviewRow label="Date" value={date} />
                 <ReviewRow label="Start Time" value={fixedInfo.start_time} />
                 <ReviewRow label="End Time" value={fixedInfo.end_time} />
-                <ReviewRow label="Workshop Location" value={fixedInfo.workshop_location} />
-                <ReviewRow label="Total Attendees" value={workshopInfo.total_attendees} />
-                <ReviewRow label="Standard Attendees" value={workshopInfo.standard_attendees} />
-                <ReviewRow label="Premium Attendees" value={workshopInfo.premium_attendees} />
-                <ReviewRow label="Other Request" value={fixedInfo.other_request || "None"} />
+                <ReviewRow
+                  label="Workshop Location"
+                  value={fixedInfo.workshop_location}
+                />
+                <ReviewRow
+                  label="Total Attendees"
+                  value={workshopInfo.total_attendees}
+                />
+
+                {packageBreakdown.map((item) => (
+                  <ReviewRow
+                    key={item.key}
+                    label={`${item.label} Attendees`}
+                    value={item.attendees}
+                  />
+                ))}
+
+                <ReviewRow
+                  label="Other Request"
+                  value={fixedInfo.other_request || "None"}
+                />
 
                 <div className="awb-summary">
-                  <div className="awb-summary-row">
-                    <span className="awb-summary-label">
-                      {workshopInfo.standard_attendees} Standard × ₱{money(pricing.private_workshop_standard_price)}
-                    </span>
-                    <span className="awb-summary-value">₱{money(standardTotal)}</span>
-                  </div>
-
-                  <div className="awb-summary-row">
-                    <span className="awb-summary-label">
-                      {workshopInfo.premium_attendees} Premium × ₱{money(pricing.private_workshop_premium_price)}
-                    </span>
-                    <span className="awb-summary-value">₱{money(premiumTotal)}</span>
-                  </div>
+                  {packageBreakdown.map((item) => (
+                    <div className="awb-summary-row" key={item.key}>
+                      <span className="awb-summary-label">
+                        {item.attendees} {item.label} × ₱
+                        {money(item.price_per_person)}
+                      </span>
+                      <span className="awb-summary-value">
+                        ₱{money(item.subtotal)}
+                      </span>
+                    </div>
+                  ))}
 
                   <div className="awb-summary-row awb-summary-total">
                     <span className="awb-summary-label">Total Amount</span>
@@ -389,17 +599,26 @@ export default function AddWorkshopBooking() {
 
                   <div className="awb-summary-row">
                     <span className="awb-summary-label">
-                      Due Now ({pricing.private_workshop_downpayment_percentage}%)
+                      Due Now ({downpaymentPercentage}%)
                     </span>
                     <span className="awb-summary-value">₱{money(dueNow)}</span>
                   </div>
                 </div>
 
                 <div className="awb-actions">
-                  <button type="button" className="awb-btn awb-btn-secondary" onClick={() => setStep("form")}>
+                  <button
+                    type="button"
+                    className="awb-btn awb-btn-secondary"
+                    onClick={() => setStep("form")}
+                  >
                     Edit
                   </button>
-                  <button type="button" className="awb-btn awb-btn-confirm" onClick={handleConfirm}>
+
+                  <button
+                    type="button"
+                    className="awb-btn awb-btn-confirm"
+                    onClick={handleConfirm}
+                  >
                     Confirm and Pay
                   </button>
                 </div>
@@ -410,19 +629,43 @@ export default function AddWorkshopBooking() {
 
                 <div className="awb-section-title">CONTACT INFORMATION</div>
 
-                <TextField label="Full Name" name="full_name" value={fixedInfo.full_name} onChange={handleFixedChange} />
-                <TextField label="Phone Number" name="phone_number" value={fixedInfo.phone_number} onChange={handleFixedChange} />
-                <TextField label="Email Address" name="email" value={fixedInfo.email} onChange={handleFixedChange} readOnly type="email" />
+                <TextField
+                  label="Full Name"
+                  name="full_name"
+                  value={fixedInfo.full_name}
+                  onChange={handleFixedChange}
+                />
+
+                <TextField
+                  label="Phone Number"
+                  name="phone_number"
+                  value={fixedInfo.phone_number}
+                  onChange={handleFixedChange}
+                />
+
+                <TextField
+                  label="Email Address"
+                  name="email"
+                  value={fixedInfo.email}
+                  onChange={handleFixedChange}
+                  readOnly
+                  type="email"
+                />
 
                 <div className="awb-field">
-                  <label className="awb-label">Are you available to contact in the following:</label>
+                  <label className="awb-label">
+                    Are you available to contact in the following:
+                  </label>
+
                   <div className="awb-options">
                     {CONTACT_METHODS.map((method) => (
                       <label className="awb-option" key={method.value}>
                         <input
                           type="checkbox"
                           value={method.value}
-                          checked={fixedInfo.contact_methods.includes(method.value)}
+                          checked={fixedInfo.contact_methods.includes(
+                            method.value
+                          )}
                           onChange={handleContactMethod}
                         />
                         {method.label}
@@ -435,40 +678,59 @@ export default function AddWorkshopBooking() {
 
                 <div className="awb-field">
                   <label className="awb-label">Event Time of Workshop</label>
+
                   <div className="awb-two-col">
-                    <input type="time" name="start_time" value={fixedInfo.start_time} onChange={handleFixedChange} />
-                    <input type="time" name="end_time" value={fixedInfo.end_time} onChange={handleFixedChange} />
+                    <input
+                      type="time"
+                      name="start_time"
+                      value={fixedInfo.start_time}
+                      onChange={handleFixedChange}
+                    />
+
+                    <input
+                      type="time"
+                      name="end_time"
+                      value={fixedInfo.end_time}
+                      onChange={handleFixedChange}
+                    />
                   </div>
+
                   <div className="awb-small-note">up to 4 hours operation</div>
                 </div>
 
-                <TextField label="Workshop Location" name="workshop_location" value={fixedInfo.workshop_location} onChange={handleFixedChange} />
+                <TextField
+                  label="Workshop Location"
+                  name="workshop_location"
+                  value={fixedInfo.workshop_location}
+                  onChange={handleFixedChange}
+                />
 
                 <div className="awb-section-title">ATTENDEES AND PACKAGES</div>
 
-                <TextField
+                <IntegerField
                   label="Total Number of Attendees"
                   name="total_attendees"
                   value={workshopInfo.total_attendees}
-                  onChange={handleWorkshopChange}
-                  type="number"
+                  onChange={handleTotalAttendeesChange}
                 />
 
-                <TextField
-                  label={`Number of Standard Package Attendees — ₱${money(pricing.private_workshop_standard_price)} each`}
-                  name="standard_attendees"
-                  value={workshopInfo.standard_attendees}
-                  onChange={handleWorkshopChange}
-                  type="number"
-                />
+                {packages.map((pkg) => {
+                  const key = packageKey(pkg);
 
-                <TextField
-                  label={`Number of Premium Package Attendees — ₱${money(pricing.private_workshop_premium_price)} each`}
-                  name="premium_attendees"
-                  value={workshopInfo.premium_attendees}
-                  onChange={handleWorkshopChange}
-                  type="number"
-                />
+                  return (
+                    <IntegerField
+                      key={key}
+                      label={`${pkg.label} Attendees — ₱${money(
+                        pkg.price_per_person
+                      )} each`}
+                      name={`package_${key}`}
+                      value={workshopInfo.package_attendees?.[key] || ""}
+                      onChange={(e) =>
+                        handlePackageAttendeesChange(key, e.target.value)
+                      }
+                    />
+                  );
+                })}
 
                 <div className="awb-field">
                   <label className="awb-label">Other Request</label>
@@ -480,21 +742,44 @@ export default function AddWorkshopBooking() {
                 </div>
 
                 <div className="awb-summary">
+                  {packageBreakdown.map((item) => (
+                    <div className="awb-summary-row" key={item.key}>
+                      <span className="awb-summary-label">
+                        {item.attendees} {item.label} × ₱
+                        {money(item.price_per_person)}
+                      </span>
+                      <span className="awb-summary-value">
+                        ₱{money(item.subtotal)}
+                      </span>
+                    </div>
+                  ))}
+
                   <div className="awb-summary-row awb-summary-total">
-                    <span className="awb-summary-label">Total Private Workshop Price</span>
+                    <span className="awb-summary-label">
+                      Total Private Workshop Price
+                    </span>
                     <span className="awb-summary-value">₱{money(totalAmount)}</span>
                   </div>
 
                   <div className="awb-summary-row">
                     <span className="awb-summary-label">
-                      Due Now ({pricing.private_workshop_downpayment_percentage}%)
+                      Due Now ({downpaymentPercentage}%)
                     </span>
                     <span className="awb-summary-value">₱{money(dueNow)}</span>
+                  </div>
+
+                  <div className="awb-small-note">
+                    Package attendees entered: {packageAttendeesTotal} /{" "}
+                    {numberValue(workshopInfo.total_attendees || 0)}
                   </div>
                 </div>
 
                 <div className="awb-actions">
-                  <button className="awb-btn awb-btn-confirm" type="button" onClick={handleNext}>
+                  <button
+                    className="awb-btn awb-btn-confirm"
+                    type="button"
+                    onClick={handleNext}
+                  >
                     Next
                   </button>
                 </div>
@@ -507,11 +792,54 @@ export default function AddWorkshopBooking() {
   );
 }
 
-function TextField({ label, name, value, onChange, type = "text", readOnly = false }) {
+function TextField({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  readOnly = false,
+}) {
   return (
     <div className="awb-field">
       <label className="awb-label">{label}</label>
-      <input type={type} name={name} value={value} onChange={onChange} readOnly={readOnly} min={type === "number" ? "0" : undefined} />
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        readOnly={readOnly}
+      />
+    </div>
+  );
+}
+
+function IntegerField({ label, name, value, onChange, readOnly = false }) {
+  return (
+    <div className="awb-field">
+      <label className="awb-label">{label}</label>
+      <input
+        type="number"
+        name={name}
+        value={value}
+        onChange={onChange}
+        readOnly={readOnly}
+        min="0"
+        step="1"
+        inputMode="numeric"
+        onKeyDown={(e) => {
+          if ([".", ",", "e", "E", "-", "+"].includes(e.key)) {
+            e.preventDefault();
+          }
+        }}
+        onPaste={(e) => {
+          const pastedText = e.clipboardData.getData("text");
+
+          if (!/^\d+$/.test(pastedText)) {
+            e.preventDefault();
+          }
+        }}
+      />
     </div>
   );
 }

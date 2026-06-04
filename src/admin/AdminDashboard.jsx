@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import {
-  CalendarClock,
-  CheckCircle,
+  BarChart3,
   Clock,
   Package,
   PartyPopper,
   PhilippinePeso,
-  TrendingUp,
-  Users,
 } from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
@@ -104,7 +101,9 @@ function StatCard({ icon: Icon, label, tag, value, sub, accent }) {
 function EmptyChart({ message }) {
   return (
     <div className="dash-empty-chart">
-      <div className="dash-empty-icon">📊</div>
+      <div className="dash-empty-icon" aria-hidden="true">
+        <BarChart3 size={34} strokeWidth={2.2} />
+      </div>
       <div className="dash-empty-msg">{message}</div>
     </div>
   );

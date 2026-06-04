@@ -46,7 +46,7 @@ function purpose_aliases($purpose) {
 function get_pricing_setting($conn, $key, $default) {
   $stmt = $conn->prepare("
     SELECT setting_value
-    FROM pricing_settings
+    FROM system_settings
     WHERE setting_key = ?
     LIMIT 1
   ");

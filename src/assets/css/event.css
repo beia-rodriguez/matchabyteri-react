@@ -39,6 +39,7 @@
 
 .event-page__book-section-text > p:first-child {
   font-size: 1.5rem;
+  font-family: "Brasika Display Regular", serif;
   font-weight: 700;
   color: var(--event-green);
   margin: 0 0 30px;

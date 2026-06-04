@@ -27,7 +27,7 @@ function normalize_time_value($value, $label) {
 function get_setting($conn, $key, $default = 0.00) {
   $stmt = $conn->prepare("
     SELECT setting_value
-    FROM pricing_settings
+    FROM system_settings
     WHERE setting_key = ?
     LIMIT 1
   ");

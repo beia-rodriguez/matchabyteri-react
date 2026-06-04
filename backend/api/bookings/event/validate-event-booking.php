@@ -2,73 +2,70 @@
 
 session_start();
 
-require_once "../../../config/db.php";
+require_once __DIR__ . "/../../../config/db.php";
 
-header("Content-Type: application/json");
+header("Content-Type: application/json; charset=utf-8");
 
 date_default_timezone_set("Asia/Manila");
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-  http_response_code(405);
-  echo json_encode(["success" => false, "error" => "Method not allowed"]);
+function fail($message, $status = 400, $extra = []) {
+  http_response_code($status);
+  echo json_encode(array_merge([
+    "success" => false,
+    "error" => $message
+  ], $extra));
   exit();
 }
 
+function normalize_time_value($value, $label) {
+  $value = trim((string)$value);
+
+  if (!preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $value)) {
+    fail("Invalid {$label} time format.");
+  }
+
+  return strlen($value) === 5 ? $value . ":00" : $value;
+}
+
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+  fail("Method not allowed", 405);
+}
+
 if (!isset($_SESSION["user_id"])) {
-  http_response_code(401);
-  echo json_encode(["success" => false, "error" => "Unauthorized"]);
-  exit();
+  fail("Unauthorized", 401);
+}
+
+if (isset($_SESSION["role"]) && $_SESSION["role"] === "admin") {
+  fail("Admins cannot book events.", 403);
 }
 
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (!is_array($data)) {
-  http_response_code(400);
-  echo json_encode(["success" => false, "error" => "Invalid request"]);
-  exit();
+  fail("Invalid request.");
 }
 
 $date = trim($data["date"] ?? "");
-$start_time = trim($data["start_time"] ?? "");
-$end_time = trim($data["end_time"] ?? "");
+$start_time = normalize_time_value($data["start_time"] ?? "", "start");
+$end_time = normalize_time_value($data["end_time"] ?? "", "end");
 
 if (!preg_match("/^\d{4}-\d{2}-\d{2}$/", $date)) {
-  http_response_code(400);
-  echo json_encode(["success" => false, "error" => "Invalid date"]);
-  exit();
+  fail("Invalid date.");
 }
 
 if ($date < date("Y-m-d")) {
-  http_response_code(400);
-  echo json_encode(["success" => false, "error" => "Past dates are not allowed"]);
-  exit();
+  fail("Past dates are not allowed.");
 }
-
-if (
-  !preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $start_time) ||
-  !preg_match("/^\d{2}:\d{2}(:\d{2})?$/", $end_time)
-) {
-  http_response_code(400);
-  echo json_encode(["success" => false, "error" => "Invalid time format"]);
-  exit();
-}
-
-if (strlen($start_time) === 5) $start_time .= ":00";
-if (strlen($end_time) === 5) $end_time .= ":00";
 
 $startTs = strtotime("$date $start_time");
 $endTs = strtotime("$date $end_time");
 
 if (!$startTs || !$endTs || $endTs <= $startTs) {
-  http_response_code(400);
-  echo json_encode(["success" => false, "error" => "End time must be after start time"]);
-  exit();
+  fail("End time must be after start time.");
 }
 
 if (($endTs - $startTs) > (4 * 60 * 60)) {
-  http_response_code(400);
-  echo json_encode(["success" => false, "error" => "Work hours must be up to 4 hours only"]);
-  exit();
+  fail("Work hours must be up to 4 hours only.");
 }
 
 try {
@@ -85,16 +82,16 @@ try {
 
   $stmt->bind_param("s", $date);
   $stmt->execute();
-  $blocked = $stmt->get_result()->fetch_assoc();
+
+  $result = $stmt->get_result();
+  $blocked = $result ? $result->fetch_assoc() : null;
+
   $stmt->close();
 
   if ($blocked) {
-    echo json_encode([
-      "success" => false,
-      "error" => "Sorry, this date is not available.",
+    fail("Sorry, this date is not available.", 400, [
       "reason" => $blocked["reason"] ?? ""
     ]);
-    exit();
   }
 
   $MAX_EVENT_PER_DAY = 3;
@@ -113,15 +110,15 @@ try {
 
   $stmt->bind_param("s", $date);
   $stmt->execute();
-  $count = (int)($stmt->get_result()->fetch_assoc()["c"] ?? 0);
+
+  $result = $stmt->get_result();
+  $row = $result ? $result->fetch_assoc() : null;
+  $count = (int)($row["c"] ?? 0);
+
   $stmt->close();
 
   if ($count >= $MAX_EVENT_PER_DAY) {
-    echo json_encode([
-      "success" => false,
-      "error" => "Sorry, this day is fully booked."
-    ]);
-    exit();
+    fail("Sorry, this day is fully booked.");
   }
 
   $stmt = $conn->prepare("
@@ -141,26 +138,25 @@ try {
   $stmt->bind_param("sss", $date, $end_time, $start_time);
   $stmt->execute();
 
-  if ($stmt->get_result()->num_rows > 0) {
-    $stmt->close();
-
-    echo json_encode([
-      "success" => false,
-      "error" => "That time slot is already booked."
-    ]);
-    exit();
-  }
+  $result = $stmt->get_result();
+  $hasConflict = $result && $result->num_rows > 0;
 
   $stmt->close();
 
-  echo json_encode(["success" => true]);
+  if ($hasConflict) {
+    fail("That time slot is already booked.");
+  }
+
+  echo json_encode([
+    "success" => true,
+    "message" => "Booking schedule is available."
+  ]);
   exit();
 
 } catch (Exception $e) {
-  http_response_code(500);
-  echo json_encode([
-    "success" => false,
-    "error" => $e->getMessage()
+  error_log("validate-event-booking error: " . $e->getMessage());
+
+  fail("Failed to validate event booking.", 500, [
+    "details" => $e->getMessage()
   ]);
-  exit();
 }

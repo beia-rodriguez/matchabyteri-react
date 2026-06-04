@@ -10,7 +10,9 @@ import {
   ExternalLink,
   List,
   Trash2,
-  Save
+  Save,
+  CheckCircle2,
+  EyeOff
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
@@ -25,6 +27,17 @@ function toTimeInput(value) {
 
 function formatMoney(value) {
   return Number(value || 0).toFixed(2);
+}
+
+function integerInputValue(value) {
+  const clean = String(value ?? "").replace(/\D/g, "");
+  return clean === "" ? "" : clean;
+}
+
+function blockInvalidIntegerKey(e) {
+  if ([".", ",", "e", "E", "-", "+"].includes(e.key)) {
+    e.preventDefault();
+  }
 }
 
 function buildEditForm(w) {
@@ -196,15 +209,23 @@ export default function AdminWorkshops() {
 
   const handleAddChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "max_slots") {
+      setAddForm((prev) => ({ ...prev, [name]: integerInputValue(value) }));
+      return;
+    }
+
     setAddForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleEditChange = (id, field, value) => {
+    const nextValue = field === "max_slots" ? integerInputValue(value) : value;
+
     setEditForms((prev) => ({
       ...prev,
       [id]: {
         ...prev[id],
-        [field]: value,
+        [field]: nextValue,
       },
     }));
   };
@@ -446,10 +467,20 @@ export default function AdminWorkshops() {
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <span className="pill-mini-react">#{wid}</span>
                         <span className="pill-mini-react">
-                          Regs: {regs} / {cap > 0 ? cap : "∞"} {cap > 0 ? `(Left: ${remaining})` : ""}
+                          Regs: {regs} / {cap > 0 ? cap : "Unlimited"} {cap > 0 ? `(Left: ${remaining})` : ""}
                         </span>
-                        <span className="pill-mini-react" style={{ background: isActive ? '#e8f0eb' : '#f0f0f0', color: isActive ? 'var(--green-2)' : 'var(--muted)', borderColor: 'transparent' }}>
-                          {isActive ? "🟢 Active" : "⚫ Hidden"}
+                        <span className="pill-mini-react" style={{ background: isActive ? '#e8f0eb' : '#f0f0f0', color: isActive ? 'var(--green-2)' : 'var(--muted)', borderColor: 'transparent', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          {isActive ? (
+                            <>
+                              <CheckCircle2 size={13} aria-hidden="true" />
+                              Active
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff size={13} aria-hidden="true" />
+                              Hidden
+                            </>
+                          )}
                         </span>
                         {isFull && <span className="pill-mini-react bad">FULL</span>}
                       </div>
@@ -498,8 +529,8 @@ export default function AdminWorkshops() {
                           </div>
                           <div>
                             <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 800 }}>Pricing</span>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', fontWeight: 600 }}>Std: ₱{formatMoney(w.standard_price)}</div>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', fontWeight: 600 }}>Pro: ₱{formatMoney(w.premium_price)}</div>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', fontWeight: 600 }}>Standard: ₱{formatMoney(w.standard_price)}</div>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', fontWeight: 600 }}>Premium: ₱{formatMoney(w.premium_price)}</div>
                           </div>
                         </div>
 
@@ -562,7 +593,7 @@ export default function AdminWorkshops() {
                           </div>
                           <div>
                             <FieldLabel htmlFor={`edit-max-slots-${wid}`}>Max Slots (0 = unli)</FieldLabel>
-                            <input id={`edit-max-slots-${wid}`} className="admin-input-react" type="number" min="0" value={form.max_slots || "0"} onChange={(e) => handleEditChange(wid, "max_slots", e.target.value)} />
+                            <input id={`edit-max-slots-${wid}`} className="admin-input-react" type="number" min="0" step="1" inputMode="numeric" value={form.max_slots || "0"} onKeyDown={blockInvalidIntegerKey} onChange={(e) => handleEditChange(wid, "max_slots", e.target.value)} />
                           </div>
                         </div>
 
@@ -728,7 +759,10 @@ export default function AdminWorkshops() {
                       type="number"
                       name="max_slots"
                       min="0"
+                      step="1"
+                      inputMode="numeric"
                       value={addForm.max_slots}
+                      onKeyDown={blockInvalidIntegerKey}
                       onChange={handleAddChange}
                     />
                   </div>
@@ -870,7 +904,7 @@ export default function AdminWorkshops() {
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className={`pill-mini-react ${isFull ? 'bad' : ''}`} style={{ border: 'none', background: isFull ? '#fff0f2' : '#f0f3f0' }}>
-                          {regs} / {cap > 0 ? cap : "∞"} {isFull ? '(FULL)' : ''}
+                          {regs} / {cap > 0 ? cap : "Unlimited"} {isFull ? '(FULL)' : ''}
                         </span>
                       </td>
                       <td>

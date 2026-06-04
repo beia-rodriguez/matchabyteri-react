@@ -126,12 +126,49 @@ function formatTime(start, end) {
   return `${String(start).slice(0, 5)} - ${String(end).slice(0, 5)}`;
 }
 
+function formatDetailValue(value, fallback = "—") {
+  if (value === undefined || value === null || value === "") return fallback;
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return fallback;
+
+    return value
+      .map((item) => {
+        if (item && typeof item === "object") {
+          return (
+            item.drink_name ||
+            item.label ||
+            item.name ||
+            item.package_code ||
+            JSON.stringify(item)
+          );
+        }
+
+        return String(item);
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "object") {
+    return (
+      value.drink_name ||
+      value.label ||
+      value.name ||
+      value.package_code ||
+      JSON.stringify(value)
+    );
+  }
+
+  return String(value);
+}
+
 function getNotesValue(notes, keys, fallback = "—") {
   if (!notes || typeof notes !== "object") return fallback;
 
   for (const key of keys) {
     if (notes[key] !== undefined && notes[key] !== null && notes[key] !== "") {
-      return notes[key];
+      return formatDetailValue(notes[key], fallback);
     }
   }
 
@@ -402,7 +439,7 @@ export default function AdminReservations() {
 
           <div className="compact-stat">
             <span>Menu Package</span>
-            <strong>{getNotesValue(notes, ["menu_package"])}</strong>
+            <strong>{getNotesValue(notes, ["menu_package_label", "menu_package", "menu_package_code"])}</strong>
           </div>
 
           <div className="compact-stat">
@@ -412,7 +449,7 @@ export default function AdminReservations() {
 
           <div className="compact-stat">
             <span>Additional Drinks</span>
-            <strong>{getNotesValue(notes, ["selected_drinks"])}</strong>
+            <strong>{getNotesValue(notes, ["selected_drinks", "selected_drink_ids"])}</strong>
           </div>
 
           <div className="compact-stat">

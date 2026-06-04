@@ -1,5 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  Image as ImageIcon,
+  ListChecks,
+  MapPin,
+  PhilippinePeso,
+  Save,
+  Trash2,
+  Upload,
+  Users,
+} from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "../assets/css/admin-workshop-edit.css";
@@ -26,16 +44,24 @@ function posterSrc(path) {
 
 function normalizeMoneyInput(value) {
   if (value === "" || value === null || value === undefined) return "0.00";
+
   const amount = Number(value);
+
   return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : "0.00";
 }
 
 function formatPeso(value) {
   const amount = Number(value || 0);
-  return amount.toLocaleString(undefined, {
+
+  return amount.toLocaleString("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function integerOnly(value) {
+  const clean = String(value ?? "").replace(/[^\d]/g, "");
+  return clean === "" ? "" : String(Number(clean));
 }
 
 function buildFormFromWorkshop(w) {
@@ -56,6 +82,18 @@ function buildFormFromWorkshop(w) {
   };
 }
 
+function SummaryItem({ icon: Icon, label, children }) {
+  return (
+    <div>
+      <dt>
+        <Icon size={14} aria-hidden="true" />
+        {label}
+      </dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 export default function AdminWorkshopEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -68,6 +106,7 @@ export default function AdminWorkshopEdit() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [posterFile, setPosterFile] = useState(null);
+  const [posterPreviewUrl, setPosterPreviewUrl] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -102,6 +141,7 @@ export default function AdminWorkshopEdit() {
       }
 
       const w = data.workshop || null;
+
       setCsrf(data.csrf || "");
       setWorkshop(w);
       setRegCount(Number(data.regCount || 0));
@@ -126,21 +166,22 @@ export default function AdminWorkshopEdit() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const previewPoster = useMemo(() => {
-    if (posterFile) {
-      return URL.createObjectURL(posterFile);
+  useEffect(() => {
+    if (!posterFile) {
+      setPosterPreviewUrl("");
+      return undefined;
     }
 
-    return posterSrc(workshop?.poster_path || "");
-  }, [posterFile, workshop]);
+    const objectUrl = URL.createObjectURL(posterFile);
+    setPosterPreviewUrl(objectUrl);
 
-  useEffect(() => {
-    return () => {
-      if (previewPoster && previewPoster.startsWith("blob:")) {
-        URL.revokeObjectURL(previewPoster);
-      }
-    };
-  }, [previewPoster]);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [posterFile]);
+
+  const previewPoster = useMemo(() => {
+    if (posterPreviewUrl) return posterPreviewUrl;
+    return posterSrc(workshop?.poster_path || "");
+  }, [posterPreviewUrl, workshop]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -159,7 +200,7 @@ export default function AdminWorkshopEdit() {
     if (name === "max_slots") {
       setForm((prev) => ({
         ...prev,
-        [name]: value === "" ? "" : String(Math.max(0, Number(value || 0))),
+        [name]: integerOnly(value),
       }));
 
       return;
@@ -197,13 +238,42 @@ export default function AdminWorkshopEdit() {
       max_slots: "Max slots",
     };
 
-    return Object.keys(labels).filter(
-      (key) => String(form[key] ?? "") !== String(originalForm[key] ?? "")
-    ).map((key) => labels[key]);
+    return Object.keys(labels)
+      .filter((key) => String(form[key] ?? "") !== String(originalForm[key] ?? ""))
+      .map((key) => labels[key]);
   };
 
   const hasUnsavedChanges = () => {
     return getChangedFields().length > 0 || Boolean(posterFile);
+  };
+
+  const handlePosterChange = (e) => {
+    const file = e.target.files?.[0] || null;
+
+    setErr("");
+
+    if (!file) {
+      setPosterFile(null);
+      return;
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    if (!allowed.includes(file.type)) {
+      setErr("Only JPG, PNG, GIF, or WEBP poster images are allowed.");
+      e.target.value = "";
+      setPosterFile(null);
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setErr("Poster image must be less than 3MB.");
+      e.target.value = "";
+      setPosterFile(null);
+      return;
+    }
+
+    setPosterFile(file);
   };
 
   const handleSave = async (e) => {
@@ -225,9 +295,9 @@ export default function AdminWorkshopEdit() {
       "Save these workshop changes?",
       "",
       "Changed:",
-      ...changedFields.map((field) => `• ${field}`),
+      ...changedFields.map((field) => `- ${field}`),
       "",
-      "Customers will see these updates on the public workshop page."
+      "Customers will see these updates on the public workshop page.",
     ].join("\n");
 
     if (!window.confirm(confirmMessage)) {
@@ -256,7 +326,7 @@ export default function AdminWorkshopEdit() {
       fd.append("end_time", form.end_time);
       fd.append("location", form.location);
       fd.append("is_active", form.is_active);
-      fd.append("max_slots", form.max_slots);
+      fd.append("max_slots", integerOnly(form.max_slots || "0"));
 
       if (posterFile) {
         fd.append("poster", posterFile);
@@ -296,7 +366,7 @@ export default function AdminWorkshopEdit() {
       "Delete this workshop?",
       "",
       "This cannot be undone.",
-      "If customers may still need to see this workshop history, choose Hidden instead."
+      "If customers may still need to see this workshop history, choose Hidden instead.",
     ].join("\n");
 
     if (!window.confirm(confirmMessage)) return;
@@ -334,6 +404,7 @@ export default function AdminWorkshopEdit() {
 
   const topbarRight = (
     <Link className="awe-back-link" to="/admin/workshops">
+      <ArrowLeft size={16} aria-hidden="true" />
       Back to Workshops
     </Link>
   );
@@ -348,7 +419,10 @@ export default function AdminWorkshopEdit() {
 
       <section className="awe-panel">
         <header className="awe-section-header">
-          <h3 className="awe-section-title">Workshop Details</h3>
+          <h3 className="awe-section-title">
+            <FileText size={18} aria-hidden="true" />
+            Workshop Details
+          </h3>
         </header>
 
         <div className="awe-summary-card">
@@ -356,79 +430,73 @@ export default function AdminWorkshopEdit() {
             {previewPoster ? (
               <img className="awe-poster-image" src={previewPoster} alt="Poster" />
             ) : (
-              <div className="awe-poster-empty">No Poster</div>
+              <div className="awe-poster-empty">
+                <ImageIcon size={26} aria-hidden="true" />
+                No Poster
+              </div>
             )}
           </div>
 
           <div className="awe-summary-meta">
-            <h4 className="awe-workshop-title">{workshop?.title || "Untitled Workshop"}</h4>
+            <h4 className="awe-workshop-title">
+              {workshop?.title || "Untitled Workshop"}
+            </h4>
 
             <dl className="awe-meta-list">
-              <div>
-                <dt>Date</dt>
-                <dd>{workshop?.workshop_date || "—"}</dd>
-              </div>
+              <SummaryItem icon={CalendarDays} label="Date">
+                {workshop?.workshop_date || "—"}
+              </SummaryItem>
 
-              <div>
-                <dt>Time</dt>
-                <dd>
-                  {toTimeInput(workshop?.start_time) || "—"}
-                  {workshop?.end_time ? ` - ${toTimeInput(workshop?.end_time)}` : ""}
-                </dd>
-              </div>
+              <SummaryItem icon={Clock3} label="Time">
+                {toTimeInput(workshop?.start_time) || "—"}
+                {workshop?.end_time ? ` - ${toTimeInput(workshop?.end_time)}` : ""}
+              </SummaryItem>
 
-              <div>
-                <dt>Location</dt>
-                <dd>{workshop?.location || "—"}</dd>
-              </div>
+              <SummaryItem icon={MapPin} label="Location">
+                {workshop?.location || "—"}
+              </SummaryItem>
 
-              <div>
-                <dt>Status</dt>
-                <dd>
-                  <strong>{Number(workshop?.is_active || 0) === 1 ? "Active" : "Hidden"}</strong>
-                </dd>
-              </div>
+              <SummaryItem
+                icon={Number(workshop?.is_active || 0) === 1 ? Eye : EyeOff}
+                label="Status"
+              >
+                <strong>
+                  {Number(workshop?.is_active || 0) === 1 ? "Active" : "Hidden"}
+                </strong>
+              </SummaryItem>
 
-              <div>
-                <dt>Standard Price</dt>
-                <dd>
-                  <strong>₱{formatPeso(workshop?.standard_price)}</strong>
-                </dd>
-              </div>
+              <SummaryItem icon={PhilippinePeso} label="Standard Price">
+                <strong>₱{formatPeso(workshop?.standard_price)}</strong>
+              </SummaryItem>
 
-              <div>
-                <dt>Premium Price</dt>
-                <dd>
-                  <strong>₱{formatPeso(workshop?.premium_price)}</strong>
-                </dd>
-              </div>
+              <SummaryItem icon={PhilippinePeso} label="Premium Price">
+                <strong>₱{formatPeso(workshop?.premium_price)}</strong>
+              </SummaryItem>
 
-              <div>
-                <dt>Max Slots</dt>
-                <dd>
-                  <strong>{Number(workshop?.max_slots || 0)}</strong>
-                </dd>
-              </div>
+              <SummaryItem icon={Users} label="Max Slots">
+                <strong>{Number(workshop?.max_slots || 0)}</strong>
+              </SummaryItem>
 
-              <div>
-                <dt>Registrations</dt>
-                <dd>
-                  <strong>{Number(regCount)}</strong>
-                </dd>
-              </div>
+              <SummaryItem icon={ListChecks} label="Registrations">
+                <strong>{Number(regCount)}</strong>
+              </SummaryItem>
             </dl>
 
             <div className="awe-link-row">
               <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}`}>
+                <ExternalLink size={14} aria-hidden="true" />
                 View
               </Link>
               <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/register`}>
+                <ExternalLink size={14} aria-hidden="true" />
                 Register Page
               </Link>
               <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/standard`}>
+                <ExternalLink size={14} aria-hidden="true" />
                 Standard
               </Link>
               <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/premium`}>
+                <ExternalLink size={14} aria-hidden="true" />
                 Premium
               </Link>
             </div>
@@ -443,7 +511,10 @@ export default function AdminWorkshopEdit() {
 
         <form className="awe-form" onSubmit={handleSave}>
           <section className="awe-card">
-            <h4 className="awe-card-title">Basic Information</h4>
+            <h4 className="awe-card-title">
+              <FileText size={16} aria-hidden="true" />
+              Basic Information
+            </h4>
 
             <div className="awe-grid awe-grid-3">
               <div className="awe-field">
@@ -535,6 +606,11 @@ export default function AdminWorkshopEdit() {
                   name="max_slots"
                   value={form.max_slots}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if ([".", ",", "e", "E", "-", "+"].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
                 />
               </div>
 
@@ -556,9 +632,11 @@ export default function AdminWorkshopEdit() {
             </div>
           </section>
 
-
           <section className="awe-card">
-            <h4 className="awe-card-title">Pricing</h4>
+            <h4 className="awe-card-title">
+              <PhilippinePeso size={16} aria-hidden="true" />
+              Pricing
+            </h4>
 
             <div className="awe-grid awe-grid-2">
               <div className="awe-field">
@@ -602,7 +680,10 @@ export default function AdminWorkshopEdit() {
           </section>
 
           <section className="awe-card">
-            <h4 className="awe-card-title">Content & Media</h4>
+            <h4 className="awe-card-title">
+              <ImageIcon size={16} aria-hidden="true" />
+              Content & Media
+            </h4>
 
             <div className="awe-field">
               <label className="awe-label" htmlFor="awe-description">
@@ -668,23 +749,23 @@ export default function AdminWorkshopEdit() {
               <label className="awe-label" htmlFor="awe-poster">
                 Replace Poster <span className="awe-label-muted">(optional)</span>
               </label>
-              <input
-                id="awe-poster"
-                className="awe-input awe-file-input"
-                type="file"
-                name="poster"
-                accept="image/*"
-                onChange={(e) => setPosterFile(e.target.files?.[0] || null)}
-              />
+              <div className="awe-file-control">
+                <Upload size={16} aria-hidden="true" />
+                <input
+                  id="awe-poster"
+                  className="awe-input awe-file-input"
+                  type="file"
+                  name="poster"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handlePosterChange}
+                />
+              </div>
             </div>
           </section>
 
           <div className="awe-actions">
-            <button
-              className="awe-save-button"
-              type="submit"
-              disabled={saving}
-            >
+            <button className="awe-save-button" type="submit" disabled={saving}>
+              <Save size={16} aria-hidden="true" />
               {saving ? "SAVING CHANGES..." : "SAVE CHANGES"}
             </button>
           </div>
@@ -692,7 +773,10 @@ export default function AdminWorkshopEdit() {
       </section>
 
       <section className="awe-panel awe-danger-panel">
-        <h3 className="awe-section-title">Delete Workshop</h3>
+        <h3 className="awe-section-title">
+          <Trash2 size={18} aria-hidden="true" />
+          Delete Workshop
+        </h3>
 
         {regCount > 0 ? (
           <div className="admin-notice-react bad">
@@ -707,6 +791,7 @@ export default function AdminWorkshopEdit() {
           onClick={handleDelete}
           disabled={regCount > 0 || deleting}
         >
+          <Trash2 size={16} aria-hidden="true" />
           {deleting ? "DELETING..." : "DELETE WORKSHOP"}
         </button>
       </section>

@@ -432,3 +432,152 @@
     white-space: normal;
   }
 }
+
+.afc-input-with-prefix {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.afc-input-suffix {
+  font-weight: 800;
+  color: var(--muted, #6b7a62);
+  white-space: nowrap;
+}
+
+.afc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.afc-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.afc-inline-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.afc-edit-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+  gap: 14px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid #d8dfda;
+  border-radius: 18px;
+  background: #ffffff;
+  margin-top: 14px;
+}
+
+.afc-edit-row-wide {
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+}
+
+.afc-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.afc-btn-soft,
+.afc-btn-muted,
+.afc-btn-danger {
+  border: 1px solid #d8dfda;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.afc-btn-soft {
+  background: #f4f8f4;
+  color: #2f5a2b;
+}
+
+.afc-btn-muted {
+  background: #f3f3f3;
+  color: #6b7a62;
+}
+
+.afc-btn-danger {
+  background: #fff4f4;
+  color: #a33a3a;
+  border-color: #efcaca;
+}
+
+.afc-meta-card {
+  border: 1px solid #d8dfda;
+  background: #f6f7f6;
+  color: #305b45;
+  border-radius: 16px;
+  padding: 12px 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.admin-notice-react.warn {
+  background: #fff8dc;
+  border-color: #f1d36b;
+  color: #715b00;
+}
+
+.afc-audit-list {
+  display: grid;
+  gap: 12px;
+}
+
+.afc-audit-item {
+  border: 1px solid #d8dfda;
+  border-radius: 16px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.afc-audit-item details {
+  margin-top: 8px;
+}
+
+.afc-audit-item pre {
+  background: #f6f7f6;
+  padding: 12px;
+  border-radius: 12px;
+  overflow: auto;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1100px) {
+  .afc-edit-row,
+  .afc-edit-row-wide {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .afc-edit-row,
+  .afc-edit-row-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .afc-row-actions {
+    align-items: stretch;
+  }
+
+  .afc-row-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

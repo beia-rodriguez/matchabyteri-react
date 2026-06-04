@@ -38,6 +38,34 @@ function cleanStatus(value) {
   return "pending";
 }
 
+function readablePurpose(value) {
+  const purpose = String(value || "").toLowerCase();
+
+  if (purpose === "event_booking") return "Event Booking";
+  if (purpose === "private_workshop" || purpose === "workshop_booking") {
+    return "Private Workshop";
+  }
+  if (purpose === "workshop_registration" || purpose === "workshop_public") {
+    return "Public Workshop";
+  }
+
+  return String(value || "Payment")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getLinkedRecordText(payment) {
+  if (payment.linked_record_type === "registration" || payment.registration_id) {
+    return `Registration #${payment.registration_id || payment.linked_record_id}`;
+  }
+
+  if (payment.booking_id) {
+    return `Booking #${payment.booking_id}`;
+  }
+
+  return "No linked record";
+}
+
 export default function AdminPayments() {
   const [csrf, setCsrf] = useState("");
   const [status, setStatus] = useState("pending");
@@ -124,7 +152,9 @@ export default function AdminPayments() {
     const note = notes[paymentId] || "";
 
     if (currentStatus === "paid" && nextStatus !== "paid") {
-      setErr("Paid payments are locked. Use an adjustment/refund record instead of changing a paid payment back.");
+      setErr(
+        "Paid payments are locked. Use an adjustment/refund record instead of changing a paid payment back."
+      );
       return;
     }
 
@@ -153,11 +183,13 @@ export default function AdminPayments() {
         return;
       }
 
-      const booking = data?.booking;
-      const suffix = booking
-        ? ` Booking is now ${String(booking.payment_status || "").toUpperCase()}. Paid: ₱${money(
-            booking.amount_paid
-          )}. Balance: ₱${money(booking.remaining_balance)}.`
+      const linkedRecord = data?.linked_record || data?.booking;
+      const suffix = linkedRecord
+        ? ` Linked record is now ${String(
+            linkedRecord.payment_status || ""
+          ).toUpperCase()}. Paid: ₱${money(
+            linkedRecord.amount_paid
+          )}. Balance: ₱${money(linkedRecord.remaining_balance)}.`
         : "";
 
       setMsg((data?.message || "Payment updated.") + suffix);
@@ -282,31 +314,23 @@ export default function AdminPayments() {
             const totalAmount = Number(ctx.total_amount || p.total_amount || 0);
             const expectedAmount = Number(ctx.expected_payment_amount || p.amount || 0);
             const amountPaid = Number(p.amount_paid || 0);
-            const remainingBalance = Number(p.remaining_balance || Math.max(totalAmount - amountPaid, 0));
+            const remainingBalance = Number(
+              p.remaining_balance || Math.max(totalAmount - amountPaid, 0)
+            );
             const paidAt = ctx._paid_at || p.reviewed_at || "";
             const adminCtx = ctx._admin || null;
 
-            let bookingInfo = "";
-
-            if (p.booking_date) {
-              bookingInfo = String(p.booking_date).slice(0, 10);
-
-              if (p.start_time && p.end_time) {
-                bookingInfo += ` • ${p.start_time} - ${p.end_time}`;
-              }
-
-              if (p.booking_type) {
-                bookingInfo += ` • ${String(p.booking_type).toUpperCase()}`;
-              }
-            }
+            const linkedRecordText = getLinkedRecordText(p);
+            const linkedSchedule = p.linked_schedule || "";
+            const linkedType = p.linked_type || readablePurpose(p.purpose);
 
             return (
               <article className="pay-card-react" key={paymentId}>
                 <div className="p-header-react">
                   <div className="p-header-info">
                     <h4 className="p-title-react">
-                      {p.purpose || "Payment"}
-                      {p.booking_id ? <span className="p-ref"># {p.booking_id}</span> : ""}
+                      {readablePurpose(p.purpose)}
+                      <span className="p-ref">{linkedRecordText}</span>
                     </h4>
                     <span className="p-date-react">Submitted: {p.created_at || "N/A"}</span>
                     {paidAt && st === "paid" && (
@@ -314,18 +338,18 @@ export default function AdminPayments() {
                     )}
                   </div>
 
-                  <span className={`p-badge-react ${badgeClass}`}>
-                    {badgeLabel(p.status)}
-                  </span>
+                  <span className={`p-badge-react ${badgeClass}`}>{badgeLabel(p.status)}</span>
                 </div>
 
                 <div className="p-grid-react">
                   <div className="p-data-group">
                     <span className="p-label-sm">Customer</span>
                     <span className="p-value">
-                      <strong>{p.user_name || "Unknown"}</strong>
+                      <strong>{p.user_name || p.registration_full_name || "Unknown"}</strong>
                       <br />
-                      <span className="p-subtext">{p.user_email || "No email provided"}</span>
+                      <span className="p-subtext">
+                        {p.user_email || p.registration_email || "No email provided"}
+                      </span>
                     </span>
                   </div>
 
@@ -339,9 +363,14 @@ export default function AdminPayments() {
                   </div>
 
                   <div className="p-data-group">
-                    <span className="p-label-sm">Booking Info</span>
+                    <span className="p-label-sm">Linked Record</span>
                     <span className="p-value">
-                      {bookingInfo ? bookingInfo : "N/A"}
+                      {linkedRecordText}
+                      <br />
+                      <span className="p-subtext">
+                        {linkedSchedule || "No schedule"}
+                        {linkedType ? ` • ${linkedType}` : ""}
+                      </span>
                       <br />
                       <span className="p-subtext">Token: {p.short_payment_token || "-"}</span>
                     </span>
@@ -350,18 +379,16 @@ export default function AdminPayments() {
                   <div className="p-data-group">
                     <span className="p-label-sm">Amount Details</span>
                     <span className="p-value">
-                      This Proof:{" "}
-                      <strong style={{ color: "var(--green-2)" }}>
-                        ₱{money(expectedAmount)}
-                      </strong>
+                      This Proof: {" "}
+                      <strong style={{ color: "var(--green-2)" }}>₱{money(expectedAmount)}</strong>
                       <br />
                       <span className="p-subtext">
-                        Total: ₱{money(totalAmount)}{" "}
+                        Total: ₱{money(totalAmount)} {" "}
                         {paymentChoice ? `(${String(paymentChoice).toUpperCase()})` : ""}
                       </span>
                       <br />
                       <span className="p-subtext">
-                        Booking Paid: ₱{money(amountPaid)} • Balance: ₱{money(remainingBalance)}
+                        Record Paid: ₱{money(amountPaid)} • Balance: ₱{money(remainingBalance)}
                       </span>
                     </span>
                   </div>
@@ -445,24 +472,24 @@ export default function AdminPayments() {
 
                   <div className="p-admin-col action-col">
                     <button
-  className="admin-btn-react admin-btn-approve-react"
-  type="button"
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleSave(p);
-  }}
-  disabled={isSaving}
-  style={{
-    height: "42px",
-    padding: "0 24px",
-    position: "relative",
-    zIndex: 10,
-    pointerEvents: "auto",
-  }}
->
-  {isSaving ? "SAVING..." : "SAVE"}
-</button>
+                      className="admin-btn-react admin-btn-approve-react"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSave(p);
+                      }}
+                      disabled={isSaving}
+                      style={{
+                        height: "42px",
+                        padding: "0 24px",
+                        position: "relative",
+                        zIndex: 10,
+                        pointerEvents: "auto",
+                      }}
+                    >
+                      {isSaving ? "SAVING..." : "SAVE"}
+                    </button>
                   </div>
                 </div>
               </article>
