@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import Navbar from "../components/Navbar";
@@ -16,7 +16,7 @@ function readableText(text = "") {
   return String(text)
     .replace(/\bPAID\b/g, "Paid")
     .replace(/\bPARTIAL\b/g, "Partial")
-    .replace(/\bPENDING_PAYMENT\b/g, "Pending Payment")
+    .replace(/\bPENDING_PAYMENT\b/g, "Awaiting Payment")
     .replace(/\bAWAITING_PAYMENT\b/g, "Awaiting Payment")
     .replace(/\bPENDING\b/g, "Pending")
     .replace(/\bREJECTED\b/g, "Rejected")
@@ -32,8 +32,28 @@ function readableText(text = "") {
     .trim();
 }
 
-function profilePictureSrc(path, fallback = "/pics/default-avatar.png") {
-  if (!path || !String(path).trim()) return fallback;
+function DefaultProfileIcon() {
+  return (
+    <svg
+      className="profile-pic"
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label="User avatar"
+      focusable="false"
+      style={{
+        padding: "18px",
+        background: "#1f5b38",
+        fill: "#ffffff",
+        objectFit: "contain",
+      }}
+    >
+      <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5Zm0 2c-3.31 0-8 1.67-8 5v1.5c0 .83.67 1.5 1.5 1.5h13c.83 0 1.5-.67 1.5-1.5V19c0-3.33-4.69-5-8-5Z" />
+    </svg>
+  );
+}
+
+function profilePictureSrc(path) {
+  if (!path || !String(path).trim()) return "";
 
   const rawPath = String(path).trim();
 
@@ -119,40 +139,54 @@ function displayBookingType(booking) {
   if (bookingType === "private_workshop") return "Private Workshop";
   if (bookingType === "custom") return "Custom Booking";
 
-  return readableText(bookingType).replace(/\b\w/g, (char) => char.toUpperCase());
+  return readableText(bookingType).replace(/\b\w/g, (char) =>
+    char.toUpperCase()
+  );
 }
 
 function paymentBadge(status) {
   switch ((status || "unpaid").toLowerCase()) {
     case "paid":
-      return { label: "PAID", color: "var(--green-2, #3a7d44)" };
+      return { label: "PAID", className: "profile-status-badge--paid" };
     case "partial":
-      return { label: "PARTIAL", color: "#e07b00" };
+      return { label: "PARTIAL", className: "profile-status-badge--partial" };
     case "pending":
-      return { label: "PENDING", color: "#2563eb" };
+      return { label: "PENDING", className: "profile-status-badge--pending" };
     case "rejected":
-      return { label: "REJECTED", color: "#dc2626" };
+      return {
+        label: "REJECTED",
+        className: "profile-status-badge--rejected",
+      };
     default:
-      return { label: "UNPAID", color: "var(--muted, #888)" };
+      return { label: "UNPAID", className: "profile-status-badge--unpaid" };
   }
 }
 
 function bookingStatusBadge(status) {
   switch ((status || "").toLowerCase()) {
     case "approved":
-      return { label: "APPROVED", color: "var(--green-2, #3a7d44)" };
+      return { label: "APPROVED", className: "profile-status-badge--paid" };
     case "cancelled":
-      return { label: "CANCELLED", color: "#dc2626" };
+      return {
+        label: "CANCELLED",
+        className: "profile-status-badge--rejected",
+      };
     case "rejected":
-      return { label: "REJECTED", color: "#dc2626" };
+      return {
+        label: "REJECTED",
+        className: "profile-status-badge--rejected",
+      };
     case "pending_payment":
-      return { label: "AWAITING PAYMENT", color: "#e07b00" };
+      return {
+        label: "AWAITING PAYMENT",
+        className: "profile-status-badge--awaiting",
+      };
     case "pending":
-      return { label: "PENDING", color: "var(--muted, #888)" };
+      return { label: "PENDING", className: "profile-status-badge--pending" };
     default:
       return {
-        label: status?.toUpperCase() || "PENDING",
-        color: "var(--muted, #888)",
+        label: readableText(status || "PENDING").toUpperCase(),
+        className: "profile-status-badge--pending",
       };
   }
 }
@@ -175,16 +209,44 @@ function getPaymentAction(booking) {
   return { label: "Pay Now", choice: "downpayment" };
 }
 
+function canDeleteUnpaidBooking(booking) {
+  const recordType = (booking.record_type || "booking").toLowerCase();
+
+  if (recordType === "workshop_registration") return false;
+
+  const bStatus = (booking.status || "").toLowerCase();
+  const pStatus = (booking.payment_status || "unpaid").toLowerCase();
+
+  const cancelRequested =
+    Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
+
+  return (
+    pStatus === "unpaid" &&
+    ["pending_payment", "pending"].includes(bStatus) &&
+    !cancelRequested
+  );
+}
+
 function canCancel(booking) {
   const recordType = (booking.record_type || "booking").toLowerCase();
 
   if (recordType === "workshop_registration") return false;
 
   const bStatus = (booking.status || "").toLowerCase();
+  const pStatus = (booking.payment_status || "unpaid").toLowerCase();
+
   const cancelRequested =
     Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
 
+  if (pStatus === "unpaid") return false;
+
   return ["pending", "approved"].includes(bStatus) && !cancelRequested;
+}
+
+function shouldShowBooking(booking) {
+  const status = String(booking.status || "").toLowerCase();
+
+  return !["cancelled", "rejected"].includes(status);
 }
 
 function CancelModal({ booking, onClose, onSuccess }) {
@@ -279,10 +341,13 @@ function CancelModal({ booking, onClose, onSuccess }) {
             tabIndex={0}
           >
             Review your booking details, enter your cancellation reason, then
-            submit your request for admin review.
+            submit your request.
           </p>
 
-          <div className="cancel-request-modal__summary" aria-label="Booking summary">
+          <div
+            className="cancel-request-modal__summary"
+            aria-label="Booking summary"
+          >
             <div className="cancel-request-modal__summary-row" tabIndex={0}>
               <span className="cancel-request-modal__summary-label">
                 Booking Date
@@ -342,8 +407,7 @@ function CancelModal({ booking, onClose, onSuccess }) {
                 id="cancel-request-reason-help"
                 tabIndex={0}
               >
-                Please enter at least 10 characters. The submit button stays
-                available so screen readers can detect it.
+                Please enter at least 10 characters.
               </p>
 
               <div
@@ -369,7 +433,7 @@ function CancelModal({ booking, onClose, onSuccess }) {
 
             <div className="cancel-request-modal__warning" tabIndex={0}>
               <strong>⚠ Cancellation requests are subject to admin review.</strong>
-              <span>Refunds, if applicable, depend on your booking terms.</span>
+              <span>This booking will be removed from your visible booking list.</span>
             </div>
 
             <div className="cancel-request-modal__actions">
@@ -387,11 +451,6 @@ function CancelModal({ booking, onClose, onSuccess }) {
                 className="cancel-request-modal__button cancel-request-modal__button--submit"
                 disabled={submitting}
                 aria-describedby="cancel-request-reason-help"
-                aria-label={
-                  reason.trim().length < 10
-                    ? "Submit Request. Enter at least 10 characters before submitting."
-                    : "Submit Request"
-                }
               >
                 {submitting ? "Submitting..." : "Submit Request"}
               </button>
@@ -409,8 +468,8 @@ export default function UserProfile() {
   const [user, setUser] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const [unreadReplies, setUnreadReplies] = useState(0);
-
   const [cancelTarget, setCancelTarget] = useState(null);
 
   const [form, setForm] = useState({
@@ -425,16 +484,24 @@ export default function UserProfile() {
   const [notice, setNotice] = useState({ type: "", message: "" });
   const [todayMaxDate, setTodayMaxDate] = useState("");
 
+  const visibleBookings = useMemo(() => {
+    return bookings.filter(shouldShowBooking);
+  }, [bookings]);
+
   useEffect(() => {
     setTodayMaxDate(new Date().toISOString().slice(0, 10));
   }, []);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [preview, user?.profile_picture]);
 
   const applyLoadedProfile = (userData, privateBookings) => {
     const nextForm = buildProfileForm(userData);
 
     setUser(userData);
     setUnreadReplies(userData.unreadReplies || 0);
-    setBookings(privateBookings);
+    setBookings((privateBookings || []).filter(shouldShowBooking));
     setForm(nextForm);
     setOriginalForm(nextForm);
   };
@@ -538,7 +605,7 @@ export default function UserProfile() {
         element.setAttribute("aria-label", readableText(textToRead));
       }
     });
-  }, [user, bookings, form, unreadReplies, cancelTarget]);
+  }, [user, visibleBookings, form, unreadReplies, cancelTarget]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -701,15 +768,44 @@ export default function UserProfile() {
 
   const handleCancelSuccess = (bookingId) => {
     setBookings((prev) =>
-      prev.map((b) =>
-        Number(b.id) === Number(bookingId)
-          ? { ...b, cancel_requested: 1 }
-          : b
-      )
+      prev.filter((b) => Number(b.id) !== Number(bookingId))
     );
 
     setCancelTarget(null);
-    alert("Cancellation request submitted. The admin will review your request shortly.");
+    alert("Cancellation request submitted. This booking was removed from your list.");
+  };
+
+  const handleDeleteUnpaidBooking = async (booking) => {
+    const confirmDelete = window.confirm(
+      "Delete this unpaid booking? This will remove it from your booking list."
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("booking_id", String(booking.id));
+
+      const res = await API.post("/user/delete-unpaid-booking.php", formData);
+
+      if (res.data?.success) {
+        setBookings((prev) =>
+          prev.filter((b) => Number(b.id) !== Number(booking.id))
+        );
+
+        alert(res.data.message || "Unpaid booking deleted successfully.");
+      } else {
+        alert(res.data?.error || "Failed to delete booking.");
+      }
+    } catch (err) {
+      console.error("Delete unpaid booking error:", err);
+
+      alert(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to delete booking. Please try again."
+      );
+    }
   };
 
   const handlePayAction = (booking) => {
@@ -729,8 +825,6 @@ export default function UserProfile() {
       event_booking: "event_booking",
       private_workshop: "private_workshop",
       custom: "custom",
-
-      // old data fallback
       event: "event_booking",
       workshop: "private_workshop",
     };
@@ -748,6 +842,7 @@ export default function UserProfile() {
   if (!user) return null;
 
   const isAdmin = user.role?.toLowerCase() === "admin";
+  const currentProfilePicture = profilePictureSrc(preview || user.profile_picture);
 
   return (
     <>
@@ -768,11 +863,16 @@ export default function UserProfile() {
           <div className="top-row">
             <div className="who">
               <div className="profile-pic-container">
-                <img
-                  className="profile-pic"
-                  src={profilePictureSrc(preview || user.profile_picture)}
-                  alt="User avatar"
-                />
+                {currentProfilePicture && !avatarFailed ? (
+                  <img
+                    className="profile-pic"
+                    src={currentProfilePicture}
+                    alt="User avatar"
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  <DefaultProfileIcon />
+                )}
 
                 <label className="btn-upload-photo" htmlFor="profile-picture-input">
                   Change Photo
@@ -798,7 +898,8 @@ export default function UserProfile() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <div className="admin-badge">You are an Admin</div>
 
-                <button type="button"
+                <button
+                  type="button"
                   onClick={() => navigate("/admin/dashboard")}
                   className="btn-admin"
                   aria-label="Admin Dashboard"
@@ -811,7 +912,8 @@ export default function UserProfile() {
 
           {!isAdmin && (
             <div className="quick-actions">
-              <button type="button"
+              <button
+                type="button"
                 className="btn-soft btn-report"
                 aria-label="Report Concerns"
                 onClick={() => navigate("/report-concerns")}
@@ -819,7 +921,8 @@ export default function UserProfile() {
                 Report Concerns
               </button>
 
-              <button type="button"
+              <button
+                type="button"
                 className="btn-soft"
                 aria-label={
                   unreadReplies > 0
@@ -833,6 +936,15 @@ export default function UserProfile() {
                   <span className="badge-new">{unreadReplies} NEW</span>
                 )}
               </button>
+            </div>
+          )}
+
+          {notice.message && (
+            <div
+              className={`profile-notice ${notice.type === "bad" ? "bad" : "ok"}`}
+              role="alert"
+            >
+              {notice.message}
             </div>
           )}
 
@@ -920,7 +1032,7 @@ export default function UserProfile() {
               <div className="field full bookings-section">
                 <div className="bookings-label">My Bookings</div>
 
-                {bookings.length === 0 ? (
+                {visibleBookings.length === 0 ? (
                   <p className="hint">You haven't made any bookings yet.</p>
                 ) : (
                   <div className="bookings-table-wrap">
@@ -938,10 +1050,11 @@ export default function UserProfile() {
                       </thead>
 
                       <tbody>
-                        {bookings.map((b) => {
+                        {visibleBookings.map((b) => {
                           const bBadge = bookingStatusBadge(b.status);
                           const pBadge = paymentBadge(b.payment_status);
                           const payAction = getPaymentAction(b);
+                          const showDelete = canDeleteUnpaidBooking(b);
                           const showCancel = canCancel(b);
                           const cancelPending =
                             Number(b.cancel_requested) === 1 ||
@@ -973,10 +1086,7 @@ export default function UserProfile() {
                                 }
                               >
                                 {b.start_time && b.end_time
-                                  ? `${b.start_time?.slice(
-    0,
-    5
-  )} to ${b.end_time?.slice(0, 5)}`
+                                  ? `${b.start_time?.slice(0, 5)} to ${b.end_time?.slice(0, 5)}`
                                   : "N/A"}
                               </td>
 
@@ -1006,8 +1116,7 @@ export default function UserProfile() {
 
                               <td>
                                 <span
-                                  className="status-badge"
-                                  style={{ color: bBadge.color }}
+                                  className={`status-badge ${bBadge.className}`}
                                   aria-label={`Booking Status: ${readableText(
                                     bBadge.label
                                   )}`}
@@ -1018,8 +1127,7 @@ export default function UserProfile() {
 
                               <td>
                                 <span
-                                  className="status-badge"
-                                  style={{ color: pBadge.color }}
+                                  className={`status-badge ${pBadge.className}`}
                                   aria-label={`Payment Status: ${readableText(
                                     pBadge.label
                                   )}`}
@@ -1043,17 +1151,7 @@ export default function UserProfile() {
                                     <div>Total: ₱{money(b.total_amount)}</div>
 
                                     {Number(b.amount_paid || 0) > 0 && (
-                                      <div
-                                        style={{
-                                          color:
-                                            b.payment_status?.toLowerCase() ===
-                                            "paid"
-                                              ? "var(--green-2, #3a7d44)"
-                                              : "#e07b00",
-                                          fontSize: "0.75rem",
-                                          marginTop: "4px",
-                                        }}
-                                      >
+                                      <div className="booking-payment-breakdown">
                                         Paid: ₱{money(b.amount_paid)} <br />
                                         Balance: ₱
                                         {money(
@@ -1072,46 +1170,62 @@ export default function UserProfile() {
                               </td>
 
                               <td className="td-actions">
-                                {payAction && (
-                                  <button
-                                    type="button"
-                                    className="action-btn action-btn--pay"
-                                    aria-label={payAction.label}
-                                    onClick={() => handlePayAction(b)}
-                                  >
-                                    {payAction.label}
-                                  </button>
-                                )}
+                                <div className="booking-actions-stack">
+                                  {payAction && (
+                                    <button
+                                      type="button"
+                                      className="action-btn action-btn--pay"
+                                      aria-label={payAction.label}
+                                      onClick={() => handlePayAction(b)}
+                                    >
+                                      {payAction.label}
+                                    </button>
+                                  )}
 
-                                {showCancel && (
-                                  <button
-                                    type="button"
-                                    className="action-btn action-btn--cancel"
-                                    aria-label="Cancel Booking"
-                                    onClick={() => setCancelTarget(b)}
-                                  >
-                                    Cancel
-                                  </button>
-                                )}
+                                  {showDelete && (
+                                    <button
+                                      type="button"
+                                      className="action-btn action-btn--delete"
+                                      aria-label="Delete Unpaid Booking"
+                                      onClick={() => handleDeleteUnpaidBooking(b)}
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
 
-                                {cancelPending && (
-                                  <span
-                                    className="cancel-pending-badge"
-                                    aria-label="Cancel Requested"
-                                  >
-                                    Cancel Requested
-                                  </span>
-                                )}
+                                  {showCancel && (
+                                    <button
+                                      type="button"
+                                      className="action-btn action-btn--cancel"
+                                      aria-label="Cancel Booking"
+                                      onClick={() => setCancelTarget(b)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
 
-                                {!payAction && !showCancel && !cancelPending && (
-                                  <span
-                                    className="hint"
-                                    style={{ fontSize: "0.75rem" }}
-                                    aria-label="No actions available"
-                                  >
-                                    N/A
-                                  </span>
-                                )}
+                                  {cancelPending && (
+                                    <span
+                                      className="cancel-pending-badge"
+                                      aria-label="Cancel Requested"
+                                    >
+                                      Cancel Requested
+                                    </span>
+                                  )}
+
+                                  {!payAction &&
+                                    !showDelete &&
+                                    !showCancel &&
+                                    !cancelPending && (
+                                      <span
+                                        className="hint"
+                                        style={{ fontSize: "0.75rem" }}
+                                        aria-label="No actions available"
+                                      >
+                                        N/A
+                                      </span>
+                                    )}
+                                </div>
                               </td>
                             </tr>
                           );
