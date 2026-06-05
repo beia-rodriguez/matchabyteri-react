@@ -292,7 +292,8 @@ export default function AdminCalendar() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  const [loading, setLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState("loading");
+  const loading = loadStatus === "loading";
   const [saving, setSaving] = useState(false);
   const [deletingDate, setDeletingDate] = useState("");
 
@@ -302,11 +303,10 @@ export default function AdminCalendar() {
     block_mode: "full_day",
   });
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setErr("");
+  const fetchCalendarData = async () => {
+    setErr("");
 
+    try {
       const { data } = await adminApi.get("/admin/admin-calendar.php");
 
       if (data.error) {
@@ -326,12 +326,17 @@ export default function AdminCalendar() {
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to load calendar data.");
     } finally {
-      setLoading(false);
+      setLoadStatus("loaded");
     }
   };
 
+  const loadData = async () => {
+    setLoadStatus("loading");
+    await fetchCalendarData();
+  };
+
   useEffect(() => {
-    loadData();
+    fetchCalendarData();
   }, []);
 
   const today = new Date().toISOString().slice(0, 10);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "./../assets/css/AdminForms.css";
@@ -150,6 +150,7 @@ const makeCode = (text) =>
     .replace(/^_+|_+$/g, "");
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const EMPTY_AUDIT_LOGS = [];
 
 function PriceInput({
   label,
@@ -1004,7 +1005,7 @@ function PrivateWorkshopPricingEditor({ form, setForm }) {
                   type="button"
                   className="afc-btn-danger"
                   onClick={() => removePackage(index)}
-                aria-label="Remove item"
+                  aria-label="Remove item"
                 >
                   <Trash2 size={15} />
                   Remove
@@ -1190,16 +1191,21 @@ function buildAuditRows(log) {
 
     return Array.from(
       new Set([...Object.keys(oldValue), ...Object.keys(newValue)])
-    )
-      .filter((field) => !hiddenFields.has(field))
-      .filter((field) => {
-        return JSON.stringify(oldValue[field]) !== JSON.stringify(newValue[field]);
-      })
-      .map((field) => ({
+    ).reduce((rows, field) => {
+      if (hiddenFields.has(field)) return rows;
+
+      if (JSON.stringify(oldValue[field]) === JSON.stringify(newValue[field])) {
+        return rows;
+      }
+
+      rows.push({
         field: humanizeAuditText(field),
         before: formatAuditValue(oldValue[field]),
         after: formatAuditValue(newValue[field]),
-      }));
+      });
+
+      return rows;
+    }, []);
   }
 
   if (JSON.stringify(oldValue) === JSON.stringify(newValue)) {
@@ -1213,6 +1219,71 @@ function buildAuditRows(log) {
       after: formatAuditValue(newValue),
     },
   ];
+}
+
+
+const adminFormsLoadInitialState = {
+  status: "idle",
+  error: "",
+};
+
+function adminFormsLoadReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        status: "loading",
+        error: "",
+      };
+
+    case "ready":
+      return {
+        ...state,
+        status: "ready",
+      };
+
+    case "error":
+      return {
+        status: "ready",
+        error: action.message || "Failed to load settings.",
+      };
+
+    default:
+      return state;
+  }
+}
+
+
+const adminFormsEditorInitialState = {
+  form: clone(DEFAULT_EVENT_FORM),
+  originalForm: clone(DEFAULT_EVENT_FORM),
+};
+
+function adminFormsEditorReducer(state, action) {
+  switch (action.type) {
+    case "load_form": {
+      const nextForm = action.form || {};
+
+      return {
+        form: nextForm,
+        originalForm: nextForm,
+      };
+    }
+
+    case "set_form": {
+      const nextForm =
+        typeof action.updater === "function"
+          ? action.updater(state.form)
+          : action.updater;
+
+      return {
+        ...state,
+        form: nextForm || {},
+      };
+    }
+
+    default:
+      return state;
+  }
 }
 
 function AuditLogs({ logs }) {
@@ -1273,7 +1344,10 @@ function AuditLogs({ logs }) {
                       </div>
 
                       {rows.map((row, index) => (
-                        <div className="afc-audit-change-row" key={`${row.field}-${index}`}>
+                        <div
+                          className="afc-audit-change-row"
+                          key={`${row.field}-${index}`}
+                        >
                           <span>{row.field}</span>
                           <span>{row.before}</span>
                           <span>{row.after}</span>
@@ -1293,18 +1367,30 @@ function AuditLogs({ logs }) {
 
 export default function AdminForms() {
   const [bookingType, setBookingType] = useState("event_booking");
-  const [csrfToken, setCsrfToken] = useState("");
-  const [form, setForm] = useState(clone(DEFAULT_EVENT_FORM));
-  const [originalForm, setOriginalForm] = useState(clone(DEFAULT_EVENT_FORM));
-  const [auditLogs, setAuditLogs] = useState([]);
+  const csrfTokenRef = useRef("");
+  const [editorState, dispatchEditorState] = useReducer(
+    adminFormsEditorReducer,
+    adminFormsEditorInitialState
+  );
+  const { form, originalForm } = editorState;
 
-  const [loadStatus, setLoadStatus] = useState("idle");
+  const setForm = useCallback((updater) => {
+    dispatchEditorState({ type: "set_form", updater });
+  }, []);
+  const [loadState, dispatchLoadState] = useReducer(
+    adminFormsLoadReducer,
+    adminFormsLoadInitialState
+  );
   const [saving, setSaving] = useState(false);
 
-  const loading = loadStatus === "loading";
+  const loading = loadState.status === "loading";
+  const auditLogs = Array.isArray(form?.auditLogs)
+    ? form.auditLogs
+    : EMPTY_AUDIT_LOGS;
 
   const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+  const error = formError || loadState.error;
 
   const hasUnsavedChanges = useMemo(() => {
     if (bookingType === "audit_logs") {
@@ -1373,9 +1459,7 @@ export default function AdminForms() {
   };
 
   const loadForm = async (type) => {
-    setLoadStatus("loading");
-    setNotice("");
-    setError("");
+    dispatchLoadState({ type: "loading" });
 
     try {
       const { data } = await adminApi.get("/admin/get-booking-form.php", {
@@ -1383,35 +1467,43 @@ export default function AdminForms() {
       });
 
       if (data.csrf_token) {
-        setCsrfToken(data.csrf_token);
+        csrfTokenRef.current = data.csrf_token;
       }
 
       if (type === "audit_logs") {
-        setAuditLogs(data.logs || []);
-        setForm({});
-        setOriginalForm({});
+        const nextAuditForm = {
+          auditLogs: Array.isArray(data.logs) ? data.logs : EMPTY_AUDIT_LOGS,
+        };
+
+        dispatchEditorState({ type: "load_form", form: nextAuditForm });
         return;
       }
 
       const nextForm = normalizeLoadedForm(type, data.form);
 
-      setForm(clone(nextForm));
-      setOriginalForm(clone(nextForm));
+      dispatchEditorState({ type: "load_form", form: clone(nextForm) });
     } catch (err) {
       console.error(err);
-      setError("Failed to load settings.");
+      dispatchLoadState({
+        type: "error",
+        message: "Failed to load settings.",
+      });
 
       if (type === "event_booking") {
-        setForm(clone(DEFAULT_EVENT_FORM));
-        setOriginalForm(clone(DEFAULT_EVENT_FORM));
+        dispatchEditorState({
+          type: "load_form",
+          form: clone(DEFAULT_EVENT_FORM),
+        });
       }
 
       if (type === "private_workshop") {
-        setForm(clone(DEFAULT_PRIVATE_FORM));
-        setOriginalForm(clone(DEFAULT_PRIVATE_FORM));
+        dispatchEditorState({
+          type: "load_form",
+          form: clone(DEFAULT_PRIVATE_FORM),
+        });
       }
     } finally {
-      setLoadStatus("ready");
+      dispatchLoadState({ type: "ready" });
     }
   };
 
@@ -1620,7 +1712,7 @@ export default function AdminForms() {
   };
 
   const handleSave = async () => {
-    setError("");
+    setFormError("");
     setNotice("");
 
     if (bookingType === "audit_logs") {
@@ -1630,7 +1722,7 @@ export default function AdminForms() {
     const validationError = validate();
 
     if (validationError) {
-      setError(validationError);
+      setFormError(validationError);
       return;
     }
 
@@ -1642,7 +1734,7 @@ export default function AdminForms() {
       const { data } = await adminApi.post(
         "/admin/save-booking-form.php",
         {
-          csrf_token: csrfToken,
+          csrf_token: csrfTokenRef.current,
           type: bookingType,
           booking_type: bookingType,
           form: payloadForm,
@@ -1656,11 +1748,11 @@ export default function AdminForms() {
         setNotice("✓ Settings saved successfully.");
         await loadForm(bookingType);
       } else {
-        setError(data.error || "Failed to save settings.");
+        setFormError(data.error || "Failed to save settings.");
       }
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to save settings.");
+      setFormError(err.response?.data?.error || "Failed to save settings.");
     } finally {
       setSaving(false);
     }
@@ -1682,7 +1774,7 @@ export default function AdminForms() {
     }
 
     setNotice("Default values restored. Click Save to apply them.");
-    setError("");
+    setFormError("");
   };
 
   return (

@@ -4,7 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import API from "../services/api";
 import { login as loginAPI } from "../services/authService";
@@ -12,46 +12,115 @@ import { login as loginAPI } from "../services/authService";
 const AuthContext = createContext();
 const AUTH_USER_STORAGE_KEY = "user:v1";
 
+function readStoredUser() {
+  try {
+    const rawUser = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+
+    if (!rawUser) {
+      return null;
+    }
+
+    return JSON.parse(rawUser);
+  } catch {
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    localStorage.removeItem("user");
+    return null;
+  }
+}
+
+const initialUser = readStoredUser();
+
+let authSnapshot = {
+  user: initialUser,
+  status: initialUser ? "ready" : "checking",
+};
+
+const authListeners = new Set();
+let sessionCheckStarted = false;
+
+function emitAuthChange() {
+  authListeners.forEach((listener) => listener());
+}
+
+function setAuthSnapshot(nextSnapshot) {
+  authSnapshot = {
+    ...authSnapshot,
+    ...nextSnapshot,
+  };
+
+  emitAuthChange();
+}
+
+function subscribeAuth(listener) {
+  authListeners.add(listener);
+
+  return () => {
+    authListeners.delete(listener);
+  };
+}
+
+function getAuthSnapshot() {
+  return authSnapshot;
+}
+
+function getServerAuthSnapshot() {
+  return {
+    user: null,
+    status: "checking",
+  };
+}
+
+function storeUser(nextUser) {
+  if (nextUser) {
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(nextUser));
+    localStorage.removeItem("user");
+  } else {
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    localStorage.removeItem("user");
+  }
+
+  setAuthSnapshot({
+    user: nextUser,
+    status: "ready",
+  });
+}
+
+async function checkSessionOnce() {
+  if (sessionCheckStarted) {
+    return;
+  }
+
+  sessionCheckStarted = true;
+
+  try {
+    const res = await API.get("/auth/me.php");
+
+    if (res.data.status === "success") {
+      storeUser(res.data.user);
+    } else {
+      storeUser(null);
+    }
+  } catch {
+    storeUser(null);
+  }
+}
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const authState = useSyncExternalStore(
+    subscribeAuth,
+    getAuthSnapshot,
+    getServerAuthSnapshot
+  );
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await API.get("/auth/me.php");
-
-        if (res.data.status === "success") {
-          setUser(res.data.user);
-          localStorage.setItem(
-            AUTH_USER_STORAGE_KEY,
-            JSON.stringify(res.data.user)
-          );
-          localStorage.removeItem("user");
-        } else {
-          setUser(null);
-          localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-          localStorage.removeItem("user");
-        }
-      } catch {
-        setUser(null);
-        localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-        localStorage.removeItem("user");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkSession();
+    checkSessionOnce();
   }, []);
 
   const login = useCallback(async (credentials) => {
     const res = await loginAPI(credentials);
 
     if (res.status === "success") {
-      setUser(res.user);
-      localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(res.user));
-      localStorage.removeItem("user");
+      storeUser(res.user);
     }
 
     return res;
@@ -64,26 +133,26 @@ export const AuthProvider = ({ children }) => {
       // still clear frontend auth even if backend logout fails
     }
 
-    setUser(null);
-    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-    localStorage.removeItem("user");
+    storeUser(null);
+  }, []);
+
+  const setUser = useCallback((nextUser) => {
+    storeUser(nextUser);
   }, []);
 
   const contextValue = useMemo(
     () => ({
-      user,
+      user: authState.user,
       setUser,
-      loading,
+      loading: authState.status === "checking",
       login,
       logout,
     }),
-    [user, loading, login, logout]
+    [authState.user, authState.status, setUser, login, logout]
   );
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };
 

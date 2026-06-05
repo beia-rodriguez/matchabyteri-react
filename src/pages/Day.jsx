@@ -53,6 +53,69 @@ function getSafeStatusClass(status = "") {
     .replace(/[^a-z0-9_-]/g, "-");
 }
 
+
+function BookingList({ bookings, bookingType, monthDay, year }) {
+  if (!bookings.length) {
+    return (
+      <div
+        className="day-note voice-readable"
+        tabIndex="0"
+        aria-label={`No ${bookingType}s yet for this day.`}
+      >
+        No {bookingType}s yet for this day.
+      </div>
+    );
+  }
+
+  return bookings.map((booking) => {
+    const status = booking.status || "";
+    const safeStatusClass = getSafeStatusClass(status);
+
+    const bookingKey =
+      booking.id ||
+      booking.booking_id ||
+      `${bookingType}-${booking.start_time || "no-start"}-${
+        booking.end_time || "no-end"
+      }-${status || "no-status"}`;
+
+    const readableLabel = `${bookingType}. ${monthDay}, ${year}.${
+      booking.start_time
+        ? ` Time: ${booking.start_time} to ${booking.end_time}.`
+        : ""
+    }${status ? ` Status: ${status}.` : ""}`;
+
+    return (
+      <div
+        key={String(bookingKey)}
+        className="day-booking-pill voice-readable"
+        tabIndex="0"
+        aria-label={readableLabel}
+      >
+        <div className="day-booking-main">
+          <div className="day-booking-name">
+            {bookingType === "event" ? "Event" : "Workshop"} • {monthDay}, {year}
+          </div>
+
+          {booking.start_time && (
+            <div className="day-booking-time">
+              {booking.start_time} - {booking.end_time}
+            </div>
+          )}
+        </div>
+
+        {status && (
+          <div
+            className={`day-status status-${safeStatusClass}`}
+            aria-label={`Status: ${status}`}
+          >
+            {status}
+          </div>
+        )}
+      </div>
+    );
+  });
+}
+
 export default function Day() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -234,68 +297,6 @@ export default function Day() {
   const showWorkshop =
     type === "workshop" || (type === "both" && activeTab === "workshop");
 
-  const renderBookingList = (bookings, bookingType) => {
-    if (!bookings.length) {
-      return (
-        <div
-          className="day-note voice-readable"
-          tabIndex="0"
-          aria-label={`No ${bookingType}s yet for this day.`}
-        >
-          No {bookingType}s yet for this day.
-        </div>
-      );
-    }
-
-    return bookings.map((booking) => {
-      const status = booking.status || "";
-      const safeStatusClass = getSafeStatusClass(status);
-
-      const bookingKey =
-        booking.id ||
-        booking.booking_id ||
-        `${bookingType}-${booking.start_time || "no-start"}-${
-          booking.end_time || "no-end"
-        }-${status || "no-status"}`;
-
-      const readableLabel = `${bookingType}. ${data.monthDay}, ${data.year}.${
-        booking.start_time
-          ? ` Time: ${booking.start_time} to ${booking.end_time}.`
-          : ""
-      }${status ? ` Status: ${status}.` : ""}`;
-
-      return (
-        <div
-          key={String(bookingKey)}
-          className="day-booking-pill voice-readable"
-          tabIndex="0"
-          aria-label={readableLabel}
-        >
-          <div className="day-booking-main">
-            <div className="day-booking-name">
-              {bookingType === "event" ? "Event" : "Workshop"} •{" "}
-              {data.monthDay}, {data.year}
-            </div>
-
-            {booking.start_time && (
-              <div className="day-booking-time">
-                {booking.start_time} - {booking.end_time}
-              </div>
-            )}
-          </div>
-
-          {status && (
-            <div
-              className={`day-status status-${safeStatusClass}`}
-              aria-label={`Status: ${status}`}
-            >
-              {status}
-            </div>
-          )}
-        </div>
-      );
-    });
-  };
 
   return (
     <>
@@ -434,7 +435,7 @@ export default function Day() {
                     </div>
                   )}
 
-                  {renderBookingList(data.bookings_event, "event")}
+                  <BookingList bookings={data.bookings_event} bookingType="event" monthDay={data.monthDay} year={data.year} />
                 </section>
               )}
 
@@ -470,7 +471,7 @@ export default function Day() {
                     </div>
                   )}
 
-                  {renderBookingList(data.bookings_workshop, "workshop")}
+                  <BookingList bookings={data.bookings_workshop} bookingType="workshop" monthDay={data.monthDay} year={data.year} />
                 </section>
               )}
             </>

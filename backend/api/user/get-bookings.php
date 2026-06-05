@@ -26,11 +26,6 @@ $awaitingPayment = [];
 |--------------------------------------------------------------------------
 | 1. Main bookings table
 |--------------------------------------------------------------------------
-| Supports:
-| - event_booking
-| - private_workshop
-| - custom
-|--------------------------------------------------------------------------
 */
 $stmt = $conn->prepare("
     SELECT
@@ -57,6 +52,15 @@ $stmt = $conn->prepare("
                 ELSE 0
             END
         ), 0) AS pending_payment_count,
+
+        (
+            SELECT rr.status
+            FROM refund_requests rr
+            WHERE rr.booking_id = b.id
+              AND rr.refund_type = 'booking'
+            ORDER BY rr.created_at DESC
+            LIMIT 1
+        ) AS refund_status,
 
         b.cancel_requested,
         b.cancel_reason,
@@ -101,7 +105,9 @@ while ($row = $result->fetch_assoc()) {
     $totalAmount = (float) ($row["total_amount"] ?? 0);
     $storedAmountPaid = (float) ($row["stored_amount_paid"] ?? 0);
     $paidFromPayments = (float) ($row["paid_from_payments"] ?? 0);
+
     $amountPaid = max($storedAmountPaid, $paidFromPayments);
+    $balance = max($totalAmount - $amountPaid, 0);
 
     $pendingPaymentCount = (int) ($row["pending_payment_count"] ?? 0);
     $storedPaymentStatus = strtolower((string) ($row["stored_payment_status"] ?? "unpaid"));
@@ -129,6 +135,9 @@ while ($row = $result->fetch_assoc()) {
 
     $status = strtolower((string) ($row["status"] ?? "pending"));
 
+    $canContinuePayment = in_array($computedPaymentStatus, ["unpaid", "partial", "rejected"], true)
+        && $balance > 0;
+
     $item = [
         "id" => (int) $row["id"],
         "record_type" => "booking",
@@ -143,10 +152,11 @@ while ($row = $result->fetch_assoc()) {
 
         "status" => $status,
         "payment_status" => $computedPaymentStatus,
+        "refund_status" => $row["refund_status"] ?? null,
 
         "total_amount" => $totalAmount,
         "amount_paid" => $amountPaid,
-        "balance" => max($totalAmount - $amountPaid, 0),
+        "balance" => $balance,
 
         "cancel_requested" => (int) ($row["cancel_requested"] ?? 0),
         "cancel_reason" => $row["cancel_reason"] ?? "",
@@ -155,7 +165,7 @@ while ($row = $result->fetch_assoc()) {
         "created_at" => $row["created_at"],
 
         "display_status" => $status,
-        "can_continue_payment" => false,
+        "can_continue_payment" => $canContinuePayment,
     ];
 
     if ($status === "pending_payment") {
@@ -174,7 +184,7 @@ $stmt->close();
 | 2. Public workshop registrations
 |--------------------------------------------------------------------------
 | Public workshop registration uses workshop_registrations.
-| It does not use the bookings table.
+| Date and time come from workshops_public.
 |--------------------------------------------------------------------------
 */
 $workshopStmt = $conn->prepare("
@@ -191,6 +201,10 @@ $workshopStmt = $conn->prepare("
         wr.payment_status,
         wr.total_amount,
 
+        wp.workshop_date,
+        wp.start_time AS workshop_start_time,
+        wp.end_time AS workshop_end_time,
+
         COALESCE(SUM(
             CASE
                 WHEN p.status = 'paid' THEN p.amount
@@ -203,8 +217,19 @@ $workshopStmt = $conn->prepare("
                 WHEN p.status = 'pending' THEN 1
                 ELSE 0
             END
-        ), 0) AS pending_payment_count
+        ), 0) AS pending_payment_count,
+
+        (
+            SELECT rr.status
+            FROM refund_requests rr
+            WHERE rr.registration_id = wr.id
+              AND rr.refund_type = 'workshop_registration'
+            ORDER BY rr.created_at DESC
+            LIMIT 1
+        ) AS refund_status
     FROM workshop_registrations wr
+    LEFT JOIN workshops_public wp
+        ON wp.id = wr.workshop_id
     LEFT JOIN payments p
         ON p.registration_id = wr.id
     WHERE wr.user_id = ?
@@ -219,8 +244,11 @@ $workshopStmt = $conn->prepare("
         wr.created_at,
         wr.status,
         wr.payment_status,
-        wr.total_amount
-    ORDER BY wr.created_at DESC
+        wr.total_amount,
+        wp.workshop_date,
+        wp.start_time,
+        wp.end_time
+    ORDER BY wp.workshop_date DESC, wp.start_time DESC, wr.created_at DESC
 ");
 
 if (!$workshopStmt) {
@@ -239,7 +267,10 @@ $workshopResult = $workshopStmt->get_result();
 
 while ($row = $workshopResult->fetch_assoc()) {
     $createdAt = $row["created_at"] ?? null;
-    $bookingDate = $createdAt ? date("Y-m-d", strtotime($createdAt)) : null;
+    $createdDate = $createdAt ? date("Y-m-d", strtotime($createdAt)) : null;
+
+    $workshopDate = $row["workshop_date"] ?? null;
+    $bookingDate = $workshopDate ?: $createdDate;
 
     $totalAmount = (float) ($row["total_amount"] ?? 0);
     $paidFromPayments = (float) ($row["paid_from_payments"] ?? 0);
@@ -258,10 +289,18 @@ while ($row = $workshopResult->fetch_assoc()) {
     } elseif ($storedPaymentStatus === "paid") {
         $computedPaymentStatus = "paid";
         $amountPaid = $totalAmount;
+    } elseif (in_array($storedPaymentStatus, ["partial", "pending", "rejected", "unpaid"], true)) {
+        $computedPaymentStatus = $storedPaymentStatus;
+        $amountPaid = 0;
     } else {
-        $computedPaymentStatus = $storedPaymentStatus ?: "unpaid";
+        $computedPaymentStatus = "unpaid";
         $amountPaid = 0;
     }
+
+    $balance = max($totalAmount - $amountPaid, 0);
+
+    $canContinuePayment = in_array($computedPaymentStatus, ["unpaid", "partial", "rejected"], true)
+        && $balance > 0;
 
     $registration = [
         "id" => (int) $row["id"],
@@ -269,8 +308,8 @@ while ($row = $workshopResult->fetch_assoc()) {
         "row_key" => "workshop-registration-" . $row["id"],
 
         "booking_date" => $bookingDate,
-        "start_time" => null,
-        "end_time" => null,
+        "start_time" => $row["workshop_start_time"] ?? null,
+        "end_time" => $row["workshop_end_time"] ?? null,
 
         "booking_type" => "workshop_registration",
         "display_type" => "Public Workshop Registration",
@@ -280,18 +319,20 @@ while ($row = $workshopResult->fetch_assoc()) {
 
         "status" => strtolower((string) ($row["status"] ?? "pending")),
         "payment_status" => $computedPaymentStatus,
+        "refund_status" => $row["refund_status"] ?? null,
 
         "total_amount" => $totalAmount,
         "amount_paid" => $amountPaid,
-        "balance" => max($totalAmount - $amountPaid, 0),
+        "balance" => $balance,
 
         "cancel_requested" => 0,
         "cancel_reason" => "",
         "cancel_requested_at" => null,
 
         "created_at" => $row["created_at"],
+
         "display_status" => strtolower((string) ($row["status"] ?? "pending")),
-        "can_continue_payment" => false,
+        "can_continue_payment" => $canContinuePayment,
     ];
 
     $bookings[] = $registration;

@@ -123,8 +123,14 @@ function getActiveRows(data, tab) {
 
 function ReportSummary({ rows }) {
   const totalRows = rows.length;
-  const paidRevenue = rows.reduce((sum, row) => sum + Number(row.paid_amount || 0), 0);
-  const totalAmount = rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+  const paidRevenue = rows.reduce(
+    (sum, row) => sum + Number(row.paid_amount || 0),
+    0
+  );
+  const totalAmount = rows.reduce(
+    (sum, row) => sum + Number(row.total_amount || 0),
+    0
+  );
   const paidRows = rows.filter(
     (row) => String(getPaymentStatus(row)).toLowerCase() === "paid"
   ).length;
@@ -171,8 +177,10 @@ export default function AdminReports() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [tab, setTab] = useState("public");
-  const [loading, setLoading] = useState(false);
+  const [loadStatus, setLoadStatus] = useState("loading");
   const [error, setError] = useState("");
+
+  const loading = loadStatus === "loading";
 
   const [data, setData] = useState({
     publicWorkshopRows: [],
@@ -180,11 +188,8 @@ export default function AdminReports() {
     privateEventRows: [],
   });
 
-  const loadData = async (dateParams = {}) => {
+  const fetchReportData = async (dateParams = {}) => {
     try {
-      setLoading(true);
-      setError("");
-
       const res = await adminApi.get("/admin/admin-reports.php", {
         params: dateParams,
       });
@@ -212,12 +217,18 @@ export default function AdminReports() {
         privateEventRows: [],
       });
     } finally {
-      setLoading(false);
+      setLoadStatus("loaded");
     }
   };
 
+  const loadData = async (dateParams = {}) => {
+    setError("");
+    setLoadStatus("loading");
+    await fetchReportData(dateParams);
+  };
+
   useEffect(() => {
-    loadData();
+    fetchReportData();
   }, []);
 
   const activeRows = useMemo(() => getActiveRows(data, tab), [data, tab]);
@@ -370,8 +381,10 @@ export default function AdminReports() {
 
                         {tab === "private-workshop" && (
                           <span className="reports-sub-cell">
-                            Standard: {getNotesValue(row, ["standard_attendees"], 0)} •
-                            Premium: {getNotesValue(row, ["premium_attendees"], 0)}
+                            Standard:{" "}
+                            {getNotesValue(row, ["standard_attendees"], 0)} •
+                            Premium:{" "}
+                            {getNotesValue(row, ["premium_attendees"], 0)}
                           </span>
                         )}
 
@@ -383,7 +396,9 @@ export default function AdminReports() {
                         )}
 
                         {tab === "public" && row.package && (
-                          <span className="reports-sub-cell">{row.package} Package</span>
+                          <span className="reports-sub-cell">
+                            {row.package} Package
+                          </span>
                         )}
                       </td>
 
@@ -406,7 +421,11 @@ export default function AdminReports() {
                       </td>
 
                       <td data-label="Payment">
-                        <span className={`pill-mini-react ${paymentBadgeClass(paymentStatus)}`}>
+                        <span
+                          className={`pill-mini-react ${paymentBadgeClass(
+                            paymentStatus
+                          )}`}
+                        >
                           {readableStatus(paymentStatus)}
                         </span>
                       </td>

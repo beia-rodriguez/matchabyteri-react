@@ -5,13 +5,6 @@ import Navbar from "../components/Navbar";
 import "../assets/css/user-profile.css";
 import "../assets/css/universal.css";
 
-function money(value) {
-  return Number(value || 0).toLocaleString("en-PH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function readableText(text = "") {
   return String(text)
     .replace(/\bPAID\b/g, "Paid")
@@ -78,13 +71,22 @@ function profilePictureSrc(path) {
   return `/backend/api/${clean}`;
 }
 
-function buildProfileForm(userData = {}) {
-  return {
-    name: userData.name || "",
-    phone_number: formatPhoneForInput(userData.phone_number || ""),
-    birthdate: userData.birthdate || "",
-    profile_picture: null,
-  };
+function formatPhoneForInput(value = "") {
+  const clean = String(value).replace(/\s+/g, "").trim();
+
+  if (/^\+639\d{9}$/.test(clean)) {
+    return clean.slice(3);
+  }
+
+  if (/^09\d{9}$/.test(clean)) {
+    return clean.slice(1);
+  }
+
+  if (/^9\d{9}$/.test(clean)) {
+    return clean;
+  }
+
+  return clean.replace(/^\+?63/, "");
 }
 
 function normalizePhoneNumber(value = "") {
@@ -107,370 +109,22 @@ function normalizePhoneNumber(value = "") {
   return clean;
 }
 
-function formatPhoneForInput(value = "") {
-  const clean = String(value).replace(/\s+/g, "").trim();
-
-  if (/^\+639\d{9}$/.test(clean)) {
-    return clean.slice(3);
-  }
-
-  if (/^09\d{9}$/.test(clean)) {
-    return clean.slice(1);
-  }
-
-  if (/^9\d{9}$/.test(clean)) {
-    return clean;
-  }
-
-  return clean.replace(/^\+?63/, "");
-}
-
-function displayBookingType(booking) {
-  if (booking.display_type) return booking.display_type;
-
-  const recordType = String(booking.record_type || "").toLowerCase();
-  const bookingType = String(booking.booking_type || "").toLowerCase();
-
-  if (recordType === "workshop_registration") {
-    return "Public Workshop Registration";
-  }
-
-  if (bookingType === "event_booking") return "Event Booking";
-  if (bookingType === "private_workshop") return "Private Workshop";
-  if (bookingType === "custom") return "Custom Booking";
-
-  return readableText(bookingType).replace(/\b\w/g, (char) =>
-    char.toUpperCase()
-  );
-}
-
-function paymentBadge(status) {
-  switch ((status || "unpaid").toLowerCase()) {
-    case "paid":
-      return { label: "PAID", className: "profile-status-badge--paid" };
-    case "partial":
-      return { label: "PARTIAL", className: "profile-status-badge--partial" };
-    case "pending":
-      return { label: "PENDING", className: "profile-status-badge--pending" };
-    case "rejected":
-      return {
-        label: "REJECTED",
-        className: "profile-status-badge--rejected",
-      };
-    default:
-      return { label: "UNPAID", className: "profile-status-badge--unpaid" };
-  }
-}
-
-function bookingStatusBadge(status) {
-  switch ((status || "").toLowerCase()) {
-    case "approved":
-      return { label: "APPROVED", className: "profile-status-badge--paid" };
-    case "cancelled":
-      return {
-        label: "CANCELLED",
-        className: "profile-status-badge--rejected",
-      };
-    case "rejected":
-      return {
-        label: "REJECTED",
-        className: "profile-status-badge--rejected",
-      };
-    case "pending_payment":
-      return {
-        label: "AWAITING PAYMENT",
-        className: "profile-status-badge--awaiting",
-      };
-    case "pending":
-      return { label: "PENDING", className: "profile-status-badge--pending" };
-    default:
-      return {
-        label: readableText(status || "PENDING").toUpperCase(),
-        className: "profile-status-badge--pending",
-      };
-  }
-}
-
-function getPaymentAction(booking) {
-  const recordType = (booking.record_type || "booking").toLowerCase();
-  const bStatus = (booking.status || "").toLowerCase();
-  const pStatus = (booking.payment_status || "unpaid").toLowerCase();
-
-  if (recordType === "workshop_registration") return null;
-
-  if (["cancelled", "rejected"].includes(bStatus)) return null;
-  if (pStatus === "paid") return null;
-  if (pStatus === "pending") return null;
-
-  if (pStatus === "partial") {
-    return { label: "Pay Remaining", choice: "remaining" };
-  }
-
-  return { label: "Pay Now", choice: "downpayment" };
-}
-
-function canDeleteUnpaidBooking(booking) {
-  const recordType = (booking.record_type || "booking").toLowerCase();
-
-  if (recordType === "workshop_registration") return false;
-
-  const bStatus = (booking.status || "").toLowerCase();
-  const pStatus = (booking.payment_status || "unpaid").toLowerCase();
-
-  const cancelRequested =
-    Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
-
-  return (
-    pStatus === "unpaid" &&
-    ["pending_payment", "pending"].includes(bStatus) &&
-    !cancelRequested
-  );
-}
-
-function canCancel(booking) {
-  const recordType = (booking.record_type || "booking").toLowerCase();
-
-  if (recordType === "workshop_registration") return false;
-
-  const bStatus = (booking.status || "").toLowerCase();
-  const pStatus = (booking.payment_status || "unpaid").toLowerCase();
-
-  const cancelRequested =
-    Number(booking.cancel_requested) === 1 || booking.cancel_requested === true;
-
-  if (pStatus === "unpaid") return false;
-
-  return ["pending", "approved"].includes(bStatus) && !cancelRequested;
-}
-
-function shouldShowBooking(booking) {
-  const status = String(booking.status || "").toLowerCase();
-
-  return !["cancelled", "rejected"].includes(status);
-}
-
-function CancelModal({ booking, onClose, onSuccess }) {
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    const cleanReason = reason.trim();
-
-    if (cleanReason.length < 10) {
-      setError("Please provide a reason of at least 10 characters.");
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("booking_id", String(booking.id));
-      formData.append("reason", cleanReason);
-
-      const res = await API.post("/user/cancel-booking.php", formData);
-
-      if (res.data && res.data.success === true) {
-        onSuccess(booking.id);
-      } else {
-        setError(
-          typeof res.data === "string"
-            ? res.data
-            : res.data?.error || "Failed to submit request."
-        );
-      }
-    } catch (err) {
-      console.error("Cancel booking error:", err);
-
-      setError(
-        err.response?.data?.error ||
-          err.response?.data ||
-          "Failed to submit request. Please try again."
-      );
-    } finally {
-      setSubmitting(false);
-    }
+function buildProfileForm(userData = {}) {
+  return {
+    name: userData.name || "",
+    phone_number: formatPhoneForInput(userData.phone_number || ""),
+    birthdate: userData.birthdate || "",
+    profile_picture: null,
   };
-
-  const handleBackdrop = (e) => {
-    if (e.target === e.currentTarget && !submitting) onClose();
-  };
-
-  return (
-    <div
-      className="cancel-request-modal__backdrop"
-      onClick={handleBackdrop}
-      role="presentation"
-    >
-      <section
-        className="cancel-request-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cancel-request-modal-title"
-        aria-describedby="cancel-request-modal-description"
-        tabIndex={-1}
-      >
-        <header className="cancel-request-modal__header">
-          <h2
-            className="cancel-request-modal__title"
-            id="cancel-request-modal-title"
-            tabIndex={0}
-          >
-            Request Cancellation
-          </h2>
-
-          <button
-            type="button"
-            className="cancel-request-modal__close"
-            onClick={onClose}
-            aria-label="Close cancellation request modal"
-            disabled={submitting}
-          >
-            ×
-          </button>
-        </header>
-
-        <div className="cancel-request-modal__body">
-          <p
-            className="cancel-request-modal__description"
-            id="cancel-request-modal-description"
-            tabIndex={0}
-          >
-            Review your booking details, enter your cancellation reason, then
-            submit your request.
-          </p>
-
-          <div
-            className="cancel-request-modal__summary"
-            aria-label="Booking summary"
-          >
-            <div className="cancel-request-modal__summary-row" tabIndex={0}>
-              <span className="cancel-request-modal__summary-label">
-                Booking Date
-              </span>
-              <strong className="cancel-request-modal__summary-value">
-                {booking.booking_date}
-              </strong>
-            </div>
-
-            <div className="cancel-request-modal__summary-row" tabIndex={0}>
-              <span className="cancel-request-modal__summary-label">Time</span>
-              <strong className="cancel-request-modal__summary-value">
-                {booking.start_time?.slice(0, 5)} to{" "}
-                {booking.end_time?.slice(0, 5)}
-              </strong>
-            </div>
-
-            <div className="cancel-request-modal__summary-row" tabIndex={0}>
-              <span className="cancel-request-modal__summary-label">Type</span>
-              <strong className="cancel-request-modal__summary-value cancel-request-modal__summary-value--capitalize">
-                {displayBookingType(booking)}
-              </strong>
-            </div>
-          </div>
-
-          <form className="cancel-request-modal__form" onSubmit={handleSubmit}>
-            <div className="cancel-request-modal__field">
-              <label
-                className="cancel-request-modal__label"
-                htmlFor="cancel-request-reason"
-                tabIndex={0}
-              >
-                Reason for Cancellation <span aria-hidden="true">*</span>
-              </label>
-
-              <textarea
-                id="cancel-request-reason"
-                className="cancel-request-modal__textarea"
-                rows={5}
-                maxLength={500}
-                placeholder="Please explain why you want to cancel this booking..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                required
-                disabled={submitting}
-                aria-required="true"
-                aria-invalid={error ? "true" : "false"}
-                aria-describedby={
-                  error
-                    ? "cancel-request-reason-help cancel-request-char-count cancel-request-error"
-                    : "cancel-request-reason-help cancel-request-char-count"
-                }
-              />
-
-              <p
-                className="cancel-request-modal__help"
-                id="cancel-request-reason-help"
-                tabIndex={0}
-              >
-                Please enter at least 10 characters.
-              </p>
-
-              <div
-                className="cancel-request-modal__char-count"
-                id="cancel-request-char-count"
-                tabIndex={0}
-                aria-live="polite"
-              >
-                {reason.length} / 500 characters
-              </div>
-            </div>
-
-            {error && (
-              <div
-                className="cancel-request-modal__error"
-                id="cancel-request-error"
-                role="alert"
-                tabIndex={0}
-              >
-                {error}
-              </div>
-            )}
-
-            <div className="cancel-request-modal__warning" tabIndex={0}>
-              <strong>⚠ Cancellation requests are subject to admin review.</strong>
-              <span>This booking will be removed from your visible booking list.</span>
-            </div>
-
-            <div className="cancel-request-modal__actions">
-              <button
-                type="button"
-                className="cancel-request-modal__button cancel-request-modal__button--back"
-                onClick={onClose}
-                disabled={submitting}
-              >
-                Go Back
-              </button>
-
-              <button
-                type="submit"
-                className="cancel-request-modal__button cancel-request-modal__button--submit"
-                disabled={submitting}
-                aria-describedby="cancel-request-reason-help"
-              >
-                {submitting ? "Submitting..." : "Submit Request"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
-    </div>
-  );
 }
 
 export default function UserProfile() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
-  const [bookings, setBookings] = useState([]);
   const [preview, setPreview] = useState(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [unreadReplies, setUnreadReplies] = useState(0);
-  const [cancelTarget, setCancelTarget] = useState(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -482,40 +136,24 @@ export default function UserProfile() {
   const [originalForm, setOriginalForm] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [notice, setNotice] = useState({ type: "", message: "" });
-  const [todayMaxDate, setTodayMaxDate] = useState("");
 
-  const visibleBookings = useMemo(() => {
-    return bookings.filter(shouldShowBooking);
-  }, [bookings]);
+  const todayMaxDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  useEffect(() => {
-    setTodayMaxDate(new Date().toISOString().slice(0, 10));
-  }, []);
-
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [preview, user?.profile_picture]);
-
-  const applyLoadedProfile = (userData, privateBookings) => {
+  const applyLoadedProfile = (userData) => {
     const nextForm = buildProfileForm(userData);
 
     setUser(userData);
     setUnreadReplies(userData.unreadReplies || 0);
-    setBookings((privateBookings || []).filter(shouldShowBooking));
     setForm(nextForm);
     setOriginalForm(nextForm);
+    setPreview(null);
+    setAvatarFailed(false);
   };
 
   useEffect(() => {
-    Promise.all([
-      API.get("/user/get-profile.php"),
-      API.get("/user/get-bookings.php"),
-    ])
-      .then(([profileRes, bookingRes]) => {
-        applyLoadedProfile(
-          profileRes.data,
-          bookingRes.data.privateBookings || []
-        );
+    API.get("/user/get-profile.php")
+      .then((profileRes) => {
+        applyLoadedProfile(profileRes.data);
       })
       .catch((err) => {
         if (err.response?.status === 401) {
@@ -543,7 +181,7 @@ export default function UserProfile() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, th, td, .profile-title, .name, .email, .admin-badge, .badge-new, .bookings-label, .hint, .status-badge, .cancel-pending-badge"
+      "h1, h2, h3, h4, h5, h6, p, input, textarea, select, button, img, a, li, th, td, .profile-title, .name, .email, .admin-badge, .badge-new, .hint"
     );
 
     readableElements.forEach((element) => {
@@ -605,7 +243,7 @@ export default function UserProfile() {
         element.setAttribute("aria-label", readableText(textToRead));
       }
     });
-  }, [user, visibleBookings, form, unreadReplies, cancelTarget]);
+  }, [user, form, unreadReplies]);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -617,7 +255,13 @@ export default function UserProfile() {
 
       if (!file) {
         setForm((prev) => ({ ...prev, profile_picture: null }));
-        setPreview(null);
+
+        setPreview((oldPreview) => {
+          if (oldPreview) URL.revokeObjectURL(oldPreview);
+          return null;
+        });
+
+        setAvatarFailed(false);
         return;
       }
 
@@ -628,6 +272,7 @@ export default function UserProfile() {
           type: "bad",
           message: "Please choose a JPG, PNG, GIF, or WEBP image.",
         });
+
         e.target.value = "";
         return;
       }
@@ -637,11 +282,13 @@ export default function UserProfile() {
           type: "bad",
           message: "Profile photo must be less than 3MB.",
         });
+
         e.target.value = "";
         return;
       }
 
       setForm((prev) => ({ ...prev, profile_picture: file }));
+      setAvatarFailed(false);
 
       setPreview((oldPreview) => {
         if (oldPreview) URL.revokeObjectURL(oldPreview);
@@ -686,6 +333,7 @@ export default function UserProfile() {
     if (cleanBirthdate) {
       const selectedDate = new Date(`${cleanBirthdate}T00:00:00`);
       const today = new Date();
+
       today.setHours(0, 0, 0, 0);
 
       if (Number.isNaN(selectedDate.getTime()) || selectedDate > today) {
@@ -738,6 +386,7 @@ export default function UserProfile() {
         setForm(nextForm);
         setOriginalForm(nextForm);
         setPreview(null);
+        setAvatarFailed(false);
 
         window.alert(res.data.message || "Profile updated successfully.");
       } else {
@@ -766,79 +415,6 @@ export default function UserProfile() {
     navigate("/login");
   };
 
-  const handleCancelSuccess = (bookingId) => {
-    setBookings((prev) =>
-      prev.filter((b) => Number(b.id) !== Number(bookingId))
-    );
-
-    setCancelTarget(null);
-    alert("Cancellation request submitted. This booking was removed from your list.");
-  };
-
-  const handleDeleteUnpaidBooking = async (booking) => {
-    const confirmDelete = window.confirm(
-      "Delete this unpaid booking? This will remove it from your booking list."
-    );
-
-    if (!confirmDelete) return;
-
-    try {
-      const formData = new FormData();
-      formData.append("booking_id", String(booking.id));
-
-      const res = await API.post("/user/delete-unpaid-booking.php", formData);
-
-      if (res.data?.success) {
-        setBookings((prev) =>
-          prev.filter((b) => Number(b.id) !== Number(booking.id))
-        );
-
-        alert(res.data.message || "Unpaid booking deleted successfully.");
-      } else {
-        alert(res.data?.error || "Failed to delete booking.");
-      }
-    } catch (err) {
-      console.error("Delete unpaid booking error:", err);
-
-      alert(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          "Failed to delete booking. Please try again."
-      );
-    }
-  };
-
-  const handlePayAction = (booking) => {
-    const action = getPaymentAction(booking);
-
-    if (!action) return;
-
-    const recordType = (booking.record_type || "booking").toLowerCase();
-
-    if (recordType === "workshop_registration") {
-      return;
-    }
-
-    const bookingType = String(booking.booking_type || "").toLowerCase();
-
-    const purposeMap = {
-      event_booking: "event_booking",
-      private_workshop: "private_workshop",
-      custom: "custom",
-      event: "event_booking",
-      workshop: "private_workshop",
-    };
-
-    const purpose = purposeMap[bookingType];
-
-    if (!purpose || purpose === "custom") {
-      alert("Invalid booking type for payment.");
-      return;
-    }
-
-    navigate(`/gcash-payment?purpose=${purpose}&booking_id=${booking.id}`);
-  };
-
   if (!user) return null;
 
   const isAdmin = user.role?.toLowerCase() === "admin";
@@ -847,14 +423,6 @@ export default function UserProfile() {
   return (
     <>
       <Navbar />
-
-      {cancelTarget && (
-        <CancelModal
-          booking={cancelTarget}
-          onClose={() => setCancelTarget(null)}
-          onSuccess={handleCancelSuccess}
-        />
-      )}
 
       <div className="profile-wrap" id="readable-content">
         <div className="profile-title">Profile</div>
@@ -936,6 +504,15 @@ export default function UserProfile() {
                   <span className="badge-new">{unreadReplies} NEW</span>
                 )}
               </button>
+
+              <button
+                type="button"
+                className="btn-soft"
+                aria-label="My Booking"
+                onClick={() => navigate("/my-booking")}
+              >
+                My Booking
+              </button>
             </div>
           )}
 
@@ -959,6 +536,7 @@ export default function UserProfile() {
           <form onSubmit={handleSubmit} className="profile-form">
             <div className="field full">
               <label htmlFor="profile-name">Name</label>
+
               <input
                 id="profile-name"
                 type="text"
@@ -976,6 +554,7 @@ export default function UserProfile() {
 
             <div className="field">
               <label htmlFor="profile-birthdate">Birthdate</label>
+
               <input
                 id="profile-birthdate"
                 type="date"
@@ -1027,215 +606,6 @@ export default function UserProfile() {
                 9123456789.
               </p>
             </div>
-
-            {!isAdmin && (
-              <div className="field full bookings-section">
-                <div className="bookings-label">My Bookings</div>
-
-                {visibleBookings.length === 0 ? (
-                  <p className="hint">You haven't made any bookings yet.</p>
-                ) : (
-                  <div className="bookings-table-wrap">
-                    <table className="bookings-table">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Time</th>
-                          <th>Type</th>
-                          <th>Status</th>
-                          <th>Payment</th>
-                          <th>Amount</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {visibleBookings.map((b) => {
-                          const bBadge = bookingStatusBadge(b.status);
-                          const pBadge = paymentBadge(b.payment_status);
-                          const payAction = getPaymentAction(b);
-                          const showDelete = canDeleteUnpaidBooking(b);
-                          const showCancel = canCancel(b);
-                          const cancelPending =
-                            Number(b.cancel_requested) === 1 ||
-                            b.cancel_requested === true;
-
-                          return (
-                            <tr
-                              key={
-                                b.row_key ||
-                                `${b.record_type || "booking"}-${b.id}`
-                              }
-                            >
-                              <td
-                                className="td-date"
-                                aria-label={`Booking Date: ${b.booking_date}`}
-                              >
-                                {b.booking_date || "N/A"}
-                              </td>
-
-                              <td
-                                className="td-time"
-                                aria-label={
-                                  b.start_time && b.end_time
-                                    ? `Booking Time: ${b.start_time?.slice(
-                                        0,
-                                        5
-                                      )} to ${b.end_time?.slice(0, 5)}`
-                                    : "Time not available"
-                                }
-                              >
-                                {b.start_time && b.end_time
-                                  ? `${b.start_time?.slice(0, 5)} to ${b.end_time?.slice(0, 5)}`
-                                  : "N/A"}
-                              </td>
-
-                              <td
-                                className="td-type"
-                                aria-label={`Booking Type: ${displayBookingType(
-                                  b
-                                )}`}
-                              >
-                                {b.record_type === "workshop_registration" ? (
-                                  <>
-                                    <div>{displayBookingType(b)}</div>
-                                    <div
-                                      style={{
-                                        fontSize: "0.75rem",
-                                        color: "#666",
-                                        marginTop: "4px",
-                                      }}
-                                    >
-                                      {b.package} Package
-                                    </div>
-                                  </>
-                                ) : (
-                                  displayBookingType(b)
-                                )}
-                              </td>
-
-                              <td>
-                                <span
-                                  className={`status-badge ${bBadge.className}`}
-                                  aria-label={`Booking Status: ${readableText(
-                                    bBadge.label
-                                  )}`}
-                                >
-                                  {bBadge.label}
-                                </span>
-                              </td>
-
-                              <td>
-                                <span
-                                  className={`status-badge ${pBadge.className}`}
-                                  aria-label={`Payment Status: ${readableText(
-                                    pBadge.label
-                                  )}`}
-                                >
-                                  {pBadge.label}
-                                </span>
-                              </td>
-
-                              <td
-                                className="td-amount"
-                                aria-label={
-                                  b.total_amount > 0
-                                    ? `Total Amount: ${money(
-                                        b.total_amount
-                                      )} pesos`
-                                    : "No amount"
-                                }
-                              >
-                                {b.total_amount > 0 ? (
-                                  <>
-                                    <div>Total: ₱{money(b.total_amount)}</div>
-
-                                    {Number(b.amount_paid || 0) > 0 && (
-                                      <div className="booking-payment-breakdown">
-                                        Paid: ₱{money(b.amount_paid)} <br />
-                                        Balance: ₱
-                                        {money(
-                                          Math.max(
-                                            Number(b.total_amount || 0) -
-                                              Number(b.amount_paid || 0),
-                                            0
-                                          )
-                                        )}
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  "N/A"
-                                )}
-                              </td>
-
-                              <td className="td-actions">
-                                <div className="booking-actions-stack">
-                                  {payAction && (
-                                    <button
-                                      type="button"
-                                      className="action-btn action-btn--pay"
-                                      aria-label={payAction.label}
-                                      onClick={() => handlePayAction(b)}
-                                    >
-                                      {payAction.label}
-                                    </button>
-                                  )}
-
-                                  {showDelete && (
-                                    <button
-                                      type="button"
-                                      className="action-btn action-btn--delete"
-                                      aria-label="Delete Unpaid Booking"
-                                      onClick={() => handleDeleteUnpaidBooking(b)}
-                                    >
-                                      Delete
-                                    </button>
-                                  )}
-
-                                  {showCancel && (
-                                    <button
-                                      type="button"
-                                      className="action-btn action-btn--cancel"
-                                      aria-label="Cancel Booking"
-                                      onClick={() => setCancelTarget(b)}
-                                    >
-                                      Cancel
-                                    </button>
-                                  )}
-
-                                  {cancelPending && (
-                                    <span
-                                      className="cancel-pending-badge"
-                                      aria-label="Cancel Requested"
-                                    >
-                                      Cancel Requested
-                                    </span>
-                                  )}
-
-                                  {!payAction &&
-                                    !showDelete &&
-                                    !showCancel &&
-                                    !cancelPending && (
-                                      <span
-                                        className="hint"
-                                        style={{ fontSize: "0.75rem" }}
-                                        aria-label="No actions available"
-                                      >
-                                        N/A
-                                      </span>
-                                    )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
 
             <div className="actions full">
               <button

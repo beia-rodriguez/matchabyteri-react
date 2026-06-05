@@ -2,14 +2,13 @@
 /**
  * admin-dashboard.php
  *
- * Updated for new booking system:
- * - event_booking instead of old event
- * - private_workshop instead of old workshop
- * - keeps old event/workshop fallback for old records
- * - supports completed and old complete status
- * - adds richer chart data:
- *   booking trends, pending trends, revenue trends, payment count trends,
- *   booking status distribution, payment status distribution
+ * Updated for current booking system:
+ * - event_booking
+ * - private_workshop
+ * - public workshop registrations
+ * - payments
+ * - cancellation requests
+ * - refund requests
  */
 
 require_once __DIR__ . "/admin-common-api.php";
@@ -23,20 +22,6 @@ $MAX_MONTHS = 12;
 function json_response($data) {
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit();
-}
-
-function is_active_booking_status($status) {
-    $status = strtolower((string) $status);
-    return in_array($status, ["approved", "completed", "complete"], true);
-}
-
-function normalize_booking_type($type) {
-    $type = strtolower(trim((string) $type));
-
-    if ($type === "event") return "event_booking";
-    if ($type === "workshop") return "private_workshop";
-
-    return $type;
 }
 
 function normalize_status_label($status) {
@@ -73,8 +58,11 @@ function compute_payment_status($totalAmount, $amountPaid, $pendingPaymentCount,
     return "unpaid";
 }
 
-// ── Build last-12-months skeleton ─────────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Build last 12 months skeleton
+|--------------------------------------------------------------------------
+*/
 $months = [];
 $privateWorkshopCounts = [];
 $eventCounts = [];
@@ -95,8 +83,11 @@ for ($i = $MAX_MONTHS - 1; $i >= 0; $i--) {
     $paymentCounts[$key] = 0;
 }
 
-// ── Main counters ────────────────────────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Main booking counters
+|--------------------------------------------------------------------------
+*/
 $totalPrivateWorkshops = 0;
 $totalEvents = 0;
 $totalPublicRegistrations = 0;
@@ -163,8 +154,11 @@ $pendingBookings = (int)($tot["pending_count"] ?? 0);
 $pendingPaymentBookings = (int)($tot["pending_payment_count"] ?? 0);
 $cancellationRequests = (int)($tot["cancellation_requests"] ?? 0);
 
-// ── Public workshop registration counter ─────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Public workshop registration counter
+|--------------------------------------------------------------------------
+*/
 $publicStmt = $conn->prepare("
     SELECT COUNT(*) AS cnt
     FROM workshop_registrations
@@ -177,9 +171,77 @@ if ($publicStmt) {
     $publicStmt->close();
 }
 
-// ── Paid target count for average revenue denominator ─────────────────────────
-// Counts each paid booking/registration once, even if it has multiple payments.
+/*
+|--------------------------------------------------------------------------
+| Refund request counters
+|--------------------------------------------------------------------------
+*/
+$totalRefundRequests = 0;
+$pendingRefundRequests = 0;
+$approvedRefundRequests = 0;
+$rejectedRefundRequests = 0;
+$pendingRefundAmount = 0.0;
+$approvedRefundAmount = 0.0;
 
+$refundStmt = $conn->prepare("
+    SELECT
+        COUNT(*) AS total_refunds,
+
+        SUM(
+            CASE
+                WHEN LOWER(status) = 'pending'
+                THEN 1 ELSE 0
+            END
+        ) AS pending_refunds,
+
+        SUM(
+            CASE
+                WHEN LOWER(status) = 'approved'
+                THEN 1 ELSE 0
+            END
+        ) AS approved_refunds,
+
+        SUM(
+            CASE
+                WHEN LOWER(status) = 'rejected'
+                THEN 1 ELSE 0
+            END
+        ) AS rejected_refunds,
+
+        COALESCE(SUM(
+            CASE
+                WHEN LOWER(status) = 'pending'
+                THEN refundable_amount ELSE 0
+            END
+        ), 0) AS pending_refund_amount,
+
+        COALESCE(SUM(
+            CASE
+                WHEN LOWER(status) = 'approved'
+                THEN refundable_amount ELSE 0
+            END
+        ), 0) AS approved_refund_amount
+    FROM refund_requests
+");
+
+if ($refundStmt) {
+    $refundStmt->execute();
+    $refundRow = $refundStmt->get_result()->fetch_assoc();
+    $refundStmt->close();
+
+    $totalRefundRequests = (int)($refundRow["total_refunds"] ?? 0);
+    $pendingRefundRequests = (int)($refundRow["pending_refunds"] ?? 0);
+    $approvedRefundRequests = (int)($refundRow["approved_refunds"] ?? 0);
+    $rejectedRefundRequests = (int)($refundRow["rejected_refunds"] ?? 0);
+    $pendingRefundAmount = (float)($refundRow["pending_refund_amount"] ?? 0);
+    $approvedRefundAmount = (float)($refundRow["approved_refund_amount"] ?? 0);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Paid target count for average revenue denominator
+|--------------------------------------------------------------------------
+*/
 $paidBookings = 0;
 
 $stmt = $conn->prepare("
@@ -207,8 +269,11 @@ if ($stmt) {
     $stmt->close();
 }
 
-// ── Monthly booking counts ───────────────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Monthly booking counts
+|--------------------------------------------------------------------------
+*/
 $stmt = $conn->prepare("
     SELECT
         DATE_FORMAT(booking_date, '%Y-%m') AS ym,
@@ -265,8 +330,11 @@ while ($r = $res->fetch_assoc()) {
 
 $stmt->close();
 
-// ── Monthly public workshop registration counts ──────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Monthly public workshop registration counts
+|--------------------------------------------------------------------------
+*/
 $publicMonthlyStmt = $conn->prepare("
     SELECT
         DATE_FORMAT(created_at, '%Y-%m') AS ym,
@@ -293,8 +361,11 @@ if ($publicMonthlyStmt) {
     $publicMonthlyStmt->close();
 }
 
-// ── Revenue totals ───────────────────────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Revenue totals
+|--------------------------------------------------------------------------
+*/
 $totalRevenue = 0.0;
 
 $stmt = $conn->prepare("
@@ -314,8 +385,11 @@ $stmt->execute();
 $totalRevenue = (float)($stmt->get_result()->fetch_assoc()["total_paid"] ?? 0);
 $stmt->close();
 
-// ── Monthly revenue + payment count ──────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Monthly revenue and payment count
+|--------------------------------------------------------------------------
+*/
 $stmt = $conn->prepare("
     SELECT
         DATE_FORMAT(created_at, '%Y-%m') AS ym,
@@ -350,8 +424,11 @@ while ($r = $res->fetch_assoc()) {
 
 $stmt->close();
 
-// ── Booking status distribution ──────────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Booking status distribution
+|--------------------------------------------------------------------------
+*/
 $statusCounts = [
     "pending_payment" => 0,
     "pending" => 0,
@@ -384,8 +461,11 @@ if ($stmt) {
     $stmt->close();
 }
 
-// ── Payment status distribution computed from payments + booking totals ──────
-
+/*
+|--------------------------------------------------------------------------
+| Payment status distribution
+|--------------------------------------------------------------------------
+*/
 $paymentStatusCounts = [
     "unpaid" => 0,
     "pending" => 0,
@@ -457,8 +537,11 @@ if ($stmt) {
     $stmt->close();
 }
 
-// ── Public workshop registration payment status distribution ─────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Public workshop registration payment status distribution
+|--------------------------------------------------------------------------
+*/
 $registrationPaymentStmt = $conn->prepare("
     SELECT LOWER(payment_status) AS payment_status, COUNT(*) AS cnt
     FROM workshop_registrations
@@ -482,8 +565,11 @@ if ($registrationPaymentStmt) {
     $registrationPaymentStmt->close();
 }
 
-// ── Response ─────────────────────────────────────────────────────────────────
-
+/*
+|--------------------------------------------------------------------------
+| Response
+|--------------------------------------------------------------------------
+*/
 json_response([
     "success" => true,
 
@@ -495,6 +581,13 @@ json_response([
     "pendingBookings" => $pendingBookings,
     "pendingPaymentBookings" => $pendingPaymentBookings,
     "cancellationRequests" => $cancellationRequests,
+
+    "totalRefundRequests" => $totalRefundRequests,
+    "pendingRefundRequests" => $pendingRefundRequests,
+    "approvedRefundRequests" => $approvedRefundRequests,
+    "rejectedRefundRequests" => $rejectedRefundRequests,
+    "pendingRefundAmount" => $pendingRefundAmount,
+    "approvedRefundAmount" => $approvedRefundAmount,
 
     "paidBookings" => $paidBookings,
     "totalRevenue" => $totalRevenue,

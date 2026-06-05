@@ -1,9 +1,10 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "../assets/css/calendar.css";
 import "../assets/css/universal.css";
+
 
 const MONTH_NAMES = [
   "January",
@@ -20,64 +21,186 @@ const MONTH_NAMES = [
   "December",
 ];
 
-const CALENDAR_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  day: "numeric",
-  year: "numeric",
-});
-
-const CALENDAR_DAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  weekday: "long",
-});
-
-const calendarInitialState = {
-  monthStatus: {},
-  loading: false,
-  error: "",
-};
-
-function calendarReducer(state, action) {
-  switch (action.type) {
-    case "loading":
-      return {
-        ...state,
-        loading: true,
-        error: "",
-      };
-
-    case "success":
-      return {
-        monthStatus: action.monthStatus,
-        loading: false,
-        error: "",
-      };
-
-    case "error":
-      return {
-        monthStatus: {},
-        loading: false,
-        error: action.message,
-      };
-
-    default:
-      return state;
-  }
+function pad(n) {
+  return String(n).padStart(2, "0");
 }
 
-const pad = (n) => String(n).padStart(2, "0");
+function ymd(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}`;
+}
 
-const ymd = (date) =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-
-const startOfToday = () => {
+function startOfToday() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today;
-};
+}
 
-const formatDateOnly = (date) => CALENDAR_DATE_FORMATTER.format(date);
+function formatDateOnly(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
 
-const formatDayOnly = (date) => CALENDAR_DAY_FORMATTER.format(date);
+function formatDayOnly(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+  }).format(date);
+}
+
+function getCellLabel(date, isPast, info, isOutsideMonth = false) {
+  const readableDate = formatDateOnly(date);
+  const readableDay = formatDayOnly(date);
+
+  if (isOutsideMonth) {
+    return `${readableDate}. Outside current month. ${readableDay}.`;
+  }
+
+  if (isPast) {
+    return `${readableDate}. Past day. ${readableDay}.`;
+  }
+
+  if (info?.status === "BLOCKED") {
+    return `${readableDate}. Unavailable.${
+      info.reason ? ` Reason: ${info.reason}.` : ""
+    } ${readableDay}.`;
+  }
+
+  if (info?.status === "FULL") {
+    return `${readableDate}. Fully booked.${
+      info.reason ? ` Reason: ${info.reason}.` : ""
+    } ${readableDay}.`;
+  }
+
+  if (info?.status === "OPEN" && Number(info.count) > 0) {
+    return `${readableDate}. Available. ${info.count} out of ${info.max} booked. ${readableDay}.`;
+  }
+
+  return `${readableDate}. Available. ${readableDay}.`;
+}
+
+function CalendarCells({ view, monthStatus, bookingType, navigate }) {
+  const year = view.getFullYear();
+  const month = view.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startDay = firstDayOfMonth.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const totalCells = 42;
+  const today = startOfToday();
+  const cells = [];
+
+  let dayNum = 1;
+
+  for (let index = 0; index < totalCells; index += 1) {
+    if (index < startDay) {
+      cells.push(
+        <div
+          key={`previous-${index}`}
+          className="cal-cell cal-cell-empty"
+          aria-hidden="true"
+        />
+      );
+
+      continue;
+    }
+
+    if (dayNum > daysInMonth) {
+      cells.push(
+        <div
+          key={`next-${index}`}
+          className="cal-cell cal-cell-empty"
+          aria-hidden="true"
+        />
+      );
+
+      dayNum += 1;
+      continue;
+    }
+
+    const date = new Date(year, month, dayNum);
+    date.setHours(0, 0, 0, 0);
+
+    const dateKey = ymd(date);
+    const isPast = date < today;
+    const info = monthStatus[dateKey];
+
+    const isBlocked = info?.status === "BLOCKED";
+    const isFull = info?.status === "FULL";
+    const isDisabled = isPast || isBlocked || isFull;
+
+    const hasMeta =
+      isBlocked ||
+      isFull ||
+      (info?.status === "OPEN" && Number(info.count) > 0);
+
+    let className = "cal-cell";
+
+    if (isPast) className += " is-past";
+    if (isBlocked || isFull) className += " is-disabled";
+    if (!isDisabled) className += " is-open";
+    if (hasMeta) className += " has-meta";
+
+    const handleClick = async () => {
+      if (isDisabled) return;
+
+      try {
+        await API.get("/auth/check-auth.php");
+        navigate(`/day?date=${dateKey}&type=${bookingType}`);
+      } catch (err) {
+        navigate(
+          `/login?redirect=${encodeURIComponent(
+            `/day?date=${dateKey}&type=${bookingType}`
+          )}`
+        );
+      }
+    };
+
+    cells.push(
+      <button
+        key={dateKey}
+        type="button"
+        className={className}
+        onClick={handleClick}
+        disabled={isDisabled}
+        aria-label={getCellLabel(date, isPast, info)}
+      >
+        <span className="cal-num">{dayNum}</span>
+
+        <span className="cal-meta">
+          {isBlocked && info?.reason && (
+            <span className="cal-reason">{info.reason}</span>
+          )}
+
+          {isBlocked && <span className="cal-badge">Unavailable</span>}
+
+          {isFull && info?.reason && (
+            <span className="cal-reason">{info.reason}</span>
+          )}
+
+          {isFull && <span className="cal-badge">Fully Booked</span>}
+
+          {info?.status === "OPEN" && Number(info.count) > 0 && (
+            <span
+              className="cal-slots"
+              aria-label={`${info.count} out of ${info.max} booked`}
+            >
+              {info.count}/{info.max} booked
+            </span>
+          )}
+        </span>
+      </button>
+    );
+
+    dayNum += 1;
+  }
+
+  return cells;
+}
 
 export default function Calendar() {
   const [searchParams] = useSearchParams();
@@ -90,43 +213,9 @@ export default function Calendar() {
       : "both";
 
   const [view, setView] = useState(new Date());
-  const [calendarState, dispatchCalendarState] = useReducer(
-    calendarReducer,
-    calendarInitialState
-  );
-
-  const { monthStatus, loading, error } = calendarState;
-
-  const getCellLabel = (date, isPast, info, isOutsideMonth = false) => {
-    const readableDate = formatDateOnly(date);
-    const readableDay = formatDayOnly(date);
-
-    if (isOutsideMonth) {
-      return `${readableDate}. Outside current month. ${readableDay}.`;
-    }
-
-    if (isPast) {
-      return `${readableDate}. Past day. ${readableDay}.`;
-    }
-
-    if (info?.status === "BLOCKED") {
-      return `${readableDate}. Unavailable.${
-        info.reason ? ` Reason: ${info.reason}.` : ""
-      } ${readableDay}.`;
-    }
-
-    if (info?.status === "FULL") {
-      return `${readableDate}. Fully booked.${
-        info.reason ? ` Reason: ${info.reason}.` : ""
-      } ${readableDay}.`;
-    }
-
-    if (info?.status === "OPEN" && Number(info.count) > 0) {
-      return `${readableDate}. Available. ${info.count} out of ${info.max} booked. ${readableDay}.`;
-    }
-
-    return `${readableDate}. Available. ${readableDay}.`;
-  };
+  const [monthStatus, setMonthStatus] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const goToPreviousMonth = () => {
     setView((current) => {
@@ -143,7 +232,8 @@ export default function Calendar() {
   useEffect(() => {
     let isMounted = true;
 
-    dispatchCalendarState({ type: "loading" });
+    setLoading(true);
+    setError("");
 
     API.get("/calendar/calendar_status.php", {
       params: {
@@ -154,11 +244,7 @@ export default function Calendar() {
     })
       .then((res) => {
         if (!isMounted) return;
-
-        dispatchCalendarState({
-          type: "success",
-          monthStatus: res.data || {},
-        });
+        setMonthStatus(res.data || {});
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -168,10 +254,12 @@ export default function Calendar() {
           return;
         }
 
-        dispatchCalendarState({
-          type: "error",
-          message: "Sorry, calendar availability could not be loaded.",
-        });
+        setMonthStatus({});
+        setError("Sorry, calendar availability could not be loaded.");
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
       });
 
     return () => {
@@ -234,123 +322,6 @@ export default function Calendar() {
     });
   }, [view, monthStatus, bookingType, loading, error]);
 
-  const renderCells = () => {
-    const year = view.getFullYear();
-    const month = view.getMonth();
-
-    const firstDayOfMonth = new Date(year, month, 1);
-    const startDay = firstDayOfMonth.getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const totalCells = 42;
-    const today = startOfToday();
-    const cells = [];
-
-    let dayNum = 1;
-
-    for (let index = 0; index < totalCells; index += 1) {
-      if (index < startDay) {
-        cells.push(
-          <div
-            key={`previous-${index}`}
-            className="cal-cell cal-cell-empty"
-            aria-hidden="true"
-          />
-        );
-        continue;
-      }
-
-      if (dayNum > daysInMonth) {
-        cells.push(
-          <div
-            key={`next-${index}`}
-            className="cal-cell cal-cell-empty"
-            aria-hidden="true"
-          />
-        );
-
-        dayNum += 1;
-        continue;
-      }
-
-      const date = new Date(year, month, dayNum);
-      date.setHours(0, 0, 0, 0);
-
-      const dateKey = ymd(date);
-      const isPast = date < today;
-      const info = monthStatus[dateKey];
-
-      const isBlocked = info?.status === "BLOCKED";
-      const isFull = info?.status === "FULL";
-      const isDisabled = isPast || isBlocked || isFull;
-      const hasMeta =
-        isBlocked ||
-        isFull ||
-        (info?.status === "OPEN" && Number(info.count) > 0);
-
-      let className = "cal-cell";
-
-      if (isPast) className += " is-past";
-      if (isBlocked || isFull) className += " is-disabled";
-      if (!isDisabled) className += " is-open";
-      if (hasMeta) className += " has-meta";
-
-      const handleClick = async () => {
-        if (isDisabled) return;
-
-        try {
-          await API.get("/auth/check-auth.php");
-          navigate(`/day?date=${dateKey}&type=${bookingType}`);
-        } catch {
-          navigate(
-            `/login?redirect=${encodeURIComponent(
-              `/day?date=${dateKey}&type=${bookingType}`
-            )}`
-          );
-        }
-      };
-
-      cells.push(
-        <button
-          key={dateKey}
-          type="button"
-          className={className}
-          onClick={handleClick}
-          disabled={isDisabled}
-          aria-label={getCellLabel(date, isPast, info)}
-        >
-          <span className="cal-num">{dayNum}</span>
-
-          <span className="cal-meta">
-            {isBlocked && info?.reason && (
-              <span className="cal-reason">{info.reason}</span>
-            )}
-
-            {isBlocked && <span className="cal-badge">Unavailable</span>}
-
-            {isFull && info?.reason && (
-              <span className="cal-reason">{info.reason}</span>
-            )}
-
-            {isFull && <span className="cal-badge">Fully Booked</span>}
-
-            {info?.status === "OPEN" && Number(info.count) > 0 && (
-              <span
-                className="cal-slots"
-                aria-label={`${info.count} out of ${info.max} booked`}
-              >
-                {info.count}/{info.max} booked
-              </span>
-            )}
-          </span>
-        </button>
-      );
-
-      dayNum += 1;
-    }
-
-    return cells;
-  };
 
   return (
     <>
@@ -404,7 +375,7 @@ export default function Calendar() {
             tabIndex="0"
             aria-label="Loading calendar availability"
           >
-            Loading calendar availability…
+            Loading calendar availability...
           </div>
         )}
 
@@ -431,7 +402,7 @@ export default function Calendar() {
               <div>SAT</div>
             </div>
 
-            <div className="cal-grid">{renderCells()}</div>
+            <div className="cal-grid"><CalendarCells view={view} monthStatus={monthStatus} bookingType={bookingType} navigate={navigate} /></div>
           </div>
         </section>
       </main>

@@ -94,7 +94,6 @@ function buildFormFromWorkshop(w) {
   };
 }
 
-
 const EMPTY_WORKSHOP_FORM = {
   title: "",
   workshop_date: "",
@@ -159,6 +158,36 @@ function workshopEditReducer(state, action) {
   }
 }
 
+const loadInitialState = {
+  status: "idle",
+  error: "",
+};
+
+function loadReducer(state, action) {
+  switch (action.type) {
+    case "loading":
+      return {
+        status: "loading",
+        error: "",
+      };
+
+    case "success":
+      return {
+        status: "ready",
+        error: "",
+      };
+
+    case "error":
+      return {
+        status: "error",
+        error: action.message || "Failed to load workshop.",
+      };
+
+    default:
+      return state;
+  }
+}
+
 function SummaryItem({ icon: Icon, label, children }) {
   return (
     <div>
@@ -185,17 +214,23 @@ export default function AdminWorkshopEdit() {
     dispatchEditState({ type: "set_form", updater });
   }, []);
 
+  const [loadState, dispatchLoadState] = useReducer(
+    loadReducer,
+    loadInitialState
+  );
+
   const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
+  const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [posterFile, setPosterFile] = useState(null);
 
+  const err = formError || loadState.error;
+
   const originalWorkshopRef = useRef(null);
 
   const loadWorkshop = useCallback(async () => {
-    setErr("");
-    setMsg("");
+    dispatchLoadState({ type: "loading" });
 
     try {
       const { data } = await adminApi.get("/admin/admin-workshop-edit.php", {
@@ -203,7 +238,10 @@ export default function AdminWorkshopEdit() {
       });
 
       if (data.error) {
-        setErr(data.error);
+        dispatchLoadState({
+          type: "error",
+          message: data.error,
+        });
         return;
       }
 
@@ -219,9 +257,15 @@ export default function AdminWorkshopEdit() {
       if (w) {
         originalWorkshopRef.current = w;
       }
+
+      dispatchLoadState({ type: "success" });
     } catch (e) {
       const message = e.response?.data?.error || "Failed to load workshop.";
-      setErr(message);
+
+      dispatchLoadState({
+        type: "error",
+        message,
+      });
 
       if (e.response?.status === 404) {
         navigate("/admin/workshops", { replace: true });
@@ -326,7 +370,7 @@ export default function AdminWorkshopEdit() {
   const handlePosterChange = (e) => {
     const file = e.target.files?.[0] || null;
 
-    setErr("");
+    setFormError("");
 
     if (!file) {
       setPosterFile(null);
@@ -336,14 +380,14 @@ export default function AdminWorkshopEdit() {
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
     if (!allowed.includes(file.type)) {
-      setErr("Only JPG, PNG, GIF, or WEBP poster images are allowed.");
+      setFormError("Only JPG, PNG, GIF, or WEBP poster images are allowed.");
       e.target.value = "";
       setPosterFile(null);
       return;
     }
 
     if (file.size > 3 * 1024 * 1024) {
-      setErr("Poster image must be less than 3MB.");
+      setFormError("Poster image must be less than 3MB.");
       e.target.value = "";
       setPosterFile(null);
       return;
@@ -363,7 +407,7 @@ export default function AdminWorkshopEdit() {
 
     if (changedFields.length === 0) {
       setMsg("");
-      setErr("No changes detected.");
+      setFormError("No changes detected.");
       return;
     }
 
@@ -381,7 +425,7 @@ export default function AdminWorkshopEdit() {
     }
 
     setMsg("");
-    setErr("");
+    setFormError("");
     setSaving(true);
 
     try {
@@ -415,7 +459,7 @@ export default function AdminWorkshopEdit() {
       });
 
       if (data.error) {
-        setErr(data.error);
+        setFormError(data.error);
       } else {
         setMsg(data.message || "Workshop updated.");
 
@@ -432,7 +476,7 @@ export default function AdminWorkshopEdit() {
         setPosterFile(null);
       }
     } catch (e) {
-      setErr(e.response?.data?.error || "Failed to update workshop.");
+      setFormError(e.response?.data?.error || "Failed to update workshop.");
     } finally {
       setSaving(false);
     }
@@ -449,7 +493,7 @@ export default function AdminWorkshopEdit() {
     if (!window.confirm(confirmMessage)) return;
 
     setMsg("");
-    setErr("");
+    setFormError("");
     setDeleting(true);
 
     try {
@@ -466,14 +510,14 @@ export default function AdminWorkshopEdit() {
       });
 
       if (data.error) {
-        setErr(data.error);
+        setFormError(data.error);
       } else {
         navigate("/admin/workshops", {
           state: { msg: data.message || "Workshop deleted." },
         });
       }
     } catch (e) {
-      setErr(e.response?.data?.error || "Failed to delete workshop.");
+      setFormError(e.response?.data?.error || "Failed to delete workshop.");
     } finally {
       setDeleting(false);
     }
@@ -567,15 +611,24 @@ export default function AdminWorkshopEdit() {
                 <ExternalLink size={14} aria-hidden="true" />
                 View
               </Link>
-              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/register`}>
+              <Link
+                className="awe-mini-link"
+                to={`/public-workshops/${Number(id)}/register`}
+              >
                 <ExternalLink size={14} aria-hidden="true" />
                 Register Page
               </Link>
-              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/standard`}>
+              <Link
+                className="awe-mini-link"
+                to={`/public-workshops/${Number(id)}/standard`}
+              >
                 <ExternalLink size={14} aria-hidden="true" />
                 Standard
               </Link>
-              <Link className="awe-mini-link" to={`/public-workshops/${Number(id)}/premium`}>
+              <Link
+                className="awe-mini-link"
+                to={`/public-workshops/${Number(id)}/premium`}
+              >
                 <ExternalLink size={14} aria-hidden="true" />
                 Premium
               </Link>
@@ -585,7 +638,8 @@ export default function AdminWorkshopEdit() {
 
         {hasUnsavedChanges() ? (
           <div className="awe-warning-box" role="status" aria-live="polite">
-            You have unsaved changes. Click Save Changes and confirm before they are applied.
+            You have unsaved changes. Click Save Changes and confirm before they
+            are applied.
           </div>
         ) : null}
 
@@ -755,7 +809,8 @@ export default function AdminWorkshopEdit() {
             </div>
 
             <p className="awe-help-text">
-              These are the amounts customers pay when they choose the Standard or Premium workshop package.
+              These are the amounts customers pay when they choose the Standard
+              or Premium workshop package.
             </p>
           </section>
 
@@ -767,7 +822,8 @@ export default function AdminWorkshopEdit() {
 
             <div className="awe-field">
               <label className="awe-label" htmlFor="awe-description">
-                Description <span className="awe-label-muted">(public workshop view)</span>
+                Description{" "}
+                <span className="awe-label-muted">(public workshop view)</span>
               </label>
               <textarea
                 id="awe-description"
@@ -827,7 +883,8 @@ export default function AdminWorkshopEdit() {
 
             <div className="awe-field">
               <label className="awe-label" htmlFor="awe-poster">
-                Replace Poster <span className="awe-label-muted">(optional)</span>
+                Replace Poster{" "}
+                <span className="awe-label-muted">(optional)</span>
               </label>
               <div className="awe-file-control">
                 <Upload size={16} aria-hidden="true" />
@@ -860,8 +917,8 @@ export default function AdminWorkshopEdit() {
 
         {regCount > 0 ? (
           <div className="admin-notice-react bad">
-            This workshop has {Number(regCount)} registration(s). Deleting is disabled.
-            Set it to Hidden instead.
+            This workshop has {Number(regCount)} registration(s). Deleting is
+            disabled. Set it to Hidden instead.
           </div>
         ) : null}
 
