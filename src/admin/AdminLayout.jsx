@@ -10,6 +10,7 @@ import {
   LogOut,
   FilePenLine,
   MessageSquare,
+  HandCoins,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import "@/assets/css/admin-panel.css";
@@ -24,6 +25,7 @@ const navItems = [
   { to: "/admin/contacts", label: "Contacts", icon: Users },
   { to: "/admin/concerns", label: "Concerns", icon: MessageSquare },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/refunds", label: "Refunds", icon: HandCoins },
 ];
 
 export default function AdminLayout({ title, children }) {
@@ -32,6 +34,7 @@ export default function AdminLayout({ title, children }) {
 
   const handleLogout = async () => {
     await logout();
+
     navigate("/login", {
       replace: true,
       state: { message: "You have been logged out." },

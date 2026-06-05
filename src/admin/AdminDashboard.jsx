@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock,
+  HandCoins,
   Package,
   PartyPopper,
   PhilippinePeso,
@@ -19,6 +20,10 @@ import "@/assets/css/admin-dashboard.css";
 /**
  * AdminDashboard.jsx
  */
+
+const EMPTY_LABELS = [];
+const EMPTY_RAW_LABELS = [];
+const EMPTY_VALUES = [];
 
 const fmtMonth = (ym) => {
   const [year, month] = (ym || "").split("-");
@@ -116,7 +121,7 @@ function EmptyChart({ message }) {
   );
 }
 
-function hasAnyNumber(values = []) {
+function hasAnyNumber(values = EMPTY_VALUES) {
   return values.some((value) => Number(value || 0) > 0);
 }
 
@@ -153,10 +158,18 @@ function ChartBox({
   );
 }
 
-function ActionSummary({ loading, pendingBookings, pendingPayments, cancellations }) {
-  const total = Number(pendingBookings || 0) +
+function ActionSummary({
+  loading,
+  pendingBookings,
+  pendingPayments,
+  cancellations,
+  pendingRefunds,
+}) {
+  const total =
+    Number(pendingBookings || 0) +
     Number(pendingPayments || 0) +
-    Number(cancellations || 0);
+    Number(cancellations || 0) +
+    Number(pendingRefunds || 0);
 
   if (loading) {
     return (
@@ -175,7 +188,10 @@ function ActionSummary({ loading, pendingBookings, pendingPayments, cancellation
         </div>
         <div>
           <strong>No urgent admin action right now.</strong>
-          <span>Pending bookings, payment reviews, and cancellation requests are clear.</span>
+          <span>
+            Pending bookings, payment reviews, cancellation requests, and refund
+            requests are clear.
+          </span>
         </div>
       </div>
     );
@@ -188,21 +204,31 @@ function ActionSummary({ loading, pendingBookings, pendingPayments, cancellation
       </div>
 
       <div className="dash-action-content">
-        <strong>{total} item{total === 1 ? "" : "s"} need admin review</strong>
+        <strong>
+          {total} item{total === 1 ? "" : "s"} need admin review
+        </strong>
         <span>
-          {pendingBookings} booking{pendingBookings === 1 ? "" : "s"}, {pendingPayments} payment{pendingPayments === 1 ? "" : "s"}, and {cancellations} cancellation request{cancellations === 1 ? "" : "s"}.
+          {pendingBookings} booking{pendingBookings === 1 ? "" : "s"},{" "}
+          {pendingPayments} payment{pendingPayments === 1 ? "" : "s"},{" "}
+          {cancellations} cancellation request{cancellations === 1 ? "" : "s"},
+          and {pendingRefunds} refund request{pendingRefunds === 1 ? "" : "s"}.
         </span>
       </div>
 
       <div className="dash-action-links" aria-label="Dashboard action links">
         <Link to="/admin/reservations">Review Bookings</Link>
         <Link to="/admin/payments">Check Payments</Link>
+        <Link to="/admin/refunds">Review Refunds</Link>
       </div>
     </div>
   );
 }
 
-function StatusList({ labels = [], rawLabels = [], values = [] }) {
+function StatusList({
+  labels = EMPTY_LABELS,
+  rawLabels = EMPTY_RAW_LABELS,
+  values = EMPTY_VALUES,
+}) {
   const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
 
   return (
@@ -214,11 +240,12 @@ function StatusList({ labels = [], rawLabels = [], values = [] }) {
         const color = STATUS_COLORS[raw] || COLORS.gray;
 
         return (
-          <div className="dash-status-row" key={`${raw || label}-${index}`}>
+          <div className="dash-status-row" key={raw || label}>
             <div className="dash-status-main">
               <span className="dash-status-dot" style={{ backgroundColor: color }} />
               <span>{label}</span>
             </div>
+
             <div className="dash-status-value">
               <strong>{value}</strong>
               <span>{percent}%</span>
@@ -232,8 +259,10 @@ function StatusList({ labels = [], rawLabels = [], values = [] }) {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState("loading");
   const [error, setError] = useState("");
+
+  const loading = loadStatus === "loading";
 
   const bookingCanvasRef = useRef(null);
   const revenueCanvasRef = useRef(null);
@@ -243,12 +272,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        setLoading(true);
-        setError("");
-
         const { data } = await adminApi.get("/admin/admin-dashboard.php");
 
-        const labels = (data.labels || []).map(fmtMonth);
+        const labels = (data.labels || EMPTY_LABELS).map(fmtMonth);
 
         setStats({
           totalWorkshop: Number(data.totalWorkshop || data.totalPrivateWorkshops || 0),
@@ -265,36 +291,51 @@ export default function AdminDashboard() {
           pendingPaymentBookings: Number(data.pendingPaymentBookings || 0),
           cancellationRequests: Number(data.cancellationRequests || 0),
 
+          pendingRefundRequests: Number(data.pendingRefundRequests || 0),
+          approvedRefundRequests: Number(data.approvedRefundRequests || 0),
+          rejectedRefundRequests: Number(data.rejectedRefundRequests || 0),
+          totalRefundRequests: Number(data.totalRefundRequests || 0),
+          approvedRefundAmount: Number(data.approvedRefundAmount || 0),
+          pendingRefundAmount: Number(data.pendingRefundAmount || 0),
+
           labels,
 
-          workshopCounts: (data.workshopCounts || data.privateWorkshopCounts || []).map(
-            Number
-          ),
+          workshopCounts: (
+            data.workshopCounts ||
+            data.privateWorkshopCounts ||
+            EMPTY_VALUES
+          ).map(Number),
           privateWorkshopCounts: (
             data.privateWorkshopCounts ||
             data.workshopCounts ||
-            []
+            EMPTY_VALUES
           ).map(Number),
-          eventCounts: (data.eventCounts || []).map(Number),
-          publicRegistrationCounts: (data.publicRegistrationCounts || []).map(Number),
-          pendingCounts: (data.pendingCounts || []).map(Number),
+          eventCounts: (data.eventCounts || EMPTY_VALUES).map(Number),
+          publicRegistrationCounts: (
+            data.publicRegistrationCounts || EMPTY_VALUES
+          ).map(Number),
+          pendingCounts: (data.pendingCounts || EMPTY_VALUES).map(Number),
 
-          revenue: (data.revenue || []).map(Number),
-          paymentCounts: (data.paymentCounts || []).map(Number),
+          revenue: (data.revenue || EMPTY_VALUES).map(Number),
+          paymentCounts: (data.paymentCounts || EMPTY_VALUES).map(Number),
 
-          statusLabels: (data.statusLabels || []).map(readableLabel),
-          statusRawLabels: data.statusLabels || [],
-          statusCounts: (data.statusCounts || []).map(Number),
+          statusLabels: (data.statusLabels || EMPTY_LABELS).map(readableLabel),
+          statusRawLabels: data.statusLabels || EMPTY_RAW_LABELS,
+          statusCounts: (data.statusCounts || EMPTY_VALUES).map(Number),
 
-          paymentStatusLabels: (data.paymentStatusLabels || []).map(readableLabel),
-          paymentStatusRawLabels: data.paymentStatusLabels || [],
-          paymentStatusCounts: (data.paymentStatusCounts || []).map(Number),
+          paymentStatusLabels: (data.paymentStatusLabels || EMPTY_LABELS).map(
+            readableLabel
+          ),
+          paymentStatusRawLabels: data.paymentStatusLabels || EMPTY_RAW_LABELS,
+          paymentStatusCounts: (data.paymentStatusCounts || EMPTY_VALUES).map(
+            Number
+          ),
         });
       } catch (err) {
         console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data. Please refresh the page.");
       } finally {
-        setLoading(false);
+        setLoadStatus("loaded");
       }
     };
 
@@ -598,7 +639,8 @@ export default function AdminDashboard() {
   const totalActionRequired =
     Number(stats?.pendingBookings || 0) +
     Number(stats?.pendingPaymentBookings || 0) +
-    Number(stats?.cancellationRequests || 0);
+    Number(stats?.cancellationRequests || 0) +
+    Number(stats?.pendingRefundRequests || 0);
 
   const hasBookingChartData =
     stats &&
@@ -611,7 +653,8 @@ export default function AdminDashboard() {
     stats && (hasAnyNumber(stats.revenue) || hasAnyNumber(stats.paymentCounts));
 
   const hasStatusChartData = stats && hasAnyNumber(stats.statusCounts);
-  const hasPaymentStatusChartData = stats && hasAnyNumber(stats.paymentStatusCounts);
+  const hasPaymentStatusChartData =
+    stats && hasAnyNumber(stats.paymentStatusCounts);
 
   const bestRevenueMonth = useMemo(() => {
     if (!stats || !stats.revenue.length) return "—";
@@ -638,6 +681,7 @@ export default function AdminDashboard() {
         pendingBookings={stats?.pendingBookings ?? 0}
         pendingPayments={stats?.pendingPaymentBookings ?? 0}
         cancellations={stats?.cancellationRequests ?? 0}
+        pendingRefunds={stats?.pendingRefundRequests ?? 0}
       />
 
       <div className="admin-cards-react admin-cards-hero-react">
@@ -679,8 +723,64 @@ export default function AdminDashboard() {
               tag="Action Required"
               label="Needs Review"
               value={totalActionRequired}
-              sub="Pending, unpaid, or cancel requests"
+              sub="Bookings, payments, cancellations, refunds"
               accent={totalActionRequired > 0 ? COLORS.orange : undefined}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="admin-cards-react admin-cards-hero-react">
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={HandCoins}
+              tag="Refunds"
+              label="Pending Refunds"
+              value={stats?.pendingRefundRequests ?? 0}
+              sub={`Pending amount: ₱${money(stats?.pendingRefundAmount ?? 0)}`}
+              accent={
+                Number(stats?.pendingRefundRequests || 0) > 0
+                  ? COLORS.orange
+                  : undefined
+              }
+            />
+
+            <StatCard
+              icon={CheckCircle2}
+              tag="Approved Refunds"
+              label="Approved"
+              value={stats?.approvedRefundRequests ?? 0}
+              sub={`Approved amount: ₱${money(stats?.approvedRefundAmount ?? 0)}`}
+              accent={COLORS.green}
+            />
+
+            <StatCard
+              icon={AlertCircle}
+              tag="Rejected Refunds"
+              label="Rejected"
+              value={stats?.rejectedRefundRequests ?? 0}
+              sub="Rejected refund requests"
+              accent={
+                Number(stats?.rejectedRefundRequests || 0) > 0
+                  ? COLORS.red
+                  : undefined
+              }
+            />
+
+            <StatCard
+              icon={HandCoins}
+              tag="Total Refunds"
+              label="All Requests"
+              value={stats?.totalRefundRequests ?? 0}
+              sub="All refund request records"
             />
           </>
         )}
@@ -704,7 +804,10 @@ export default function AdminDashboard() {
           hasData={hasRevenueChartData}
           emptyMessage="No paid payment data for the past 12 months yet."
         >
-          <canvas ref={revenueCanvasRef} aria-label="Revenue and paid payments chart" />
+          <canvas
+            ref={revenueCanvasRef}
+            aria-label="Revenue and paid payments chart"
+          />
         </ChartBox>
       </div>
 
@@ -717,7 +820,10 @@ export default function AdminDashboard() {
           hasData={hasStatusChartData}
           emptyMessage="No booking status data available yet."
         >
-          <canvas ref={statusCanvasRef} aria-label="Booking status distribution chart" />
+          <canvas
+            ref={statusCanvasRef}
+            aria-label="Booking status distribution chart"
+          />
           <StatusList
             labels={stats?.statusLabels}
             rawLabels={stats?.statusRawLabels}
@@ -733,7 +839,10 @@ export default function AdminDashboard() {
           hasData={hasPaymentStatusChartData}
           emptyMessage="No payment status data available yet."
         >
-          <canvas ref={paymentCanvasRef} aria-label="Payment status distribution chart" />
+          <canvas
+            ref={paymentCanvasRef}
+            aria-label="Payment status distribution chart"
+          />
           <StatusList
             labels={stats?.paymentStatusLabels}
             rawLabels={stats?.paymentStatusRawLabels}
@@ -792,6 +901,38 @@ export default function AdminDashboard() {
         </div>
 
         <div className="admin-panel-react dash-info-panel">
+          <h3>Refund Snapshot</h3>
+
+          <div className="admin-stat-list-react">
+            <div className="admin-stat-item-react">
+              <span>Pending refund requests</span>
+              <strong
+                style={{
+                  color:
+                    Number(stats?.pendingRefundRequests || 0) > 0
+                      ? COLORS.orange
+                      : "inherit",
+                }}
+              >
+                {stats?.pendingRefundRequests ?? "—"}
+              </strong>
+            </div>
+
+            <div className="admin-stat-item-react">
+              <span>Pending refund amount</span>
+              <strong>₱{money(stats?.pendingRefundAmount ?? 0)}</strong>
+            </div>
+
+            <div className="admin-stat-item-react">
+              <span>Approved refund amount</span>
+              <strong>₱{money(stats?.approvedRefundAmount ?? 0)}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-grid-3-react dash-insight-grid">
+        <div className="admin-panel-react dash-info-panel">
           <h3>Admin Shortcuts</h3>
 
           <div className="dash-shortcut-list">
@@ -799,15 +940,53 @@ export default function AdminDashboard() {
               <CalendarCheck size={16} aria-hidden="true" />
               Reservations
             </Link>
+
             <Link to="/admin/payments">
               <PhilippinePeso size={16} aria-hidden="true" />
               Payments
             </Link>
+
+            <Link to="/admin/refunds">
+              <HandCoins size={16} aria-hidden="true" />
+              Refunds
+            </Link>
+
             <Link to="/admin/forms">
               <RefreshCw size={16} aria-hidden="true" />
               Pricing Forms
             </Link>
           </div>
+        </div>
+
+        <div className="admin-panel-react dash-info-panel">
+          <h3>Admin Workload</h3>
+
+          <div className="admin-stat-list-react">
+            <div className="admin-stat-item-react">
+              <span>Total action required</span>
+              <strong
+                style={{
+                  color: totalActionRequired > 0 ? COLORS.orange : COLORS.green,
+                }}
+              >
+                {totalActionRequired}
+              </strong>
+            </div>
+
+            <div className="admin-stat-item-react">
+              <span>Pending payment reviews</span>
+              <strong>{stats?.pendingPaymentBookings ?? "—"}</strong>
+            </div>
+
+            <div className="admin-stat-item-react">
+              <span>Pending refund reviews</span>
+              <strong>{stats?.pendingRefundRequests ?? "—"}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="admin-panel-react dash-info-panel">
+          <h3>System Status</h3>
 
           <div className="admin-stat-list-react dash-system-list">
             <div className="admin-stat-item-react">

@@ -12,6 +12,7 @@ import Day from "./pages/Day";
 import Reminder from "./pages/Reminder";
 import AddEventBooking from "./pages/AddEventBooking";
 import UserProfile from "./pages/UserProfile";
+import MyBooking from "./pages/MyBooking";
 import MyConcerns from "./pages/MyConcerns";
 import ReportConcerns from "./pages/ReportConcerns";
 import PrivateWorkshop from "./pages/PrivateWorkshop";
@@ -29,7 +30,6 @@ import VerificationInvalid from "./pages/VerificationInvalid";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPasswordOtp from "./pages/ResetPasswordOtp";
 
-
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminCalendar from "./admin/AdminCalendar";
 import AdminContacts from "./admin/AdminContacts";
@@ -40,6 +40,7 @@ import AdminWorkshopEdit from "./admin/AdminWorkshopEdit";
 import AdminWorkshops from "./admin/AdminWorkshops";
 import AdminForms from "./admin/AdminForms";
 import AdminConcern from "./admin/AdminConcerns";
+import AdminRefundRequests from "./admin/AdminRefundRequests";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
@@ -47,9 +48,6 @@ import AdminRoute from "./components/AdminRoute";
 function App() {
   return (
     <>
-      {/* Global Voice & Theme Widget
-        This stays on the screen across all pages
-      */}
       <VoiceControl />
 
       <Routes>
@@ -63,57 +61,103 @@ function App() {
         <Route path="/private-workshop" element={<PrivateWorkshop />} />
         <Route path="/public-workshops" element={<WorkshopSignup />} />
         <Route path="/public-workshops/:id" element={<WorkshopView />} />
-        <Route path="/public-workshops/:id/register" element={<WorkshopRegister />} />
-        <Route path="/public-workshops/:id/standard" element={<PublicWorkshopStandard />} />
-        <Route path="/public-workshops/:id/premium" element={<PublicWorkshopPremium />} />
-        <Route path="/registration" element={<PublicWorkshopRegistration />} />
+
+        <Route
+          path="/public-workshops/:id/register"
+          element={<WorkshopRegister />}
+        />
+
+        <Route
+          path="/public-workshops/:id/standard"
+          element={<PublicWorkshopStandard />}
+        />
+
+        <Route
+          path="/public-workshops/:id/premium"
+          element={<PublicWorkshopPremium />}
+        />
+
+        <Route
+          path="/registration"
+          element={<PublicWorkshopRegistration />}
+        />
 
         {/* Auth routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/sign-up" element={<SignUp />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/verification-success" element={<VerificationSuccess />} />
-        <Route path="/verification-invalid" element={<VerificationInvalid />} />
+
+        <Route
+          path="/verification-success"
+          element={<VerificationSuccess />}
+        />
+
+        <Route
+          path="/verification-invalid"
+          element={<VerificationInvalid />}
+        />
+
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPasswordOtp />} />
 
         {/* Protected user routes */}
-        <Route path="/add-booking" element={
+        <Route
+          path="/add-booking"
+          element={
             <ProtectedRoute>
               <AddEventBooking />
             </ProtectedRoute>
           }
         />
 
-        <Route path="/profile" element={
+        <Route
+          path="/profile"
+          element={
             <ProtectedRoute>
               <UserProfile />
             </ProtectedRoute>
           }
         />
 
-        <Route path="/my-concerns" element={
+        <Route
+          path="/my-booking"
+          element={
+            <ProtectedRoute>
+              <MyBooking />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/my-concerns"
+          element={
             <ProtectedRoute>
               <MyConcerns />
             </ProtectedRoute>
           }
         />
 
-        <Route path="/report-concerns" element={
+        <Route
+          path="/report-concerns"
+          element={
             <ProtectedRoute>
               <ReportConcerns />
             </ProtectedRoute>
           }
         />
 
-        <Route path="/add-workshop-booking" element={
+        <Route
+          path="/add-workshop-booking"
+          element={
             <ProtectedRoute>
               <AddWorkshopBooking />
             </ProtectedRoute>
           }
         />
 
-        <Route path="/gcash-payment" element={
+        <Route
+          path="/gcash-payment"
+          element={
             <ProtectedRoute>
               <GcashPayment />
             </ProtectedRoute>
@@ -121,70 +165,99 @@ function App() {
         />
 
         {/* Admin routes */}
-        <Route path="/admin/dashboard" element={
+        <Route
+          path="/admin/dashboard"
+          element={
             <AdminRoute>
               <AdminDashboard />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/calendar" element={
+        <Route
+          path="/admin/calendar"
+          element={
             <AdminRoute>
               <AdminCalendar />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/contacts" element={
+        <Route
+          path="/admin/contacts"
+          element={
             <AdminRoute>
               <AdminContacts />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/payments" element={
+        <Route
+          path="/admin/payments"
+          element={
             <AdminRoute>
               <AdminPayments />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/reports" element={
+        <Route
+          path="/admin/refunds"
+          element={
+            <AdminRoute>
+              <AdminRefundRequests />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/reports"
+          element={
             <AdminRoute>
               <AdminReports />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/reservations" element={
+        <Route
+          path="/admin/reservations"
+          element={
             <AdminRoute>
               <AdminReservations />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/workshops/edit/:id" element={
+        <Route
+          path="/admin/workshops/edit/:id"
+          element={
             <AdminRoute>
               <AdminWorkshopEdit />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/workshops" element={
+        <Route
+          path="/admin/workshops"
+          element={
             <AdminRoute>
               <AdminWorkshops />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/forms" element={
+        <Route
+          path="/admin/forms"
+          element={
             <AdminRoute>
               <AdminForms />
             </AdminRoute>
           }
         />
 
-        <Route path="/admin/concerns" element={
+        <Route
+          path="/admin/concerns"
+          element={
             <AdminRoute>
               <AdminConcern />
             </AdminRoute>

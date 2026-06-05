@@ -182,6 +182,309 @@ const TABS = [
   { key: "custom", label: "Custom" },
 ];
 
+function PaymentSummaryCompact({ booking }) {
+  const bookingStatus = String(booking.status || "pending").toUpperCase();
+  const paymentStatus = String(booking.payment_status || "unpaid").toUpperCase();
+
+  const total = Number(booking.total_amount || 0);
+  const amountPaid = Number(booking.amount_paid || 0);
+  const balance = Number(booking.balance ?? Math.max(total - amountPaid, 0));
+
+  const downpaymentPercentage = Number(booking.downpayment_percentage || 50);
+  const downpaymentAmount = Number(
+    booking.downpayment_amount || total * (downpaymentPercentage / 100)
+  );
+
+  return (
+    <div className="compact-stat-list">
+      <div className="compact-stat">
+        <span>Booking Status</span>
+        <strong className={`p-badge-react ${bookingStatusClass(booking.status)}`}>
+          {bookingStatus}
+        </strong>
+      </div>
+
+      <div className="compact-stat">
+        <span>Payment Status</span>
+        <strong className={`p-badge-react ${paymentBadgeClass(booking.payment_status)}`}>
+          {paymentStatus}
+        </strong>
+      </div>
+
+      <div className="compact-stat">
+        <span>Total Amount</span>
+        <strong>₱{money(total)}</strong>
+      </div>
+
+      <div className="compact-stat">
+        <span>Amount Paid</span>
+        <strong>₱{money(amountPaid)}</strong>
+      </div>
+
+      <div className="compact-stat">
+        <span>Balance</span>
+        <strong>₱{money(balance)}</strong>
+      </div>
+
+      <div className="compact-stat">
+        <span>Required Downpayment ({downpaymentPercentage}%)</span>
+        <strong>₱{money(downpaymentAmount)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function CancellationBox({ booking }) {
+  if (!isCancellationRequested(booking)) {
+    return (
+      <div className="reservation-empty-note">
+        No cancellation request from customer.
+      </div>
+    );
+  }
+
+  return (
+    <div className="reservation-cancel-card">
+      <div className="reservation-cancel-title">
+        Customer Requested Cancellation
+      </div>
+
+      <div className="reservation-cancel-reason">
+        {booking.cancel_reason || "No reason provided."}
+      </div>
+
+      {booking.cancel_requested_at && (
+        <div className="reservation-cancel-time">
+          Requested at: {booking.cancel_requested_at}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BookingDetailsCompact({ booking }) {
+  const notes = booking.notes_decoded || {};
+  const type = String(booking.booking_type || "").toLowerCase();
+
+  if (type === "event_booking" || type === "event") {
+    return (
+      <div className="compact-stat-list">
+        <div className="compact-stat">
+          <span>Event Type</span>
+          <strong>{getNotesValue(notes, ["event_type"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Event Name</span>
+          <strong>{getNotesValue(notes, ["event_name"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Location</span>
+          <strong>{getNotesValue(notes, ["event_location", "location"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Cup Package</span>
+          <strong>{getNotesValue(notes, ["cup_quantity"])} cups</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Price Per Cup</span>
+          <strong>₱{money(getNotesValue(notes, ["price_per_cup"], 0))}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Menu Package</span>
+          <strong>
+            {getNotesValue(notes, [
+              "menu_package_label",
+              "menu_package",
+              "menu_package_code",
+            ])}
+          </strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Menu Add-on</span>
+          <strong>₱{money(getNotesValue(notes, ["menu_addon"], 0))}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Additional Drinks</span>
+          <strong>
+            {getNotesValue(notes, ["selected_drinks", "selected_drink_ids"])}
+          </strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Hojicha Option</span>
+          <strong>{getNotesValue(notes, ["hojicha_options"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Other Request</span>
+          <strong>{getNotesValue(notes, ["other_request", "special_notes"])}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "private_workshop" || type === "workshop") {
+    return (
+      <div className="compact-stat-list">
+        <div className="compact-stat">
+          <span>Workshop Location</span>
+          <strong>{getNotesValue(notes, ["workshop_location", "location"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Total Attendees</span>
+          <strong>{getNotesValue(notes, ["total_attendees"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Standard Attendees</span>
+          <strong>{getNotesValue(notes, ["standard_attendees"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Premium Attendees</span>
+          <strong>{getNotesValue(notes, ["premium_attendees"])}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Standard Price</span>
+          <strong>₱{money(getNotesValue(notes, ["standard_price"], 0))}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Premium Price</span>
+          <strong>₱{money(getNotesValue(notes, ["premium_price"], 0))}</strong>
+        </div>
+
+        <div className="compact-stat">
+          <span>Other Request</span>
+          <strong>{getNotesValue(notes, ["other_request", "special_notes"])}</strong>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="compact-stat-list">
+      {Object.entries(notes).length === 0 ? (
+        <div className="reservation-empty-note">
+          No booking details available.
+        </div>
+      ) : (
+        Object.entries(notes).map(([key, value]) => (
+          <div className="compact-stat" key={key}>
+            <span>{key.replace(/_/g, " ")}</span>
+            <strong>{String(value || "—")}</strong>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function CancelRequestStatus({ booking }) {
+  if (!isCancellationRequested(booking)) {
+    return <span className="reservation-cancel-none">None</span>;
+  }
+
+  return <span className="reservation-cancel-pill">Requested</span>;
+}
+
+function ReservationActionButton({
+  variant,
+  label,
+  savingLabel,
+  statusValue,
+  disabled,
+  booking,
+  onStatus,
+}) {
+  return (
+    <button
+      className={`reservation-action-btn reservation-action-btn--${variant}`}
+      type="button"
+      onClick={() => onStatus(booking, statusValue)}
+      disabled={disabled}
+    >
+      {disabled && savingLabel ? savingLabel : label}
+    </button>
+  );
+}
+
+function ReservationExpandButton({ expand }) {
+  return (
+    <button
+      type="button"
+      onClick={expand.onToggle}
+      className={`btn-expand-chevron ${expand.open ? "is-open" : ""}`}
+      title="View booking details"
+      aria-label={expand.open ? "Hide booking details" : "View booking details"}
+    >
+      ▲
+    </button>
+  );
+}
+
+function ReservationActions({ booking, status, actions, expand, onStatus }) {
+  return (
+    <div className="reservation-actions">
+      {status === "pending" && actions.approve && (
+        <ReservationActionButton
+          variant="approve"
+          label="Approve"
+          savingLabel="Saving"
+          statusValue="approved"
+          disabled={actions.saving}
+          booking={booking}
+          onStatus={onStatus}
+        />
+      )}
+
+      {actions.cancel && (
+        <ReservationActionButton
+          variant="cancel"
+          label="Cancel"
+          statusValue="cancelled"
+          disabled={actions.saving}
+          booking={booking}
+          onStatus={onStatus}
+        />
+      )}
+
+      {actions.reject && (
+        <ReservationActionButton
+          variant="reject"
+          label="Reject"
+          statusValue="rejected"
+          disabled={actions.saving}
+          booking={booking}
+          onStatus={onStatus}
+        />
+      )}
+
+      {actions.complete && (
+        <ReservationActionButton
+          variant="complete"
+          label="Complete"
+          statusValue="completed"
+          disabled={actions.saving}
+          booking={booking}
+          onStatus={onStatus}
+        />
+      )}
+
+      <ReservationExpandButton expand={expand} />
+    </div>
+  );
+}
+
 export default function AdminReservations() {
   const [csrf, setCsrf] = useState("");
   const [bookings, setBookings] = useState([]);
@@ -189,13 +492,11 @@ export default function AdminReservations() {
   const [expandedId, setExpandedId] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState("loading");
+  const loading = loadStatus === "loading";
   const [savingId, setSavingId] = useState(null);
 
-  const loadData = async () => {
-    setLoading(true);
-    setErr("");
-
+  const fetchReservations = async () => {
     try {
       const { data } = await adminApi.get("/admin/admin-reservations.php");
 
@@ -204,12 +505,18 @@ export default function AdminReservations() {
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to load reservations.");
     } finally {
-      setLoading(false);
+      setLoadStatus("loaded");
     }
   };
 
+  const loadData = async () => {
+    setErr("");
+    setLoadStatus("loading");
+    await fetchReservations();
+  };
+
   useEffect(() => {
-    loadData();
+    fetchReservations();
   }, []);
 
   const filteredBookings = useMemo(() => {
@@ -294,290 +601,6 @@ export default function AdminReservations() {
     }
   };
 
-  const renderPaymentSummaryCompact = (booking) => {
-    const bookingStatus = String(booking.status || "pending").toUpperCase();
-    const paymentStatus = String(booking.payment_status || "unpaid").toUpperCase();
-
-    const total = Number(booking.total_amount || 0);
-    const amountPaid = Number(booking.amount_paid || 0);
-    const balance = Number(booking.balance ?? Math.max(total - amountPaid, 0));
-
-    const downpaymentPercentage = Number(booking.downpayment_percentage || 50);
-    const downpaymentAmount = Number(
-      booking.downpayment_amount || total * (downpaymentPercentage / 100)
-    );
-
-    return (
-      <div className="compact-stat-list">
-        <div className="compact-stat">
-          <span>Booking Status</span>
-          <strong className={`p-badge-react ${bookingStatusClass(booking.status)}`}>
-            {bookingStatus}
-          </strong>
-        </div>
-
-        <div className="compact-stat">
-          <span>Payment Status</span>
-          <strong className={`p-badge-react ${paymentBadgeClass(booking.payment_status)}`}>
-            {paymentStatus}
-          </strong>
-        </div>
-
-        <div className="compact-stat">
-          <span>Total Amount</span>
-          <strong>₱{money(total)}</strong>
-        </div>
-
-        <div className="compact-stat">
-          <span>Amount Paid</span>
-          <strong>₱{money(amountPaid)}</strong>
-        </div>
-
-        <div className="compact-stat">
-          <span>Balance</span>
-          <strong>₱{money(balance)}</strong>
-        </div>
-
-        <div className="compact-stat">
-          <span>Required Downpayment ({downpaymentPercentage}%)</span>
-          <strong>₱{money(downpaymentAmount)}</strong>
-        </div>
-      </div>
-    );
-  };
-
-  const renderCancellationBox = (booking) => {
-    if (!isCancellationRequested(booking)) {
-      return (
-        <div className="reservation-empty-note">
-          No cancellation request from customer.
-        </div>
-      );
-    }
-
-    return (
-      <div className="reservation-cancel-card">
-        <div className="reservation-cancel-title">
-          Customer Requested Cancellation
-        </div>
-
-        <div className="reservation-cancel-reason">
-          {booking.cancel_reason || "No reason provided."}
-        </div>
-
-        {booking.cancel_requested_at && (
-          <div className="reservation-cancel-time">
-            Requested at: {booking.cancel_requested_at}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderBookingDetailsCompact = (booking) => {
-    const notes = booking.notes_decoded || {};
-    const type = String(booking.booking_type || "").toLowerCase();
-
-    if (type === "event_booking" || type === "event") {
-      return (
-        <div className="compact-stat-list">
-          <div className="compact-stat">
-            <span>Event Type</span>
-            <strong>{getNotesValue(notes, ["event_type"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Event Name</span>
-            <strong>{getNotesValue(notes, ["event_name"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Location</span>
-            <strong>{getNotesValue(notes, ["event_location", "location"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Cup Package</span>
-            <strong>{getNotesValue(notes, ["cup_quantity"])} cups</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Price Per Cup</span>
-            <strong>₱{money(getNotesValue(notes, ["price_per_cup"], 0))}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Menu Package</span>
-            <strong>
-              {getNotesValue(notes, [
-                "menu_package_label",
-                "menu_package",
-                "menu_package_code",
-              ])}
-            </strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Menu Add-on</span>
-            <strong>₱{money(getNotesValue(notes, ["menu_addon"], 0))}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Additional Drinks</span>
-            <strong>
-              {getNotesValue(notes, ["selected_drinks", "selected_drink_ids"])}
-            </strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Hojicha Option</span>
-            <strong>{getNotesValue(notes, ["hojicha_options"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Other Request</span>
-            <strong>{getNotesValue(notes, ["other_request", "special_notes"])}</strong>
-          </div>
-        </div>
-      );
-    }
-
-    if (type === "private_workshop" || type === "workshop") {
-      return (
-        <div className="compact-stat-list">
-          <div className="compact-stat">
-            <span>Workshop Location</span>
-            <strong>{getNotesValue(notes, ["workshop_location", "location"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Total Attendees</span>
-            <strong>{getNotesValue(notes, ["total_attendees"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Standard Attendees</span>
-            <strong>{getNotesValue(notes, ["standard_attendees"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Premium Attendees</span>
-            <strong>{getNotesValue(notes, ["premium_attendees"])}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Standard Price</span>
-            <strong>₱{money(getNotesValue(notes, ["standard_price"], 0))}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Premium Price</span>
-            <strong>₱{money(getNotesValue(notes, ["premium_price"], 0))}</strong>
-          </div>
-
-          <div className="compact-stat">
-            <span>Other Request</span>
-            <strong>{getNotesValue(notes, ["other_request", "special_notes"])}</strong>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="compact-stat-list">
-        {Object.entries(notes).length === 0 ? (
-          <div className="reservation-empty-note">
-            No booking details available.
-          </div>
-        ) : (
-          Object.entries(notes).map(([key, value]) => (
-            <div className="compact-stat" key={key}>
-              <span>{key.replace(/_/g, " ")}</span>
-              <strong>{String(value || "—")}</strong>
-            </div>
-          ))
-        )}
-      </div>
-    );
-  };
-
-  const renderCancelRequestStatus = (booking) => {
-    if (!isCancellationRequested(booking)) {
-      return <span className="reservation-cancel-none">None</span>;
-    }
-
-    return <span className="reservation-cancel-pill">Requested</span>;
-  };
-
-  const renderReservationActions = ({
-    booking,
-    status,
-    canApprove,
-    canCancel,
-    canReject,
-    canComplete,
-    isSaving,
-    isExpanded,
-  }) => {
-    return (
-      <div className="reservation-actions">
-        {status === "pending" && canApprove && (
-          <button
-            className="reservation-action-btn reservation-action-btn--approve"
-            type="button"
-            onClick={() => handleStatus(booking, "approved")}
-            disabled={isSaving}
-          >
-            {isSaving ? "Saving" : "Approve"}
-          </button>
-        )}
-
-        {canCancel && (
-          <button
-            className="reservation-action-btn reservation-action-btn--cancel"
-            type="button"
-            onClick={() => handleStatus(booking, "cancelled")}
-            disabled={isSaving}
-          >
-            Cancel
-          </button>
-        )}
-
-        {canReject && (
-          <button
-            className="reservation-action-btn reservation-action-btn--reject"
-            type="button"
-            onClick={() => handleStatus(booking, "rejected")}
-            disabled={isSaving}
-          >
-            Reject
-          </button>
-        )}
-
-        {canComplete && (
-          <button
-            className="reservation-action-btn reservation-action-btn--complete"
-            type="button"
-            onClick={() => handleStatus(booking, "completed")}
-            disabled={isSaving}
-          >
-            Complete
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setExpandedId(isExpanded ? null : booking.id)}
-          className={`btn-expand-chevron ${isExpanded ? "is-open" : ""}`}
-          title="View booking details"
-          aria-label={isExpanded ? "Hide booking details" : "View booking details"}
-        >
-          ▲
-        </button>
-      </div>
-    );
-  };
-
   return (
     <AdminLayout title="Reservations">
       {msg && <div className="admin-notice-react ok">{msg}</div>}
@@ -651,20 +674,35 @@ export default function AdminReservations() {
                 {filteredBookings.map((p) => {
                   const time = formatTime(p.start_time, p.end_time);
                   const isExpanded = expandedId === p.id;
-                  const paymentStatus = String(p.payment_status || "unpaid").toLowerCase();
+                  const paymentStatus = String(
+                    p.payment_status || "unpaid"
+                  ).toLowerCase();
                   const status = String(p.status || "pending").toLowerCase();
 
-                  const canApprove = canApproveBooking(paymentStatus) && status === "pending";
-                  const canCancel = canCancelBooking(p);
-                  const canComplete = canCompleteBooking(p);
-                  const canReject = canRejectBooking(p);
+                  const actions = {
+                    approve: canApproveBooking(paymentStatus) && status === "pending",
+                    cancel: canCancelBooking(p),
+                    reject: canRejectBooking(p),
+                    complete: canCompleteBooking(p),
+                    saving: savingId === p.id,
+                  };
 
-                  const isSaving = savingId === p.id;
+                  const expand = {
+                    open: isExpanded,
+                    onToggle: () => setExpandedId(isExpanded ? null : p.id),
+                  };
+
                   const theme = getAvatarTheme(p.user_name || "Guest");
 
                   return (
                     <Fragment key={p.id}>
-                      <tr className={isExpanded ? "reservation-row is-expanded" : "reservation-row"}>
+                      <tr
+                        className={
+                          isExpanded
+                            ? "reservation-row is-expanded"
+                            : "reservation-row"
+                        }
+                      >
                         <td data-label="ID & Type">
                           <div className="reservation-id">#{Number(p.id)}</div>
                           <div className="reservation-type">
@@ -708,32 +746,37 @@ export default function AdminReservations() {
                         </td>
 
                         <td data-label="Status">
-                          <span className={`p-badge-react ${bookingStatusClass(status)}`}>
+                          <span
+                            className={`p-badge-react ${bookingStatusClass(
+                              status
+                            )}`}
+                          >
                             {status.toUpperCase()}
                           </span>
                         </td>
 
                         <td data-label="Payment">
-                          <span className={`p-badge-react ${paymentBadgeClass(paymentStatus)}`}>
+                          <span
+                            className={`p-badge-react ${paymentBadgeClass(
+                              paymentStatus
+                            )}`}
+                          >
                             {paymentStatus.toUpperCase()}
                           </span>
                         </td>
 
                         <td data-label="Cancel Request">
-                          {renderCancelRequestStatus(p)}
+                          <CancelRequestStatus booking={p} />
                         </td>
 
                         <td data-label="Actions">
-                          {renderReservationActions({
-                            booking: p,
-                            status,
-                            canApprove,
-                            canCancel,
-                            canReject,
-                            canComplete,
-                            isSaving,
-                            isExpanded,
-                          })}
+                          <ReservationActions
+                            booking={p}
+                            status={status}
+                            actions={actions}
+                            expand={expand}
+                            onStatus={handleStatus}
+                          />
                         </td>
                       </tr>
 
@@ -743,18 +786,24 @@ export default function AdminReservations() {
                             <div className="expanded-detail-panel">
                               <div className="expanded-grid-3">
                                 <div className="detail-section">
-                                  <h4 className="detail-heading">Overview & Payment</h4>
-                                  {renderPaymentSummaryCompact(p)}
+                                  <h4 className="detail-heading">
+                                    Overview & Payment
+                                  </h4>
+                                  <PaymentSummaryCompact booking={p} />
                                 </div>
 
                                 <div className="detail-section detail-section-cancel">
-                                  <h4 className="detail-heading">Cancellation Request</h4>
-                                  {renderCancellationBox(p)}
+                                  <h4 className="detail-heading">
+                                    Cancellation Request
+                                  </h4>
+                                  <CancellationBox booking={p} />
                                 </div>
 
                                 <div className="detail-section">
-                                  <h4 className="detail-heading">Booking Details</h4>
-                                  {renderBookingDetailsCompact(p)}
+                                  <h4 className="detail-heading">
+                                    Booking Details
+                                  </h4>
+                                  <BookingDetailsCompact booking={p} />
                                 </div>
                               </div>
                             </div>

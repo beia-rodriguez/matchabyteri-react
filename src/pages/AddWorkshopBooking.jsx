@@ -81,8 +81,6 @@ function packageCode(pkg) {
   return String(pkg.package_code || pkg.id || "").toUpperCase();
 }
 
-
-
 const fixedInfoInitialState = {
   full_name: "",
   phone_number: "",
@@ -121,6 +119,7 @@ function fixedInfoReducer(state, action) {
 const availabilityInitialState = {
   blocked: false,
   blockReason: "",
+  error: "",
 };
 
 function availabilityReducer(state, action) {
@@ -129,10 +128,17 @@ function availabilityReducer(state, action) {
       return {
         blocked: true,
         blockReason: action.reason || "This date is not available.",
+        error: "",
       };
 
     case "available":
       return availabilityInitialState;
+
+    case "error":
+      return {
+        ...state,
+        error: action.message || "Failed to check blocked date.",
+      };
 
     default:
       return state;
@@ -141,6 +147,7 @@ function availabilityReducer(state, action) {
 
 const pricingResponseInitialState = {
   response: null,
+  error: "",
 };
 
 function pricingResponseReducer(state, action) {
@@ -149,7 +156,16 @@ function pricingResponseReducer(state, action) {
       return pricingResponseInitialState;
 
     case "success":
-      return { response: action.response };
+      return {
+        response: action.response,
+        error: "",
+      };
+
+    case "fallback_error":
+      return {
+        response: action.response,
+        error: action.message || "Failed to load private workshop pricing.",
+      };
 
     default:
       return state;
@@ -185,12 +201,13 @@ export default function AddWorkshopBooking() {
     : new Date().toISOString().split("T")[0];
 
   const [step, setStep] = useState("form");
-  const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
+
   const [availabilityState, dispatchAvailability] = useReducer(
     availabilityReducer,
     availabilityInitialState
   );
-  const { blocked, blockReason } = availabilityState;
+  const { blocked, blockReason, error: availabilityError } = availabilityState;
 
   const [pricingResponseState, dispatchPricingResponse] = useReducer(
     pricingResponseReducer,
@@ -198,7 +215,9 @@ export default function AddWorkshopBooking() {
   );
 
   const pricingResponse = pricingResponseState.response;
-  const loading = pricingResponse === null && !error;
+  const pricingError = pricingResponseState.error;
+  const error = formError || pricingError || availabilityError;
+  const loading = pricingResponse === null && !pricingError;
 
   const [fixedInfo, dispatchFixedInfo] = useReducer(
     fixedInfoReducer,
@@ -270,7 +289,6 @@ export default function AddWorkshopBooking() {
 
   const loadPricing = useCallback(async () => {
     dispatchPricingResponse({ type: "reset" });
-    setError("");
 
     try {
       const { data } = await API.get("/bookings/get-active-booking-form.php", {
@@ -280,16 +298,17 @@ export default function AddWorkshopBooking() {
       dispatchPricingResponse({ type: "success", response: data });
     } catch (err) {
       console.error(err);
+
       dispatchPricingResponse({
-        type: "success",
+        type: "fallback_error",
         response: {
           form: {
             packages: DEFAULT_PRIVATE_PACKAGES,
             downpayment_percentage: 50,
           },
         },
+        message: "Failed to load private workshop pricing.",
       });
-      setError("Failed to load private workshop pricing.");
     }
   }, []);
 
@@ -328,7 +347,10 @@ export default function AddWorkshopBooking() {
         dispatchAvailability({ type: "available" });
       }
     } catch {
-      setError("Failed to check blocked date.");
+      dispatchAvailability({
+        type: "error",
+        message: "Failed to check blocked date.",
+      });
     }
   }, [date]);
 
@@ -465,12 +487,12 @@ export default function AddWorkshopBooking() {
 
   const handleNext = async (e) => {
     e.preventDefault();
-    setError("");
+    setFormError("");
 
     const validationError = validateForm();
 
     if (validationError) {
-      setError(validationError);
+      setFormError(validationError);
       return;
     }
 
@@ -478,12 +500,12 @@ export default function AddWorkshopBooking() {
     const endTs = new Date(`${date}T${fixedInfo.end_time}:00`).getTime();
 
     if (endTs <= startTs) {
-      setError("End time must be after start time.");
+      setFormError("End time must be after start time.");
       return;
     }
 
     if (endTs - startTs > 4 * 60 * 60 * 1000) {
-      setError("Workshop time must be up to 4 hours only.");
+      setFormError("Workshop time must be up to 4 hours only.");
       return;
     }
 
@@ -495,23 +517,23 @@ export default function AddWorkshopBooking() {
       });
 
       if (res.data.blocked) {
-        setError(res.data.reason || "This date is not available.");
+        setFormError(res.data.reason || "This date is not available.");
         return;
       }
 
       if (res.data.day_full) {
-        setError("This day is fully booked.");
+        setFormError("This day is fully booked.");
         return;
       }
 
       if (res.data.conflict) {
-        setError("That time slot is already booked.");
+        setFormError("That time slot is already booked.");
         return;
       }
 
       setStep("review");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to validate booking.");
+      setFormError(err.response?.data?.error || "Failed to validate booking.");
     }
   };
 
@@ -557,7 +579,7 @@ export default function AddWorkshopBooking() {
   const handleConfirm = async (e) => {
     if (e) e.preventDefault();
 
-    setError("");
+    setFormError("");
 
     try {
       const res = await API.post("/bookings/private-workshop/confirm-booking.php", {
@@ -571,11 +593,11 @@ export default function AddWorkshopBooking() {
           `/gcash-payment?purpose=workshop_booking&booking_id=${res.data.booking_id}`
         );
       } else {
-        setError(res.data.error || "Something went wrong. Please try again.");
+        setFormError(res.data.error || "Something went wrong. Please try again.");
         setStep("review");
       }
     } catch (err) {
-      setError(
+      setFormError(
         err.response?.data?.error ||
           "Something went wrong while confirming booking."
       );
@@ -737,7 +759,11 @@ export default function AddWorkshopBooking() {
                     Are you available to contact in the following:
                   </div>
 
-                  <div className="awb-options" role="group" aria-labelledby="awb-contact-methods-label">
+                  <div
+                    className="awb-options"
+                    role="group"
+                    aria-labelledby="awb-contact-methods-label"
+                  >
                     {CONTACT_METHODS.map((method) => (
                       <label className="awb-option" key={method.value}>
                         <input
@@ -762,7 +788,11 @@ export default function AddWorkshopBooking() {
                     Event Time of Workshop
                   </div>
 
-                  <div className="awb-two-col" role="group" aria-labelledby="awb-workshop-time-label">
+                  <div
+                    className="awb-two-col"
+                    role="group"
+                    aria-labelledby="awb-workshop-time-label"
+                  >
                     <input
                       type="time"
                       aria-label="Workshop start time"
@@ -818,7 +848,9 @@ export default function AddWorkshopBooking() {
                 })}
 
                 <div className="awb-field">
-                  <label className="awb-label" htmlFor="awb-other-request">Other Request</label>
+                  <label className="awb-label" htmlFor="awb-other-request">
+                    Other Request
+                  </label>
                   <textarea
                     id="awb-other-request"
                     name="other_request"
@@ -891,7 +923,9 @@ function TextField({
 
   return (
     <div className="awb-field">
-      <label className="awb-label" htmlFor={inputId}>{label}</label>
+      <label className="awb-label" htmlFor={inputId}>
+        {label}
+      </label>
       <input
         id={inputId}
         type={type}
@@ -910,7 +944,9 @@ function IntegerField({ label, name, value, onChange, readOnly = false }) {
 
   return (
     <div className="awb-field">
-      <label className="awb-label" htmlFor={inputId}>{label}</label>
+      <label className="awb-label" htmlFor={inputId}>
+        {label}
+      </label>
       <input
         id={inputId}
         type="number"
@@ -940,11 +976,15 @@ function IntegerField({ label, name, value, onChange, readOnly = false }) {
 }
 
 function ReviewRow({ label, value }) {
-  const inputId = `awb-review-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const inputId = `awb-review-${String(label)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}`;
 
   return (
     <div className="awb-field">
-      <label className="awb-label" htmlFor={inputId}>{label}</label>
+      <label className="awb-label" htmlFor={inputId}>
+        {label}
+      </label>
       <input id={inputId} aria-label={label} value={value || ""} readOnly />
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import "../assets/css/add-booking.css";
 import "../assets/css/universal.css";
 
@@ -61,15 +62,32 @@ function getActiveItems(items) {
     });
 }
 
+function buildInitialFixedInfo(authUser) {
+  return {
+    full_name: authUser?.name || "",
+    phone_number: authUser?.phone_number || "",
+    email: authUser?.email || "",
+    contact_methods: [],
+    start_time: "",
+    end_time: "",
+    event_type: "",
+    event_name: "",
+    event_location: "",
+    other_request: "",
+  };
+}
+
 export default function AddEventBooking() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
 
   const date = searchParams.get("date");
 
   const [step, setStep] = useState("form");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState("loading");
+  const loading = loadStatus === "loading";
   const [checking, setChecking] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -80,18 +98,9 @@ export default function AddEventBooking() {
     downpayment_percentage: 50,
   });
 
-  const [fixedInfo, setFixedInfo] = useState({
-    full_name: "",
-    phone_number: "",
-    email: "",
-    contact_methods: [],
-    start_time: "",
-    end_time: "",
-    event_type: "",
-    event_name: "",
-    event_location: "",
-    other_request: "",
-  });
+  const [fixedInfo, setFixedInfo] = useState(() =>
+    buildInitialFixedInfo(authUser)
+  );
 
   const [eventInfo, setEventInfo] = useState({
     cup_package_id: "",
@@ -120,15 +129,11 @@ export default function AddEventBooking() {
   }, [date, navigate]);
 
   useEffect(() => {
-    loadBookingForm();
-    loadCurrentUser();
+    loadInitialBookingForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadBookingForm = async () => {
-    setLoading(true);
-    setError("");
-
+  const fetchBookingForm = async () => {
     try {
       const { data } = await API.get("/bookings/get-active-booking-form.php", {
         params: { type: "event" },
@@ -168,25 +173,18 @@ export default function AddEventBooking() {
       console.error(err);
       setError("Failed to load event pricing.");
     } finally {
-      setLoading(false);
+      setLoadStatus("loaded");
     }
   };
 
-  const loadCurrentUser = async () => {
-    try {
-      const { data } = await API.get("/user/current-user.php");
+  const loadInitialBookingForm = async () => {
+    await fetchBookingForm();
+  };
 
-      if (data.success && data.user) {
-        setFixedInfo((prev) => ({
-          ...prev,
-          full_name: data.user.name || prev.full_name,
-          email: data.user.email || prev.email,
-          phone_number: data.user.phone_number || prev.phone_number,
-        }));
-      }
-    } catch {
-      // Keep empty fields if not available.
-    }
+  const loadBookingForm = async () => {
+    setError("");
+    setLoadStatus("loading");
+    await fetchBookingForm();
   };
 
   const selectedCupPackage = useMemo(() => {
@@ -462,7 +460,9 @@ export default function AddEventBooking() {
                   label="Selected Drinks"
                   value={
                     selectedDrinks.length > 0
-                      ? selectedDrinks.map((drink) => drink.drink_name).join(", ")
+                      ? selectedDrinks
+                          .map((drink) => drink.drink_name)
+                          .join(", ")
                       : "None"
                   }
                 />
@@ -569,7 +569,11 @@ export default function AddEventBooking() {
                     Are you available to contact in the following:
                   </div>
 
-                  <div className="options" role="group" aria-labelledby="event-contact-methods-label">
+                  <div
+                    className="options"
+                    role="group"
+                    aria-labelledby="event-contact-methods-label"
+                  >
                     {CONTACT_METHODS.map((method) => (
                       <label className="opt" key={method.value}>
                         <input
@@ -590,7 +594,9 @@ export default function AddEventBooking() {
                 <div className="section-title">BOOKING INFORMATION</div>
 
                 <div className="field">
-                  <div className="label" id="event-time-label">Event Time</div>
+                  <div className="label" id="event-time-label">
+                    Event Time
+                  </div>
 
                   <div
                     role="group"
@@ -622,7 +628,9 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label" htmlFor="event-type">Type of Event</label>
+                  <label className="label" htmlFor="event-type">
+                    Type of Event
+                  </label>
 
                   <select
                     id="event-type"
@@ -658,9 +666,15 @@ export default function AddEventBooking() {
                 <div className="section-title">CUP PACKAGE</div>
 
                 <div className="field">
-                  <div className="label" id="event-cup-package-label">Cup Package</div>
+                  <div className="label" id="event-cup-package-label">
+                    Cup Package
+                  </div>
 
-                  <div className="options" role="radiogroup" aria-labelledby="event-cup-package-label">
+                  <div
+                    className="options"
+                    role="radiogroup"
+                    aria-labelledby="event-cup-package-label"
+                  >
                     {activeCupPackages.length === 0 ? (
                       <div className="small-note">
                         No active cup packages available.
@@ -688,9 +702,15 @@ export default function AddEventBooking() {
                 <div className="section-title">MENU PACKAGE</div>
 
                 <div className="field">
-                  <div className="label" id="event-menu-package-label">Menu Package</div>
+                  <div className="label" id="event-menu-package-label">
+                    Menu Package
+                  </div>
 
-                  <div className="options" role="radiogroup" aria-labelledby="event-menu-package-label">
+                  <div
+                    className="options"
+                    role="radiogroup"
+                    aria-labelledby="event-menu-package-label"
+                  >
                     {activeMenuPackages.length === 0 ? (
                       <div className="small-note">
                         No active menu packages available.
@@ -725,11 +745,19 @@ export default function AddEventBooking() {
                 <div className="section-title">DRINK OPTIONS</div>
 
                 <div className="field">
-                  <div className="label" id="event-preferred-drinks-label">Preferred Drinks</div>
+                  <div className="label" id="event-preferred-drinks-label">
+                    Preferred Drinks
+                  </div>
 
-                  <div className="options" role="group" aria-labelledby="event-preferred-drinks-label">
+                  <div
+                    className="options"
+                    role="group"
+                    aria-labelledby="event-preferred-drinks-label"
+                  >
                     {activeDrinks.length === 0 ? (
-                      <div className="small-note">No active drinks available.</div>
+                      <div className="small-note">
+                        No active drinks available.
+                      </div>
                     ) : (
                       activeDrinks.map((drink) => (
                         <label className="opt" key={drink.id}>
@@ -753,7 +781,9 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label" htmlFor="event-custom-drinks">Other Preferred Drinks</label>
+                  <label className="label" htmlFor="event-custom-drinks">
+                    Other Preferred Drinks
+                  </label>
                   <textarea
                     id="event-custom-drinks"
                     name="custom_drinks"
@@ -765,7 +795,9 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label" htmlFor="event-hojicha-options">Hojicha Versions</label>
+                  <label className="label" htmlFor="event-hojicha-options">
+                    Hojicha Versions
+                  </label>
 
                   <select
                     id="event-hojicha-options"
@@ -783,7 +815,9 @@ export default function AddEventBooking() {
                 </div>
 
                 <div className="field">
-                  <label className="label" htmlFor="event-other-request">Other Request</label>
+                  <label className="label" htmlFor="event-other-request">
+                    Other Request
+                  </label>
                   <textarea
                     id="event-other-request"
                     name="other_request"
@@ -838,7 +872,9 @@ function TextField({
 
   return (
     <div className="field">
-      <label className="label" htmlFor={inputId}>{label}</label>
+      <label className="label" htmlFor={inputId}>
+        {label}
+      </label>
       <input
         id={inputId}
         type={type}
@@ -853,11 +889,15 @@ function TextField({
 }
 
 function ReviewRow({ label, value }) {
-  const inputId = `event-review-${String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const inputId = `event-review-${String(label)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}`;
 
   return (
     <div className="field">
-      <label className="label" htmlFor={inputId}>{label}</label>
+      <label className="label" htmlFor={inputId}>
+        {label}
+      </label>
       <input id={inputId} aria-label={label} value={value || ""} readOnly />
     </div>
   );

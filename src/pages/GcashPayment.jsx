@@ -57,6 +57,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const paymentResponseInitialState = {
   response: null,
+  error: "",
 };
 
 function paymentResponseReducer(state, action) {
@@ -65,7 +66,28 @@ function paymentResponseReducer(state, action) {
       return paymentResponseInitialState;
 
     case "success":
-      return { response: action.response };
+      return {
+        response: action.response,
+        error: "",
+      };
+
+    case "error":
+      return {
+        response: null,
+        error: action.message || "Failed to load payment details.",
+      };
+
+    case "clearError":
+      return {
+        ...state,
+        error: "",
+      };
+
+    case "setError":
+      return {
+        ...state,
+        error: action.message || "",
+      };
 
     default:
       return state;
@@ -89,7 +111,6 @@ export default function GcashPayment() {
   const isPrivateBooking =
     purpose === "event_booking" || purpose === "private_workshop";
 
-  const [err, setErr] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [payerName, setPayerName] = useState("");
@@ -102,6 +123,7 @@ export default function GcashPayment() {
   );
 
   const paymentResponse = paymentResponseState.response;
+  const err = paymentResponseState.error;
   const loading = !paymentResponse && !err;
 
   const paymentData = useMemo(() => {
@@ -142,7 +164,6 @@ export default function GcashPayment() {
 
   const loadPaymentInfo = useCallback(async () => {
     dispatchPaymentResponse({ type: "reset" });
-    setErr("");
 
     try {
       const res = await API.get("/payments/gcash-payment.php", {
@@ -150,20 +171,30 @@ export default function GcashPayment() {
       });
 
       if (!res.data.success) {
-        setErr(res.data.error || "Failed to load payment details.");
+        dispatchPaymentResponse({
+          type: "error",
+          message: res.data.error || "Failed to load payment details.",
+        });
         return;
       }
 
       const nextPaymentData = res.data.booking || res.data.registration || null;
 
       if (!nextPaymentData) {
-        setErr("Payment record was not found.");
+        dispatchPaymentResponse({
+          type: "error",
+          message: "Payment record was not found.",
+        });
         return;
       }
 
       dispatchPaymentResponse({ type: "success", response: res.data });
     } catch (error) {
-      setErr(error.response?.data?.error || "Failed to load payment details.");
+      dispatchPaymentResponse({
+        type: "error",
+        message:
+          error.response?.data?.error || "Failed to load payment details.",
+      });
     }
   }, [paymentParams]);
 
@@ -261,18 +292,24 @@ export default function GcashPayment() {
     const file = e.target.files?.[0];
 
     setProof(null);
-    setErr("");
+    dispatchPaymentResponse({ type: "clearError" });
 
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      setErr("File must be 5MB or smaller.");
+      dispatchPaymentResponse({
+        type: "setError",
+        message: "File must be 5MB or smaller.",
+      });
       e.target.value = "";
       return;
     }
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setErr("Invalid file type. Upload JPG, PNG, or WEBP only.");
+      dispatchPaymentResponse({
+        type: "setError",
+        message: "Invalid file type. Upload JPG, PNG, or WEBP only.",
+      });
       e.target.value = "";
       return;
     }
@@ -285,15 +322,21 @@ export default function GcashPayment() {
 
     if (submitting) return;
 
-    setErr("");
+    dispatchPaymentResponse({ type: "clearError" });
 
     if (!payerName.trim() || !referenceNo.trim() || !proof) {
-      setErr("Please enter payer name, reference number, and upload proof.");
+      dispatchPaymentResponse({
+        type: "setError",
+        message: "Please enter payer name, reference number, and upload proof.",
+      });
       return;
     }
 
     if (amountToPay <= 0) {
-      setErr("Invalid payment amount.");
+      dispatchPaymentResponse({
+        type: "setError",
+        message: "Invalid payment amount.",
+      });
       return;
     }
 
@@ -319,7 +362,10 @@ export default function GcashPayment() {
       alert("Payment submitted! Awaiting admin verification.");
       navigate(isPublicWorkshop ? "/public-workshops" : "/calendar");
     } catch (error) {
-      setErr(error.response?.data?.error || "Payment submission failed.");
+      dispatchPaymentResponse({
+        type: "setError",
+        message: error.response?.data?.error || "Payment submission failed.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -542,7 +588,9 @@ export default function GcashPayment() {
                                   type="radio"
                                   name="payment_choice"
                                   value="downpayment"
-                                  checked={effectivePaymentChoice === "downpayment"}
+                                  checked={
+                                    effectivePaymentChoice === "downpayment"
+                                  }
                                   onChange={() =>
                                     setPaymentChoice("downpayment")
                                   }
