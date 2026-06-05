@@ -3,8 +3,6 @@ import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "@/assets/css/admin-reservations.css";
 
-// --- HELPER FUNCTIONS ---
-
 function money(value) {
   return Number(value || 0).toLocaleString("en-PH", {
     minimumFractionDigits: 2,
@@ -16,7 +14,9 @@ function readableType(type = "") {
   const value = String(type || "").toLowerCase();
 
   if (value === "event_booking" || value === "event") return "Event Booking";
-  if (value === "private_workshop" || value === "workshop") return "Private Workshop";
+  if (value === "private_workshop" || value === "workshop") {
+    return "Private Workshop";
+  }
   if (value === "custom") return "Custom Booking";
 
   return value
@@ -37,9 +37,8 @@ function paymentBadgeClass(status) {
 function bookingStatusClass(status) {
   const s = String(status || "pending").toLowerCase();
 
-  if (s === "approved") return "paid";
+  if (s === "approved" || s === "completed" || s === "complete") return "paid";
   if (s === "cancelled" || s === "rejected") return "rejected";
-  if (s === "completed") return "paid";
 
   return "pending";
 }
@@ -68,7 +67,7 @@ function canRejectBooking(booking) {
   return s === "pending";
 }
 
-const getInitials = (name) => {
+function getInitials(name) {
   if (!name) return "?";
 
   const parts = name.trim().split(" ");
@@ -78,9 +77,9 @@ const getInitials = (name) => {
   }
 
   return name.substring(0, 2).toUpperCase();
-};
+}
 
-const getAvatarTheme = (name) => {
+function getAvatarTheme(name) {
   const themes = [
     { bg: "#e8f0eb", text: "#1a4f35" },
     { bg: "#e3f2fd", text: "#0d47a1" },
@@ -93,13 +92,15 @@ const getAvatarTheme = (name) => {
 
   const charCode = name.charCodeAt(0) || 0;
   return themes[charCode % themes.length];
-};
+}
 
 function getBookingGroup(booking) {
   const type = String(booking.booking_type || "").toLowerCase();
 
   if (type === "event_booking" || type === "event") return "events";
-  if (type === "private_workshop" || type === "workshop") return "private_workshops";
+  if (type === "private_workshop" || type === "workshop") {
+    return "private_workshops";
+  }
   if (type === "custom") return "custom";
 
   return "custom";
@@ -284,7 +285,7 @@ export default function AdminReservations() {
       } else {
         setMsg(data.message || "Booking updated.");
         setExpandedId(null);
-        loadData();
+        await loadData();
       }
     } catch (e) {
       setErr(e.response?.data?.error || "Failed to update booking.");
@@ -310,29 +311,21 @@ export default function AdminReservations() {
       <div className="compact-stat-list">
         <div className="compact-stat">
           <span>Booking Status</span>
-          <strong
-            className={`p-badge-react ${bookingStatusClass(booking.status)}`}
-            style={{ padding: "2px 8px", fontSize: "0.75rem" }}
-          >
+          <strong className={`p-badge-react ${bookingStatusClass(booking.status)}`}>
             {bookingStatus}
           </strong>
         </div>
 
         <div className="compact-stat">
           <span>Payment Status</span>
-          <strong
-            className={`p-badge-react ${paymentBadgeClass(booking.payment_status)}`}
-            style={{ padding: "2px 8px", fontSize: "0.75rem" }}
-          >
+          <strong className={`p-badge-react ${paymentBadgeClass(booking.payment_status)}`}>
             {paymentStatus}
           </strong>
         </div>
 
         <div className="compact-stat">
           <span>Total Amount</span>
-          <strong style={{ fontSize: "1.05rem", color: "var(--ink)" }}>
-            ₱{money(total)}
-          </strong>
+          <strong>₱{money(total)}</strong>
         </div>
 
         <div className="compact-stat">
@@ -356,46 +349,24 @@ export default function AdminReservations() {
   const renderCancellationBox = (booking) => {
     if (!isCancellationRequested(booking)) {
       return (
-        <div className="admin-muted-react" style={{ fontSize: "0.85rem" }}>
+        <div className="reservation-empty-note">
           No cancellation request from customer.
         </div>
       );
     }
 
     return (
-      <div
-        style={{
-          background: "#fff7ed",
-          border: "1px solid #fed7aa",
-          borderRadius: "12px",
-          padding: "12px",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: 900,
-            color: "#9a3412",
-            marginBottom: "6px",
-            textTransform: "uppercase",
-            fontSize: "0.78rem",
-          }}
-        >
+      <div className="reservation-cancel-card">
+        <div className="reservation-cancel-title">
           Customer Requested Cancellation
         </div>
 
-        <div style={{ color: "#7c2d12", fontSize: "0.86rem", lineHeight: 1.5 }}>
+        <div className="reservation-cancel-reason">
           {booking.cancel_reason || "No reason provided."}
         </div>
 
         {booking.cancel_requested_at && (
-          <div
-            style={{
-              color: "#9a3412",
-              fontSize: "0.75rem",
-              marginTop: "8px",
-              fontWeight: 700,
-            }}
-          >
+          <div className="reservation-cancel-time">
             Requested at: {booking.cancel_requested_at}
           </div>
         )}
@@ -437,7 +408,13 @@ export default function AdminReservations() {
 
           <div className="compact-stat">
             <span>Menu Package</span>
-            <strong>{getNotesValue(notes, ["menu_package_label", "menu_package", "menu_package_code"])}</strong>
+            <strong>
+              {getNotesValue(notes, [
+                "menu_package_label",
+                "menu_package",
+                "menu_package_code",
+              ])}
+            </strong>
           </div>
 
           <div className="compact-stat">
@@ -447,7 +424,9 @@ export default function AdminReservations() {
 
           <div className="compact-stat">
             <span>Additional Drinks</span>
-            <strong>{getNotesValue(notes, ["selected_drinks", "selected_drink_ids"])}</strong>
+            <strong>
+              {getNotesValue(notes, ["selected_drinks", "selected_drink_ids"])}
+            </strong>
           </div>
 
           <div className="compact-stat">
@@ -507,7 +486,7 @@ export default function AdminReservations() {
     return (
       <div className="compact-stat-list">
         {Object.entries(notes).length === 0 ? (
-          <div className="admin-muted-react" style={{ fontSize: "0.85rem" }}>
+          <div className="reservation-empty-note">
             No booking details available.
           </div>
         ) : (
@@ -522,43 +501,99 @@ export default function AdminReservations() {
     );
   };
 
+  const renderCancelRequestStatus = (booking) => {
+    if (!isCancellationRequested(booking)) {
+      return <span className="reservation-cancel-none">None</span>;
+    }
+
+    return <span className="reservation-cancel-pill">Requested</span>;
+  };
+
+  const renderReservationActions = ({
+    booking,
+    status,
+    canApprove,
+    canCancel,
+    canReject,
+    canComplete,
+    isSaving,
+    isExpanded,
+  }) => {
+    return (
+      <div className="reservation-actions">
+        {status === "pending" && canApprove && (
+          <button
+            className="reservation-action-btn reservation-action-btn--approve"
+            type="button"
+            onClick={() => handleStatus(booking, "approved")}
+            disabled={isSaving}
+          >
+            {isSaving ? "Saving" : "Approve"}
+          </button>
+        )}
+
+        {canCancel && (
+          <button
+            className="reservation-action-btn reservation-action-btn--cancel"
+            type="button"
+            onClick={() => handleStatus(booking, "cancelled")}
+            disabled={isSaving}
+          >
+            Cancel
+          </button>
+        )}
+
+        {canReject && (
+          <button
+            className="reservation-action-btn reservation-action-btn--reject"
+            type="button"
+            onClick={() => handleStatus(booking, "rejected")}
+            disabled={isSaving}
+          >
+            Reject
+          </button>
+        )}
+
+        {canComplete && (
+          <button
+            className="reservation-action-btn reservation-action-btn--complete"
+            type="button"
+            onClick={() => handleStatus(booking, "completed")}
+            disabled={isSaving}
+          >
+            Complete
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setExpandedId(isExpanded ? null : booking.id)}
+          className={`btn-expand-chevron ${isExpanded ? "is-open" : ""}`}
+          title="View booking details"
+          aria-label={isExpanded ? "Hide booking details" : "View booking details"}
+        >
+          ▲
+        </button>
+      </div>
+    );
+  };
+
   return (
     <AdminLayout title="Reservations">
       {msg && <div className="admin-notice-react ok">{msg}</div>}
       {err && <div className="admin-notice-react bad">{err}</div>}
 
-      <div className="admin-panel-react" style={{ padding: 0, overflow: "hidden" }}>
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: "1px solid var(--line)",
-            background: "#fff",
-          }}
-        >
-          <h3 style={{ margin: 0 }}>Reservations Management</h3>
+      <div className="admin-panel-react reservations-panel">
+        <div className="reservations-panel-header">
+          <h3>Reservations Management</h3>
 
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "var(--muted)",
-              fontSize: "0.9rem",
-            }}
-          >
+          <p>
             Review pending, approved, completed, cancelled, and customer
             cancellation requests in one place.
           </p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-            padding: "14px 18px",
-            borderBottom: "1px solid var(--line)",
-            background: "#fcfdfc",
-          }}
-        >
+        <div className="reservations-tabs">
           {TABS.map((tab) => {
             const count = getTabCount(bookings, tab.key);
             const active = activeTab === tab.key;
@@ -571,15 +606,7 @@ export default function AdminReservations() {
                   setActiveTab(tab.key);
                   setExpandedId(null);
                 }}
-                className="admin-btn-react"
-                style={{
-                  padding: "8px 14px",
-                  fontSize: "0.78rem",
-                  borderRadius: "999px",
-                  background: active ? "var(--green-2)" : "#fff",
-                  color: active ? "#fff" : "var(--green-2)",
-                  border: "1px solid var(--green-2)",
-                }}
+                className={`reservations-tab ${active ? "active" : ""}`}
               >
                 {tab.label} ({count})
               </button>
@@ -588,29 +615,35 @@ export default function AdminReservations() {
         </div>
 
         {loading ? (
-          <div className="admin-muted-react" style={{ padding: "24px" }}>
-            Loading reservations…
-          </div>
+          <div className="reservation-state-message">Loading reservations.</div>
         ) : filteredBookings.length === 0 ? (
-          <div className="admin-muted-react" style={{ padding: "24px" }}>
+          <div className="reservation-state-message">
             No bookings found for this tab.
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              className="admin-table-react rich-table"
-              style={{ border: "none", borderRadius: 0 }}
-            >
+          <div className="reservations-table-wrap">
+            <table className="admin-table-react rich-table reservations-table">
+              <colgroup>
+                <col className="reservation-col-id" />
+                <col className="reservation-col-schedule" />
+                <col className="reservation-col-customer" />
+                <col className="reservation-col-total" />
+                <col className="reservation-col-status" />
+                <col className="reservation-col-payment" />
+                <col className="reservation-col-request" />
+                <col className="reservation-col-actions" />
+              </colgroup>
+
               <thead>
                 <tr>
-                  <th style={{ width: "105px" }}>ID & Type</th>
+                  <th>ID & Type</th>
                   <th>Schedule</th>
                   <th>Customer Info</th>
                   <th>Total</th>
-                  <th style={{ textAlign: "center" }}>Status</th>
-                  <th style={{ textAlign: "center" }}>Payment</th>
-                  <th style={{ textAlign: "center" }}>Cancel Request</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  <th>Status</th>
+                  <th>Payment</th>
+                  <th>Cancel Request</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
 
@@ -628,221 +661,85 @@ export default function AdminReservations() {
 
                   const isSaving = savingId === p.id;
                   const theme = getAvatarTheme(p.user_name || "Guest");
-                  const cancellationRequested = isCancellationRequested(p);
 
                   return (
                     <Fragment key={p.id}>
-                      <tr style={{ background: isExpanded ? "#fcfdfc" : "#fff" }}>
-                        <td>
-                          <div
-                            style={{
-                              fontWeight: 900,
-                              color: "var(--green-2)",
-                              fontSize: "0.95rem",
-                            }}
-                          >
-                            #{Number(p.id)}
-                          </div>
-
-                          <div
-                            style={{
-                              color: "var(--muted)",
-                              fontSize: "0.75rem",
-                              fontWeight: 800,
-                              marginTop: "2px",
-                            }}
-                          >
+                      <tr className={isExpanded ? "reservation-row is-expanded" : "reservation-row"}>
+                        <td data-label="ID & Type">
+                          <div className="reservation-id">#{Number(p.id)}</div>
+                          <div className="reservation-type">
                             {readableType(p.booking_type)}
                           </div>
                         </td>
 
-                        <td>
-                          <div style={{ fontWeight: 800, color: "var(--ink)" }}>
-                            {p.booking_date}
-                          </div>
-
-                          <div
-                            style={{
-                              color: "var(--muted)",
-                              fontSize: "0.85rem",
-                              marginTop: "2px",
-                            }}
-                          >
-                            {time}
-                          </div>
+                        <td data-label="Schedule">
+                          <div className="reservation-date">{p.booking_date}</div>
+                          <div className="reservation-time">{time}</div>
                         </td>
 
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <td data-label="Customer">
+                          <div className="reservation-customer">
                             <div
                               className="c-avatar"
                               style={{
                                 backgroundColor: theme.bg,
                                 color: theme.text,
-                                width: "34px",
-                                height: "34px",
-                                fontSize: "0.8rem",
                               }}
                             >
                               {getInitials(p.user_name || "Guest")}
                             </div>
 
-                            <div>
-                              <div
-                                style={{
-                                  fontWeight: 900,
-                                  color: "var(--green-2)",
-                                  fontSize: "0.9rem",
-                                }}
-                              >
+                            <div className="reservation-customer-meta">
+                              <div className="reservation-customer-name">
                                 {p.user_name || "Guest"}
                               </div>
 
-                              <div
-                                style={{
-                                  color: "var(--muted)",
-                                  fontSize: "0.8rem",
-                                  marginTop: "2px",
-                                }}
-                              >
+                              <div className="reservation-customer-email">
                                 {p.user_email || "No email"}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        <td style={{ fontWeight: 800, color: "var(--ink)" }}>
-                          ₱{money(p.total_amount)}
+                        <td data-label="Total">
+                          <strong className="reservation-total">
+                            ₱{money(p.total_amount)}
+                          </strong>
                         </td>
 
-                        <td style={{ textAlign: "center" }}>
+                        <td data-label="Status">
                           <span className={`p-badge-react ${bookingStatusClass(status)}`}>
                             {status.toUpperCase()}
                           </span>
                         </td>
 
-                        <td style={{ textAlign: "center" }}>
+                        <td data-label="Payment">
                           <span className={`p-badge-react ${paymentBadgeClass(paymentStatus)}`}>
                             {paymentStatus.toUpperCase()}
                           </span>
                         </td>
 
-                        <td style={{ textAlign: "center" }}>
-                          {cancellationRequested ? (
-                            <span
-                              className="p-badge-react rejected"
-                              style={{
-                                background: "#fff7ed",
-                                color: "#9a3412",
-                                border: "1px solid #fed7aa",
-                              }}
-                            >
-                              REQUESTED
-                            </span>
-                          ) : (
-                            <span className="admin-muted-react">None</span>
-                          )}
+                        <td data-label="Cancel Request">
+                          {renderCancelRequestStatus(p)}
                         </td>
 
-                        <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "8px",
-                              alignItems: "center",
-                              justifyContent: "flex-end",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            {status === "pending" && (
-                              <button
-                                className="admin-btn-react admin-btn-approve-react"
-                                style={{
-                                  padding: "6px 12px",
-                                  opacity: canApprove ? 1 : 0.5,
-                                  cursor: canApprove ? "pointer" : "not-allowed",
-                                  fontSize: "0.75rem",
-                                }}
-                                type="button"
-                                onClick={() => handleStatus(p, "approved")}
-                                disabled={!canApprove || isSaving}
-                                title={canApprove ? "Approve booking" : "Payment required"}
-                              >
-                                {isSaving ? "…" : "APPROVE"}
-                              </button>
-                            )}
-
-                            {canCancel && (
-                              <button
-                                className="admin-btn-react admin-btn-cancel-react"
-                                style={{ padding: "6px 12px", fontSize: "0.75rem" }}
-                                type="button"
-                                onClick={() => handleStatus(p, "cancelled")}
-                                disabled={isSaving}
-                              >
-                                CANCEL
-                              </button>
-                            )}
-
-                            {canReject && (
-                              <button
-                                className="admin-btn-react admin-btn-cancel-react"
-                                style={{ padding: "6px 12px", fontSize: "0.75rem" }}
-                                type="button"
-                                onClick={() => handleStatus(p, "rejected")}
-                                disabled={isSaving}
-                              >
-                                REJECT
-                              </button>
-                            )}
-
-                            {canComplete && (
-                              <button
-                                className="admin-btn-react admin-btn-approve-react"
-                                style={{ padding: "6px 12px", fontSize: "0.75rem" }}
-                                type="button"
-                                onClick={() => handleStatus(p, "completed")}
-                                disabled={isSaving}
-                              >
-                                COMPLETE
-                              </button>
-                            )}
-
-                            <div
-                              style={{
-                                height: "20px",
-                                width: "1px",
-                                background: "var(--line)",
-                                margin: "0 4px",
-                              }}
-                            />
-
-                            <button
-                              type="button"
-                              onClick={() => setExpandedId(isExpanded ? null : p.id)}
-                              className="btn-expand-chevron"
-                              style={{
-                                transform: isExpanded
-                                  ? "rotate(180deg)"
-                                  : "rotate(0deg)",
-                              }}
-                              title="View Booking Details"
-                            >
-                              ▼
-                            </button>
-                          </div>
+                        <td data-label="Actions">
+                          {renderReservationActions({
+                            booking: p,
+                            status,
+                            canApprove,
+                            canCancel,
+                            canReject,
+                            canComplete,
+                            isSaving,
+                            isExpanded,
+                          })}
                         </td>
                       </tr>
 
                       {isExpanded && (
-                        <tr>
-                          <td
-                            colSpan="8"
-                            style={{
-                              padding: 0,
-                              borderBottom: "2px solid var(--green-2)",
-                            }}
-                          >
+                        <tr className="reservation-expanded-row">
+                          <td colSpan="8">
                             <div className="expanded-detail-panel">
                               <div className="expanded-grid-3">
                                 <div className="detail-section">
@@ -850,7 +747,7 @@ export default function AdminReservations() {
                                   {renderPaymentSummaryCompact(p)}
                                 </div>
 
-                                <div className="detail-section">
+                                <div className="detail-section detail-section-cancel">
                                   <h4 className="detail-heading">Cancellation Request</h4>
                                   {renderCancellationBox(p)}
                                 </div>
