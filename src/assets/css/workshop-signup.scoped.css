@@ -16,6 +16,10 @@
   box-sizing:border-box;
 }
 
+.ws-signup-modal-open{
+  overflow:hidden;
+}
+
 .ws-signup-wrap{
   width:min(var(--max), 96%);
   margin:0 auto;
@@ -62,6 +66,11 @@
   transform:translateY(-1px);
 }
 
+.ws-signup-tab:focus-visible{
+  outline:3px solid rgba(255,217,90,.9);
+  outline-offset:3px;
+}
+
 .ws-signup-tab.is-active{
   border-color:var(--green);
   box-shadow:0 0 0 3px rgba(47,90,43,.12);
@@ -87,9 +96,7 @@
   border:1px solid var(--line);
   border-radius:22px;
   overflow:hidden;
-  cursor:pointer;
   transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
-  text-decoration:none;
   color:inherit;
   display:flex;
   flex-direction:column;
@@ -103,16 +110,77 @@
   border-color:#bfd0c5;
 }
 
+.ws-signup-poster-button{
+  appearance:none;
+  -webkit-appearance:none;
+  width:100%;
+  height:clamp(190px, 17vw, 270px);
+  border:0;
+  border-bottom:1px solid rgba(0,0,0,.04);
+  padding:0;
+  margin:0;
+  background:#eef2ee;
+  display:block;
+  position:relative;
+  overflow:hidden;
+  cursor:zoom-in;
+}
+
+.ws-signup-poster-button:focus-visible{
+  outline:4px solid rgba(255,217,90,.95);
+  outline-offset:-4px;
+}
+
 .ws-signup-poster{
   width:100%;
+  height:100%;
   object-fit:cover;
+  object-position:center;
   display:block;
   background:#eef2ee;
-  border-bottom:1px solid rgba(0,0,0,.04);
+  transition:transform .18s ease, filter .18s ease;
+}
+
+.ws-signup-poster-button:hover .ws-signup-poster{
+  transform:scale(1.035);
+  filter:brightness(.94);
+}
+
+.ws-signup-image-hint{
+  position:absolute;
+  left:12px;
+  bottom:12px;
+  border:1px solid rgba(255,255,255,.55);
+  background:rgba(31,59,38,.82);
+  color:#fff;
+  border-radius:999px;
+  padding:7px 11px;
+  font-size:.76rem;
+  font-weight:900;
+  line-height:1;
+  opacity:0;
+  transform:translateY(6px);
+  transition:opacity .15s ease, transform .15s ease;
+  pointer-events:none;
+}
+
+.ws-signup-poster-button:hover .ws-signup-image-hint,
+.ws-signup-poster-button:focus-visible .ws-signup-image-hint{
+  opacity:1;
+  transform:translateY(0);
 }
 
 .ws-signup-card-content{
   padding:16px 16px 18px;
+  color:inherit;
+  text-decoration:none;
+  display:block;
+}
+
+.ws-signup-card-content:focus-visible{
+  outline:3px solid rgba(255,217,90,.9);
+  outline-offset:-6px;
+  border-radius:18px;
 }
 
 .ws-signup-pill-row{
@@ -167,9 +235,94 @@
   word-break:break-word;
 }
 
+.ws-signup-modal{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  background:rgba(18,28,20,.72);
+  backdrop-filter:blur(5px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.ws-signup-modal-panel{
+  width:min(920px, 96vw);
+  max-height:92vh;
+  background:#fff;
+  border:1px solid rgba(255,255,255,.5);
+  border-radius:24px;
+  box-shadow:0 30px 80px rgba(0,0,0,.28);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+.ws-signup-modal-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line);
+  background:var(--panel);
+}
+
+.ws-signup-modal-title{
+  min-width:0;
+  color:var(--green-2);
+  font-size:1rem;
+  font-weight:900;
+  line-height:1.25;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.ws-signup-modal-close{
+  appearance:none;
+  -webkit-appearance:none;
+  width:38px;
+  height:38px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--green-2);
+  font-size:1.6rem;
+  line-height:1;
+  font-weight:900;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.ws-signup-modal-close:hover{
+  border-color:var(--green);
+  box-shadow:0 0 0 3px rgba(47,90,43,.1);
+}
+
+.ws-signup-modal-close:focus-visible{
+  outline:3px solid rgba(255,217,90,.9);
+  outline-offset:3px;
+}
+
+.ws-signup-modal-image{
+  width:100%;
+  max-height:calc(92vh - 68px);
+  object-fit:contain;
+  display:block;
+  background:#eef2ee;
+}
+
 @media (max-width: 1100px){
   .ws-signup-grid{
     grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .ws-signup-poster-button{
+    height:clamp(200px, 28vw, 290px);
   }
 }
 
@@ -184,11 +337,39 @@
     gap:16px;
   }
 
+  .ws-signup-poster-button{
+    height:clamp(210px, 56vw, 330px);
+  }
+
   .ws-signup-card-title{
     font-size:1.06rem;
   }
 
   .ws-signup-meta{
     font-size:.92rem;
+  }
+
+  .ws-signup-modal{
+    padding:12px;
+  }
+
+  .ws-signup-modal-panel{
+    width:100%;
+    max-height:92vh;
+    border-radius:18px;
+  }
+
+  .ws-signup-modal-top{
+    padding:12px;
+  }
+
+  .ws-signup-modal-title{
+    font-size:.94rem;
+  }
+
+  .ws-signup-modal-close{
+    width:36px;
+    height:36px;
+    font-size:1.45rem;
   }
 }

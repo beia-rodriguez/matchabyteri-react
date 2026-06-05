@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
@@ -81,6 +81,81 @@ function packageCode(pkg) {
   return String(pkg.package_code || pkg.id || "").toUpperCase();
 }
 
+
+
+const fixedInfoInitialState = {
+  full_name: "",
+  phone_number: "",
+  email: "",
+  contact_methods: [],
+  start_time: "",
+  end_time: "",
+  workshop_location: "",
+  other_request: "",
+};
+
+function fixedInfoReducer(state, action) {
+  switch (action.type) {
+    case "patch": {
+      const patch =
+        typeof action.updater === "function"
+          ? action.updater(state)
+          : action.updater || action.patch || {};
+
+      return { ...state, ...patch };
+    }
+
+    case "current_user_success":
+      return {
+        ...state,
+        full_name: action.user?.name || state.full_name,
+        email: action.user?.email || state.email,
+        phone_number: action.user?.phone_number || state.phone_number,
+      };
+
+    default:
+      return state;
+  }
+}
+
+const availabilityInitialState = {
+  blocked: false,
+  blockReason: "",
+};
+
+function availabilityReducer(state, action) {
+  switch (action.type) {
+    case "blocked":
+      return {
+        blocked: true,
+        blockReason: action.reason || "This date is not available.",
+      };
+
+    case "available":
+      return availabilityInitialState;
+
+    default:
+      return state;
+  }
+}
+
+const pricingResponseInitialState = {
+  response: null,
+};
+
+function pricingResponseReducer(state, action) {
+  switch (action.type) {
+    case "reset":
+      return pricingResponseInitialState;
+
+    case "success":
+      return { response: action.response };
+
+    default:
+      return state;
+  }
+}
+
 function normalizePackages(packages) {
   const activePackages = safeArray(packages)
     .filter((pkg) => Number(pkg.is_active ?? 1) === 1)
@@ -111,22 +186,28 @@ export default function AddWorkshopBooking() {
 
   const [step, setStep] = useState("form");
   const [error, setError] = useState("");
-  const [blocked, setBlocked] = useState(false);
-  const [blockReason, setBlockReason] = useState("");
-  const [pricingResponse, setPricingResponse] = useState(null);
+  const [availabilityState, dispatchAvailability] = useReducer(
+    availabilityReducer,
+    availabilityInitialState
+  );
+  const { blocked, blockReason } = availabilityState;
 
+  const [pricingResponseState, dispatchPricingResponse] = useReducer(
+    pricingResponseReducer,
+    pricingResponseInitialState
+  );
+
+  const pricingResponse = pricingResponseState.response;
   const loading = pricingResponse === null && !error;
 
-  const [fixedInfo, setFixedInfo] = useState({
-    full_name: "",
-    phone_number: "",
-    email: "",
-    contact_methods: [],
-    start_time: "",
-    end_time: "",
-    workshop_location: "",
-    other_request: "",
-  });
+  const [fixedInfo, dispatchFixedInfo] = useReducer(
+    fixedInfoReducer,
+    fixedInfoInitialState
+  );
+
+  const setFixedInfo = useCallback((updater) => {
+    dispatchFixedInfo({ type: "patch", updater });
+  }, []);
 
   const [workshopInfo, setWorkshopInfo] = useState({
     total_attendees: "",
@@ -188,7 +269,7 @@ export default function AddWorkshopBooking() {
   }, [type, date, navigate]);
 
   const loadPricing = useCallback(async () => {
-    setPricingResponse(null);
+    dispatchPricingResponse({ type: "reset" });
     setError("");
 
     try {
@@ -196,13 +277,16 @@ export default function AddWorkshopBooking() {
         params: { type: "private_workshop" },
       });
 
-      setPricingResponse(data);
+      dispatchPricingResponse({ type: "success", response: data });
     } catch (err) {
       console.error(err);
-      setPricingResponse({
-        form: {
-          packages: DEFAULT_PRIVATE_PACKAGES,
-          downpayment_percentage: 50,
+      dispatchPricingResponse({
+        type: "success",
+        response: {
+          form: {
+            packages: DEFAULT_PRIVATE_PACKAGES,
+            downpayment_percentage: 50,
+          },
         },
       });
       setError("Failed to load private workshop pricing.");
@@ -214,12 +298,10 @@ export default function AddWorkshopBooking() {
       const { data } = await API.get("/user/current-user.php");
 
       if (data.success && data.user) {
-        setFixedInfo((prev) => ({
-          ...prev,
-          full_name: data.user.name || prev.full_name,
-          email: data.user.email || prev.email,
-          phone_number: data.user.phone_number || prev.phone_number,
-        }));
+        dispatchFixedInfo({
+          type: "current_user_success",
+          user: data.user,
+        });
       }
     } catch {
       // Keep empty fields.
@@ -233,14 +315,17 @@ export default function AddWorkshopBooking() {
       });
 
       if (res.data.blocked) {
-        setBlocked(true);
-        setBlockReason(res.data.reason || "This date is not available.");
+        dispatchAvailability({
+          type: "blocked",
+          reason: res.data.reason || "This date is not available.",
+        });
       } else if (res.data.day_full) {
-        setBlocked(true);
-        setBlockReason("This day is fully booked.");
+        dispatchAvailability({
+          type: "blocked",
+          reason: "This day is fully booked.",
+        });
       } else {
-        setBlocked(false);
-        setBlockReason("");
+        dispatchAvailability({ type: "available" });
       }
     } catch {
       setError("Failed to check blocked date.");

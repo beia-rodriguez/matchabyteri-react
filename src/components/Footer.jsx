@@ -17,22 +17,33 @@ function Footer() {
           <ul>
             <li>
               <Link to="/" aria-label="Go to Home page">
-               
+                Home
               </Link>
             </li>
             <li>
               <Link to="/about-us" aria-label="Go to About Us page">
-               
+                About Us
               </Link>
             </li>
             <li>
-              <Link to="/private-workshop" aria-label="Go to Private Workshop page">
-               
+              <Link to="/event" aria-label="Go to Event page">
+                Event
               </Link>
             </li>
             <li>
-              <Link to="/calendar?type=workshop" aria-label="Book a workshop">
-               
+              <Link
+                to="/public-workshops"
+                aria-label="Go to Public Workshops page"
+              >
+                Workshop
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/calendar?type=workshop"
+                aria-label="Book a workshop"
+              >
+                Book Now
               </Link>
             </li>
           </ul>

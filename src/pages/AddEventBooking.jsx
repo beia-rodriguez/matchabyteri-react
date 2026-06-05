@@ -131,7 +131,7 @@ export default function AddEventBooking() {
 
     try {
       const { data } = await API.get("/bookings/get-active-booking-form.php", {
-        params: { type: "event_booking" },
+        params: { type: "event" },
       });
 
       const responseForm = data.form || data.pricing || {};

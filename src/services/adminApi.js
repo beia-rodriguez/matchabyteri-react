@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const adminApi = axios.create({
-  baseURL: "/api",
-  withCredentials: true, // Set it here during creation
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/backend/api",
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },

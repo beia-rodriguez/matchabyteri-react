@@ -79,25 +79,34 @@ function formatTime(timeStr) {
 function timeRange(start, end) {
   if (!start) return "";
   if (!end) return formatTime(start);
-  return `${formatTime(start)} – ${formatTime(end)}`;
+  return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
   if (!path) return fallback;
-  if (/^https?:\/\//i.test(path)) return path;
 
-  const clean = String(path).trim().replace(/^\/+/, "");
+  const rawPath = String(path).trim();
+  if (!rawPath) return fallback;
 
-  if (clean.startsWith("uploads/")) {
-    return `/api/${clean}`;
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
   }
 
-  return `/${clean}`;
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 export default function WorkshopSignup() {
   const [tab, setTab] = useState("upcoming");
+  const [selectedPoster, setSelectedPoster] = useState(null);
   const [pageState, dispatchPageState] = useReducer(
     workshopSignupReducer,
     workshopSignupInitialState
@@ -140,6 +149,24 @@ export default function WorkshopSignup() {
       ignore = true;
     };
   }, [tab]);
+
+  useEffect(() => {
+    if (!selectedPoster) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setSelectedPoster(null);
+      }
+    };
+
+    document.body.classList.add("ws-signup-modal-open");
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.classList.remove("ws-signup-modal-open");
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedPoster]);
 
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
@@ -217,7 +244,7 @@ export default function WorkshopSignup() {
         element.setAttribute("aria-label", textToRead.trim());
       }
     });
-  }, [tab, data, loading, errorMsg]);
+  }, [tab, data, loading, errorMsg, selectedPoster]);
 
   const sectionTitle = tab === "past" ? "Past Workshops" : "Coming Soon";
   const emptyMsg =
@@ -236,7 +263,7 @@ export default function WorkshopSignup() {
           <div className="ws-signup-sub">
             {tab === "past"
               ? "Browse past workshops. Click any workshop to view full details."
-              : "Explore upcoming workshops. Click any “Coming Soon” workshop to view full details."}
+              : "Explore upcoming workshops. Click any workshop to view full details. Click the poster to preview it larger."}
           </div>
 
           <div className="ws-signup-tabs">
@@ -264,7 +291,7 @@ export default function WorkshopSignup() {
           <div className="ws-signup-section-title">{sectionTitle}</div>
 
           {loading ? (
-            <div className="ws-signup-sub">Loading workshops…</div>
+            <div className="ws-signup-sub">Loading workshops...</div>
           ) : errorMsg ? (
             <div className="ws-signup-sub">{errorMsg}</div>
           ) : data.workshops.length === 0 ? (
@@ -286,25 +313,43 @@ export default function WorkshopSignup() {
                 const dateStr = formatDate(w.workshop_date);
                 const timeStr = timeRange(w.start_time, w.end_time);
                 const locStr = w.location || "";
+                const title = w.title || "Workshop";
+                const imageSrc = posterSrc(w.poster_path);
 
                 return (
-                  <Link
-                    key={wid}
-                    className="ws-signup-card"
-                    to={`/public-workshops/${wid}`}
-                    aria-label={`View workshop: ${w.title || "Workshop"}`}
-                  >
-                    <img
-                      className="ws-signup-poster"
-                      src={posterSrc(w.poster_path)}
-                      loading="lazy"
-                      alt={`${w.title || "Workshop"} poster`}
-                      onError={(e) => {
-                        e.currentTarget.src = "/pics/default-workshop.jpg";
-                      }}
-                    />
+                  <article key={wid} className="ws-signup-card">
+                    <button
+                      type="button"
+                      className="ws-signup-poster-button"
+                      onClick={() =>
+                        setSelectedPoster({
+                          src: imageSrc,
+                          alt: `${title} poster`,
+                          title,
+                        })
+                      }
+                      aria-label={`Preview poster for ${title}`}
+                    >
+                      <img
+                        className="ws-signup-poster"
+                        src={imageSrc}
+                        loading="lazy"
+                        alt={`${title} poster`}
+                        onError={(e) => {
+                          e.currentTarget.src = "/pics/default-workshop.jpg";
+                        }}
+                      />
 
-                    <div className="ws-signup-card-content">
+                      <span className="ws-signup-image-hint">
+                        Click to view larger
+                      </span>
+                    </button>
+
+                    <Link
+                      className="ws-signup-card-content"
+                      to={`/public-workshops/${wid}`}
+                      aria-label={`View workshop: ${title}`}
+                    >
                       <div className="ws-signup-pill-row">
                         <div className="ws-signup-pill">
                           {tab === "past" ? "Past" : "Coming Soon"}
@@ -321,9 +366,7 @@ export default function WorkshopSignup() {
                           ))}
                       </div>
 
-                      <div className="ws-signup-card-title">
-                        {w.title || "Workshop"}
-                      </div>
+                      <div className="ws-signup-card-title">{title}</div>
 
                       <div className="ws-signup-meta">
                         {dateStr && (
@@ -340,13 +383,53 @@ export default function WorkshopSignup() {
                         )}
                         {locStr && <>Location: {locStr}</>}
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  </article>
                 );
               })}
             </div>
           )}
         </div>
+
+        {selectedPoster && (
+          <div
+            className="ws-signup-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${selectedPoster.title} poster preview`}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setSelectedPoster(null);
+              }
+            }}
+          >
+            <div className="ws-signup-modal-panel">
+              <div className="ws-signup-modal-top">
+                <div className="ws-signup-modal-title">
+                  {selectedPoster.title}
+                </div>
+
+                <button
+                  type="button"
+                  className="ws-signup-modal-close"
+                  onClick={() => setSelectedPoster(null)}
+                  aria-label="Close poster preview"
+                >
+                  ×
+                </button>
+              </div>
+
+              <img
+                className="ws-signup-modal-image"
+                src={selectedPoster.src}
+                alt={selectedPoster.alt}
+                onError={(e) => {
+                  e.currentTarget.src = "/pics/default-workshop.jpg";
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

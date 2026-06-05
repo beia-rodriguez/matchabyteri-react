@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -30,16 +30,28 @@ function toTimeInput(value) {
 function posterSrc(path) {
   if (!path) return "";
 
-  if (/^blob:/i.test(path)) return path;
-  if (/^https?:\/\//i.test(path)) return path;
+  const rawPath = String(path).trim();
+  if (!rawPath) return "";
 
-  const clean = String(path).trim().replace(/^\/+/, "");
-
-  if (clean.startsWith("uploads/")) {
-    return `/api/${clean}`;
+  if (/^blob:/i.test(rawPath) || /^https?:\/\//i.test(rawPath)) {
+    return rawPath;
   }
 
-  return `/${clean}`;
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
+  }
+
+  if (clean.startsWith("api/")) {
+    return `/backend/${clean}`;
+  }
+
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 function normalizeMoneyInput(value) {
@@ -82,6 +94,71 @@ function buildFormFromWorkshop(w) {
   };
 }
 
+
+const EMPTY_WORKSHOP_FORM = {
+  title: "",
+  workshop_date: "",
+  location: "",
+  start_time: "",
+  end_time: "",
+  is_active: "0",
+  description: "",
+  register_points: "",
+  standard_points: "",
+  standard_price: "",
+  premium_points: "",
+  premium_price: "",
+  max_slots: "0",
+};
+
+const workshopEditInitialState = {
+  csrf: "",
+  workshop: null,
+  regCount: 0,
+  form: EMPTY_WORKSHOP_FORM,
+};
+
+function workshopEditReducer(state, action) {
+  switch (action.type) {
+    case "load_success": {
+      const workshop = action.workshop || null;
+
+      return {
+        csrf: action.csrf || "",
+        workshop,
+        regCount: Number(action.regCount || 0),
+        form: workshop ? buildFormFromWorkshop(workshop) : EMPTY_WORKSHOP_FORM,
+      };
+    }
+
+    case "update_success": {
+      const workshop = action.workshop || state.workshop;
+
+      return {
+        ...state,
+        workshop,
+        regCount: Number(action.regCount || 0),
+        form: workshop ? buildFormFromWorkshop(workshop) : state.form,
+      };
+    }
+
+    case "set_form": {
+      const nextForm =
+        typeof action.updater === "function"
+          ? action.updater(state.form)
+          : action.updater;
+
+      return {
+        ...state,
+        form: nextForm || EMPTY_WORKSHOP_FORM,
+      };
+    }
+
+    default:
+      return state;
+  }
+}
+
 function SummaryItem({ icon: Icon, label, children }) {
   return (
     <div>
@@ -98,29 +175,21 @@ export default function AdminWorkshopEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [csrf, setCsrf] = useState("");
-  const [workshop, setWorkshop] = useState(null);
-  const [regCount, setRegCount] = useState(0);
+  const [editState, dispatchEditState] = useReducer(
+    workshopEditReducer,
+    workshopEditInitialState
+  );
+  const { csrf, workshop, regCount, form } = editState;
+
+  const setForm = useCallback((updater) => {
+    dispatchEditState({ type: "set_form", updater });
+  }, []);
+
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [posterFile, setPosterFile] = useState(null);
-  const [form, setForm] = useState({
-    title: "",
-    workshop_date: "",
-    location: "",
-    start_time: "",
-    end_time: "",
-    is_active: "0",
-    description: "",
-    register_points: "",
-    standard_points: "",
-    standard_price: "",
-    premium_points: "",
-    premium_price: "",
-    max_slots: "0",
-  });
 
   const originalWorkshopRef = useRef(null);
 
@@ -140,13 +209,14 @@ export default function AdminWorkshopEdit() {
 
       const w = data.workshop || null;
 
-      setCsrf(data.csrf || "");
-      setWorkshop(w);
-      setRegCount(Number(data.regCount || 0));
+      dispatchEditState({
+        type: "load_success",
+        csrf: data.csrf,
+        workshop: w,
+        regCount: data.regCount,
+      });
 
       if (w) {
-        const nextForm = buildFormFromWorkshop(w);
-        setForm(nextForm);
         originalWorkshopRef.current = w;
       }
     } catch (e) {
@@ -351,13 +421,14 @@ export default function AdminWorkshopEdit() {
 
         if (data.workshop) {
           const w = data.workshop;
-          setWorkshop(w);
-          const nextForm = buildFormFromWorkshop(w);
-          setForm(nextForm);
+          dispatchEditState({
+            type: "update_success",
+            workshop: w,
+            regCount: data.regCount,
+          });
           originalWorkshopRef.current = w;
         }
 
-        setRegCount(Number(data.regCount || 0));
         setPosterFile(null);
       }
     } catch (e) {
@@ -453,16 +524,16 @@ export default function AdminWorkshopEdit() {
 
             <dl className="awe-meta-list">
               <SummaryItem icon={CalendarDays} label="Date">
-                {workshop?.workshop_date || "—"}
+                {workshop?.workshop_date || "N/A"}
               </SummaryItem>
 
               <SummaryItem icon={Clock3} label="Time">
-                {toTimeInput(workshop?.start_time) || "—"}
-                {workshop?.end_time ? ` - ${toTimeInput(workshop?.end_time)}` : ""}
+                {toTimeInput(workshop?.start_time) || "N/A"}
+                {workshop?.end_time ? ` to ${toTimeInput(workshop?.end_time)}` : ""}
               </SummaryItem>
 
               <SummaryItem icon={MapPin} label="Location">
-                {workshop?.location || "—"}
+                {workshop?.location || "N/A"}
               </SummaryItem>
 
               <SummaryItem

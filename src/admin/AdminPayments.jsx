@@ -22,12 +22,28 @@ function money(value) {
 function proofSrc(path) {
   if (!path) return "";
 
-  const clean = String(path).trim();
+  const rawPath = String(path).trim();
+  if (!rawPath) return "";
 
-  if (/^https?:\/\//i.test(clean)) return clean;
-  if (clean.startsWith("/api/")) return clean;
+  if (/^blob:/i.test(rawPath) || /^https?:\/\//i.test(rawPath)) {
+    return rawPath;
+  }
 
-  return `/api/${clean.replace(/^\/+/, "")}`;
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
+  }
+
+  if (clean.startsWith("api/")) {
+    return `/backend/${clean}`;
+  }
+
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 function cleanStatus(value) {
@@ -370,7 +386,7 @@ export default function AdminPayments() {
                       <br />
                       <span className="p-subtext">
                         {linkedSchedule || "No schedule"}
-                        {linkedType ? ` • ${linkedType}` : ""}
+                        {linkedType ? ` | ${linkedType}` : ""}
                       </span>
                       <br />
                       <span className="p-subtext">Token: {p.short_payment_token || "-"}</span>
@@ -389,7 +405,7 @@ export default function AdminPayments() {
                       </span>
                       <br />
                       <span className="p-subtext">
-                        Record Paid: ₱{money(amountPaid)} • Balance: ₱{money(remainingBalance)}
+                        Record Paid: ₱{money(amountPaid)} | Balance: ₱{money(remainingBalance)}
                       </span>
                     </span>
                   </div>

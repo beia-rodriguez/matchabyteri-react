@@ -64,6 +64,12 @@ function formatTime(timeStr) {
   return TIME_FORMATTER.format(d);
 }
 
+function timeRange(start, end) {
+  if (!start) return "";
+  if (!end) return formatTime(start);
+  return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
 function isPastDate(dateStr) {
   if (!dateStr) return false;
 
@@ -82,15 +88,23 @@ function isPastDate(dateStr) {
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
   if (!path) return fallback;
-  if (/^https?:\/\//i.test(path)) return path;
 
-  const clean = String(path).trim().replace(/^\/+/, "");
+  const rawPath = String(path).trim();
+  if (!rawPath) return fallback;
 
-  if (clean.startsWith("uploads/")) {
-    return `/api/${clean}`;
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
   }
 
-  return `/${clean}`;
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 export default function WorkshopView() {
@@ -145,23 +159,22 @@ export default function WorkshopView() {
     };
   }, [id]);
 
-  const paragraph = useMemo(() => {
-    if (!workshop) return "";
-
-    const dateText = formatDate(workshop.workshop_date);
-    const startText = formatTime(workshop.start_time);
-    let timeText = startText;
-
-    if (workshop.end_time) {
-      timeText += ` – ${formatTime(workshop.end_time)}`;
+  const workshopDetails = useMemo(() => {
+    if (!workshop) {
+      return {
+        description: "",
+        dateText: "",
+        timeText: "",
+        locationText: "",
+      };
     }
 
-    const desc = (workshop.description || "").trim();
-    const loc = (workshop.location || "").trim();
-
-    return [desc, `Date: ${dateText}`, `Time: ${timeText}`, `Location: ${loc}`]
-      .filter(Boolean)
-      .join("\n\n");
+    return {
+      description: String(workshop.description || "").trim(),
+      dateText: formatDate(workshop.workshop_date),
+      timeText: timeRange(workshop.start_time, workshop.end_time),
+      locationText: String(workshop.location || "").trim(),
+    };
   }, [workshop]);
 
   const isPast = useMemo(() => {
@@ -188,11 +201,11 @@ export default function WorkshopView() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .wsv-status, .wsv-title, .wsv-paragraph, .wsv-note"
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .wsv-status, .wsv-eyebrow, .wsv-title, .wsv-description, .wsv-detail-label, .wsv-detail-value, .wsv-note"
     );
 
     readableElements.forEach((element) => {
-      const tagName = element.tagName.toLowerCase();
+      const tagName = String(element.tagName || "").toLowerCase();
 
       if (
         tagName !== "button" &&
@@ -245,7 +258,7 @@ export default function WorkshopView() {
         element.setAttribute("aria-label", textToRead.trim());
       }
     });
-  }, [loading, errorMsg, workshop, paragraph, isPast]);
+  }, [loading, errorMsg, workshop, workshopDetails, isPast]);
 
   if (loading) {
     return (
@@ -253,11 +266,11 @@ export default function WorkshopView() {
         <Navbar />
 
         <div className="wsv-page" id="readable-content">
-          <section className="wsv-section">
-            <div className="wsv-inner">
-              <div className="wsv-status">Loading workshop details…</div>
+          <main className="wsv-section">
+            <div className="wsv-state-card">
+              <div className="wsv-status">Loading workshop details...</div>
             </div>
-          </section>
+          </main>
         </div>
       </>
     );
@@ -269,19 +282,19 @@ export default function WorkshopView() {
         <Navbar />
 
         <div className="wsv-page" id="readable-content">
-          <section className="wsv-section">
-            <div className="wsv-inner">
+          <main className="wsv-section">
+            <div className="wsv-state-card">
               <div className="wsv-status">
                 {errorMsg || "Workshop not found."}
               </div>
 
               <div className="wsv-actionRow">
                 <Link className="wsv-backLink" to="/public-workshops">
-                  Back
+                  Back to workshops
                 </Link>
               </div>
             </div>
-          </section>
+          </main>
         </div>
       </>
     );
@@ -292,22 +305,62 @@ export default function WorkshopView() {
       <Navbar />
 
       <div className="wsv-page" id="readable-content">
-        <section className="wsv-section">
+        <main className="wsv-section">
           <div className="wsv-inner">
-            <div className="wsv-imageWrap">
-              <img
-                className="wsv-image"
-                src={posterSrc(workshop.poster_path)}
-                alt="Workshop poster"
-                onError={(e) => {
-                  e.currentTarget.src = "/pics/default-workshop.jpg";
-                }}
-              />
-            </div>
+            <aside className="wsv-mediaCol" aria-label="Workshop poster">
+              <div className="wsv-imageWrap">
+                <img
+                  className="wsv-image"
+                  src={posterSrc(workshop.poster_path)}
+                  alt={workshop.title || "Workshop poster"}
+                  onError={(e) => {
+                    e.currentTarget.src = "/pics/default-workshop.jpg";
+                  }}
+                />
+              </div>
+            </aside>
 
-            <div className="wsv-text">
+            <section className="wsv-contentCol">
+              <div className="wsv-eyebrow">
+                {isPast ? "Past Workshop" : "Upcoming Workshop"}
+              </div>
+
               <h1 className="wsv-title">{workshop.title}</h1>
-              <p className="wsv-paragraph">{paragraph}</p>
+
+              {workshopDetails.description && (
+                <p className="wsv-description">
+                  {workshopDetails.description}
+                </p>
+              )}
+
+              <div className="wsv-detailsGrid" aria-label="Workshop details">
+                {workshopDetails.dateText && (
+                  <div className="wsv-detailCard">
+                    <div className="wsv-detail-label">Date</div>
+                    <div className="wsv-detail-value">
+                      {workshopDetails.dateText}
+                    </div>
+                  </div>
+                )}
+
+                {workshopDetails.timeText && (
+                  <div className="wsv-detailCard">
+                    <div className="wsv-detail-label">Time</div>
+                    <div className="wsv-detail-value">
+                      {workshopDetails.timeText}
+                    </div>
+                  </div>
+                )}
+
+                {workshopDetails.locationText && (
+                  <div className="wsv-detailCard is-wide">
+                    <div className="wsv-detail-label">Location</div>
+                    <div className="wsv-detail-value">
+                      {workshopDetails.locationText}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="wsv-actionRow">
                 {!isPast ? (
@@ -318,7 +371,7 @@ export default function WorkshopView() {
                       navigate(`/public-workshops/${workshop.id}/register`)
                     }
                   >
-                    SIGN UP
+                    Sign Up
                   </button>
                 ) : (
                   <button
@@ -326,21 +379,21 @@ export default function WorkshopView() {
                     className="wsv-primaryBtn is-disabled"
                     disabled
                   >
-                    EVENT ENDED
+                    Event Ended
                   </button>
                 )}
 
                 <Link className="wsv-backLink" to="/public-workshops">
-                  Back
+                  Back to workshops
                 </Link>
               </div>
 
               {isPast && (
-                <div className="wsv-note">This workshop is in the past.</div>
+                <div className="wsv-note">This workshop is already finished.</div>
               )}
-            </div>
+            </section>
           </div>
-        </section>
+        </main>
       </div>
     </>
   );

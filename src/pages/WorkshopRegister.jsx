@@ -75,6 +75,12 @@ function formatTime(timeStr) {
   return TIME_FORMATTER.format(d);
 }
 
+function timeRange(start, end) {
+  if (!start) return "";
+  if (!end) return formatTime(start);
+  return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
 function buildBullets(workshop) {
   const raw = String(
     workshop?.register_points && workshop.register_points.trim() !== ""
@@ -106,15 +112,23 @@ function buildBullets(workshop) {
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
   if (!path) return fallback;
-  if (/^https?:\/\//i.test(path)) return path;
 
-  const clean = String(path).trim().replace(/^\/+/, "");
+  const rawPath = String(path).trim();
+  if (!rawPath) return fallback;
 
-  if (clean.startsWith("uploads/")) {
-    return `/api/${clean}`;
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
   }
 
-  return `/${clean}`;
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 export default function WorkshopRegister() {
@@ -170,18 +184,12 @@ export default function WorkshopRegister() {
     if (!payload?.workshop) return null;
 
     const w = payload.workshop;
-    const dateText = formatDate(w.workshop_date);
-    const startText = formatTime(w.start_time);
-    let timeText = startText;
-
-    if (w.end_time) {
-      timeText += ` – ${formatTime(w.end_time)}`;
-    }
 
     return {
       w,
-      dateText,
-      timeText,
+      dateText: formatDate(w.workshop_date),
+      timeText: timeRange(w.start_time, w.end_time),
+      locationText: String(w.location || "").trim(),
       bullets: buildBullets(w),
       maxSlots: Number(payload.maxSlots || 0),
       regCount: Number(payload.regCount || 0),
@@ -209,7 +217,7 @@ export default function WorkshopRegister() {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .ws-reg-status, .ws-reg-title, .ws-reg-pill, .ws-reg-section, .ws-reg-meta, .ws-reg-btn, .ws-reg-fullNote"
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .ws-reg-status, .ws-reg-eyebrow, .ws-reg-title, .ws-reg-section, .ws-reg-detail-label, .ws-reg-detail-value, .ws-reg-pill, .ws-reg-btn, .ws-reg-fullNote"
     );
 
     readableElements.forEach((element) => {
@@ -274,9 +282,11 @@ export default function WorkshopRegister() {
         <Navbar />
 
         <div className="ws-reg-page" id="readable-content">
-          <div className="ws-reg-wrap">
-            <div className="ws-reg-status">Loading workshop details…</div>
-          </div>
+          <main className="ws-reg-wrap">
+            <div className="ws-reg-stateCard">
+              <div className="ws-reg-status">Loading workshop details...</div>
+            </div>
+          </main>
         </div>
       </>
     );
@@ -288,11 +298,22 @@ export default function WorkshopRegister() {
         <Navbar />
 
         <div className="ws-reg-page" id="readable-content">
-          <div className="ws-reg-wrap">
-            <div className="ws-reg-status">
-              {errorMsg || "Workshop not found."}
+          <main className="ws-reg-wrap">
+            <div className="ws-reg-stateCard">
+              <div className="ws-reg-status">
+                {errorMsg || "Workshop not found."}
+              </div>
+
+              <div className="ws-reg-btnRow">
+                <Link
+                  className="ws-reg-btn ws-reg-btnBack"
+                  to="/public-workshops"
+                >
+                  Back to workshops
+                </Link>
+              </div>
             </div>
-          </div>
+          </main>
         </div>
       </>
     );
@@ -307,43 +328,75 @@ export default function WorkshopRegister() {
       <Navbar />
 
       <div className="ws-reg-page" id="readable-content">
-        <div className="ws-reg-wrap">
+        <main className="ws-reg-wrap">
           <div className="ws-reg-layout">
-            <div className="ws-reg-posterCard">
-              <img
-                className="ws-reg-poster"
-                src={posterSrc(view.w.poster_path)}
-                alt="Workshop Poster"
-                onError={(e) => {
-                  e.currentTarget.src = "/pics/default-workshop.jpg";
-                }}
-              />
-            </div>
+            <aside className="ws-reg-mediaCol" aria-label="Workshop poster">
+              <div className="ws-reg-posterCard">
+                <img
+                  className="ws-reg-poster"
+                  src={posterSrc(view.w.poster_path)}
+                  alt={view.w.title || "Workshop poster"}
+                  onError={(e) => {
+                    e.currentTarget.src = "/pics/default-workshop.jpg";
+                  }}
+                />
+              </div>
+            </aside>
 
-            <div className="ws-reg-main">
-              <div className="ws-reg-title">{view.w.title}</div>
+            <section className="ws-reg-main">
+              <div className="ws-reg-eyebrow">Package Selection</div>
+
+              <h1 className="ws-reg-title">{view.w.title}</h1>
 
               <div className="ws-reg-capRow">
                 <div className="ws-reg-pill">
-                  Slots:{" "}
                   {view.maxSlots > 0 ? (
                     <>
-                      {view.regCount} / {view.maxSlots} (Remaining:{" "}
-                      {view.remaining})
+                      {view.remaining} slots left
                     </>
                   ) : (
-                    <>Unlimited (Registered: {view.regCount})</>
+                    <>Unlimited slots</>
                   )}
+                </div>
+
+                <div className="ws-reg-pill">
+                  Registered: {view.regCount}
+                  {view.maxSlots > 0 ? ` / ${view.maxSlots}` : ""}
                 </div>
 
                 {view.isFull && (
                   <div className="ws-reg-pill is-bad" aria-label="Full">
-                    FULL
+                    Full
                   </div>
                 )}
               </div>
 
-              <div className="ws-reg-section">What to Expect:</div>
+              <div className="ws-reg-detailsGrid" aria-label="Workshop details">
+                {view.dateText && (
+                  <div className="ws-reg-detailCard">
+                    <div className="ws-reg-detail-label">Date</div>
+                    <div className="ws-reg-detail-value">{view.dateText}</div>
+                  </div>
+                )}
+
+                {view.timeText && (
+                  <div className="ws-reg-detailCard">
+                    <div className="ws-reg-detail-label">Time</div>
+                    <div className="ws-reg-detail-value">{view.timeText}</div>
+                  </div>
+                )}
+
+                {view.locationText && (
+                  <div className="ws-reg-detailCard is-wide">
+                    <div className="ws-reg-detail-label">Location</div>
+                    <div className="ws-reg-detail-value">
+                      {view.locationText}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="ws-reg-section">What to Expect</div>
 
               {view.bullets.length > 0 ? (
                 <ul className="ws-reg-bullets">
@@ -352,64 +405,72 @@ export default function WorkshopRegister() {
                   ))}
                 </ul>
               ) : (
-                <div className="ws-reg-meta">
+                <div className="ws-reg-emptyText">
                   Workshop details will be posted soon.
                 </div>
               )}
 
-              <div className="ws-reg-meta">
-                Date: {view.dateText}
-                <br />
-                Time: {view.timeText}
-                <br />
-                Location: {view.w.location}
-              </div>
+              <div className="ws-reg-section">Choose Your Package</div>
 
-              <div className="ws-reg-btnRow">
-                {view.isFull ? (
-                  <>
+              <div className="ws-reg-packageGrid">
+                <div className="ws-reg-packageCard">
+                  <div className="ws-reg-packageName">Standard</div>
+                  <div className="ws-reg-packageText">
+                    Select this package for the standard workshop inclusions.
+                  </div>
+
+                  {view.isFull ? (
                     <span
                       className="ws-reg-btn is-disabled"
                       aria-disabled="true"
-                      aria-label="Standard"
+                      aria-label="Standard unavailable"
                     >
-                      STANDARD
+                      Standard
                     </span>
-
-                    <span
-                      className="ws-reg-btn is-disabled"
-                      aria-disabled="true"
-                      aria-label="Premium"
-                    >
-                      PREMIUM
-                    </span>
-                  </>
-                ) : (
-                  <>
+                  ) : (
                     <Link
                       className="ws-reg-btn"
                       to={standardUrl}
-                      aria-label="Standard"
+                      aria-label="Choose standard package"
                     >
-                      STANDARD
+                      Standard
                     </Link>
+                  )}
+                </div>
 
+                <div className="ws-reg-packageCard is-premium">
+                  <div className="ws-reg-packageName">Premium</div>
+                  <div className="ws-reg-packageText">
+                    Select this package for the premium workshop inclusions.
+                  </div>
+
+                  {view.isFull ? (
+                    <span
+                      className="ws-reg-btn is-disabled"
+                      aria-disabled="true"
+                      aria-label="Premium unavailable"
+                    >
+                      Premium
+                    </span>
+                  ) : (
                     <Link
                       className="ws-reg-btn"
                       to={premiumUrl}
-                      aria-label="Premium"
+                      aria-label="Choose premium package"
                     >
-                      PREMIUM
+                      Premium
                     </Link>
-                  </>
-                )}
+                  )}
+                </div>
+              </div>
 
+              <div className="ws-reg-btnRow">
                 <Link
                   className="ws-reg-btn ws-reg-btnBack"
                   to={backUrl}
-                  aria-label="Back"
+                  aria-label="Back to workshop details"
                 >
-                  Back
+                  Back to details
                 </Link>
               </div>
 
@@ -418,9 +479,9 @@ export default function WorkshopRegister() {
                   This workshop is fully booked. Please check other schedules.
                 </div>
               )}
-            </div>
+            </section>
           </div>
-        </div>
+        </main>
       </div>
     </>
   );

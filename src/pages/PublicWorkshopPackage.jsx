@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 import { Link, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
@@ -8,15 +8,23 @@ import "../assets/css/universal.css";
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
   if (!path) return fallback;
-  if (/^https?:\/\//i.test(path)) return path;
 
-  const clean = String(path).trim().replace(/^\/+/, "");
+  const rawPath = String(path).trim();
+  if (!rawPath) return fallback;
 
-  if (clean.startsWith("uploads/")) {
-    return `/api/${clean}`;
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
   }
 
-  return `/${clean}`;
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 function formatPrice(value) {
@@ -142,6 +150,40 @@ export default function PublicWorkshopPackage({ kind }) {
     };
   }, [id, isStandard, kind, requestKey]);
 
+  const view = useMemo(() => {
+    if (!data) return null;
+
+    const packageLabel = isStandard ? "Standard Package" : "Premium Package";
+    const packagePrice = isStandard
+      ? formatPrice(data.standard_price)
+      : formatPrice(data.premium_price);
+
+    const slotInfo = isStandard
+      ? data.max_slots > 0
+        ? {
+            label: data.is_full ? "Full" : `${data.remaining} slots left`,
+            subLabel: `Registered: ${data.reg_count} / ${data.max_slots}`,
+          }
+        : {
+            label: "Unlimited slots",
+            subLabel: `Registered: ${data.reg_count}`,
+          }
+      : null;
+
+    const emptyText = isStandard
+      ? "Standard package details will be posted soon."
+      : "Premium package details will be posted soon.";
+
+    return {
+      packageLabel,
+      packagePrice,
+      slotInfo,
+      emptyText,
+      continueUrl: `/registration?id=${data.id}&package=${kind}`,
+      backUrl: `/public-workshops/${data.id}/register`,
+    };
+  }, [data, isStandard, kind]);
+
   useEffect(() => {
     const readableContent = document.getElementById("readable-content");
 
@@ -161,7 +203,7 @@ export default function PublicWorkshopPackage({ kind }) {
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .wsPkg-meta, .wsPkg-badge, .wsPkg-pill, .wsPkg-title, .wsPkg-price, .wsPkg-section, .wsPkg-btn, .wsPkg-fullMessage"
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .wsPkg-meta, .wsPkg-eyebrow, .wsPkg-badge, .wsPkg-pill, .wsPkg-title, .wsPkg-price, .wsPkg-section, .wsPkg-btn, .wsPkg-fullMessage, .wsPkg-detailLabel, .wsPkg-detailValue"
     );
 
     readableElements.forEach((element) => {
@@ -218,137 +260,167 @@ export default function PublicWorkshopPackage({ kind }) {
         element.setAttribute("aria-label", textToRead.trim());
       }
     });
-  }, [loading, errorMsg, data, isStandard]);
+  }, [loading, errorMsg, data, view, isStandard]);
 
   if (loading) {
     return (
       <>
         <Navbar />
 
-        <div className="wsPkg-wrap" id="readable-content">
-          <div className="wsPkg-meta">Loading workshop details…</div>
+        <div className="wsPkg-page" id="readable-content">
+          <main className="wsPkg-wrap">
+            <div className="wsPkg-stateCard">
+              <div className="wsPkg-meta">Loading workshop details...</div>
+            </div>
+          </main>
         </div>
       </>
     );
   }
 
-  if (errorMsg || !data) {
+  if (errorMsg || !data || !view) {
     return (
       <>
         <Navbar />
 
-        <div className="wsPkg-wrap" id="readable-content">
-          <div className="wsPkg-meta">{errorMsg || "Workshop not found."}</div>
+        <div className="wsPkg-page" id="readable-content">
+          <main className="wsPkg-wrap">
+            <div className="wsPkg-stateCard">
+              <div className="wsPkg-meta">
+                {errorMsg || "Workshop not found."}
+              </div>
+            </div>
+          </main>
         </div>
       </>
     );
   }
-
-  const backUrl = `/public-workshops/${data.id}/register`;
-  const continueUrl = `/registration?id=${data.id}&package=${kind}`;
-
-  const slotInfo = isStandard
-    ? data.max_slots > 0
-      ? `Slots: ${data.reg_count} / ${data.max_slots} (Remaining: ${
-          data.remaining
-        })${data.is_full ? " • FULL" : ""}`
-      : `Slots: Unlimited (Registered: ${data.reg_count})`
-    : null;
-
-  const emptyText = isStandard
-    ? "Standard package details will be posted soon."
-    : "Premium package details will be posted soon.";
-
-  const packagePrice = isStandard
-    ? formatPrice(data.standard_price)
-    : formatPrice(data.premium_price);
 
   return (
     <>
       <Navbar />
 
-      <div className="wsPkg-wrap" id="readable-content">
-        <div className="wsPkg-layout">
-          <div className="wsPkg-poster">
-            <img
-              src={posterSrc(data.poster_path)}
-              alt="Workshop poster"
-              onError={(e) => {
-                e.currentTarget.src = "/pics/default-workshop.jpg";
-              }}
-            />
-          </div>
+      <div className="wsPkg-page" id="readable-content">
+        <main className="wsPkg-wrap">
+          <div className="wsPkg-layout">
+            <aside className="wsPkg-mediaCol" aria-label="Workshop poster">
+              <div className="wsPkg-poster">
+                <img
+                  src={posterSrc(data.poster_path)}
+                  alt={data.title || "Workshop poster"}
+                  onError={(e) => {
+                    e.currentTarget.src = "/pics/default-workshop.jpg";
+                  }}
+                />
+              </div>
+            </aside>
 
-          <div>
-            {isStandard ? (
+            <section className="wsPkg-contentCol">
+              <div className="wsPkg-eyebrow">Package Details</div>
+
               <div className="wsPkg-badgeRow">
-                <div className="wsPkg-badge" aria-label="Standard package">
-                  STANDARD PACKAGE
-                </div>
-
                 <div
-                  className={`wsPkg-pill ${
-                    data.is_full ? "wsPkg-pill-bad" : ""
+                  className={`wsPkg-badge ${
+                    !isStandard ? "is-premium" : ""
                   }`}
+                  aria-label={view.packageLabel}
                 >
-                  {slotInfo}
+                  {view.packageLabel}
                 </div>
+
+                {isStandard && view.slotInfo && (
+                  <>
+                    <div
+                      className={`wsPkg-pill ${
+                        data.is_full ? "wsPkg-pill-bad" : ""
+                      }`}
+                    >
+                      {view.slotInfo.label}
+                    </div>
+
+                    <div className="wsPkg-pill">{view.slotInfo.subLabel}</div>
+                  </>
+                )}
               </div>
-            ) : (
-              <div className="wsPkg-badge" aria-label="Premium package">
-                PREMIUM PACKAGE
+
+              <h1 className="wsPkg-title">{data.title}</h1>
+
+              <div className="wsPkg-priceCard">
+                <div className="wsPkg-priceLabel">Package Price</div>
+                <div className="wsPkg-price">{view.packagePrice}</div>
               </div>
-            )}
 
-            <div className="wsPkg-title">{data.title}</div>
-            <div className="wsPkg-price">Price: {packagePrice}</div>
+              <div className="wsPkg-detailsGrid" aria-label="Workshop details">
+                {data.dateText && (
+                  <div className="wsPkg-detailCard">
+                    <div className="wsPkg-detailLabel">Date</div>
+                    <div className="wsPkg-detailValue">{data.dateText}</div>
+                  </div>
+                )}
 
-            <div className="wsPkg-meta">
-              Date: {data.dateText}
-              <br />
-              Time: {data.timeText}
-              <br />
-              Location: {data.location}
-            </div>
+                {data.timeText && (
+                  <div className="wsPkg-detailCard">
+                    <div className="wsPkg-detailLabel">Time</div>
+                    <div className="wsPkg-detailValue">{data.timeText}</div>
+                  </div>
+                )}
 
-            <div className="wsPkg-section">Inclusions:</div>
+                {data.location && (
+                  <div className="wsPkg-detailCard is-wide">
+                    <div className="wsPkg-detailLabel">Location</div>
+                    <div className="wsPkg-detailValue">{data.location}</div>
+                  </div>
+                )}
+              </div>
 
-            {Array.isArray(data.bullets) && data.bullets.length > 0 ? (
-              <ul className="wsPkg-bullets">
-                {data.bullets.map((bullet) => (
-                  <li key={stableTextKey(bullet)}>{bullet}</li>
-                ))}
-              </ul>
-            ) : (
-              <div className="wsPkg-meta">{emptyText}</div>
-            )}
+              <div className="wsPkg-section">Inclusions</div>
 
-            <div className="wsPkg-btnRow">
-              {isStandard && data.is_full ? (
-                <span
-                  className="wsPkg-btn wsPkg-btnDisabled"
-                  aria-label="Continue"
-                >
-                  CONTINUE
-                </span>
+              {Array.isArray(data.bullets) && data.bullets.length > 0 ? (
+                <ul className="wsPkg-bullets">
+                  {data.bullets.map((bullet) => (
+                    <li key={stableTextKey(bullet)}>{bullet}</li>
+                  ))}
+                </ul>
               ) : (
-                <Link className="wsPkg-btn" to={continueUrl} aria-label="Continue">
-                  CONTINUE
-                </Link>
+                <div className="wsPkg-emptyText">{view.emptyText}</div>
               )}
 
-              <Link className="wsPkg-btn wsPkg-back" to={backUrl} aria-label="Back">
-                Back
-              </Link>
-            </div>
+              <div className="wsPkg-btnRow">
+                {isStandard && data.is_full ? (
+                  <span
+                    className="wsPkg-btn wsPkg-btnDisabled"
+                    aria-label="Continue disabled"
+                    aria-disabled="true"
+                  >
+                    Continue
+                  </span>
+                ) : (
+                  <Link
+                    className="wsPkg-btn"
+                    to={view.continueUrl}
+                    aria-label="Continue registration"
+                  >
+                    Continue
+                  </Link>
+                )}
 
-            {isStandard && data.is_full ? (
-              <div className="wsPkg-fullMessage">
-                This workshop is fully booked. Please choose another schedule.
+                <Link
+                  className="wsPkg-btn wsPkg-back"
+                  to={view.backUrl}
+                  aria-label="Back to package selection"
+                >
+                  Back
+                </Link>
               </div>
-            ) : null}
+
+              {isStandard && data.is_full ? (
+                <div className="wsPkg-fullMessage">
+                  This workshop is fully booked. Please choose another schedule.
+                </div>
+              ) : null}
+            </section>
           </div>
-        </div>
+        </main>
       </div>
     </>
   );

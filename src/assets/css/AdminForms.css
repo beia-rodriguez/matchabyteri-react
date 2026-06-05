@@ -581,3 +581,268 @@
     justify-content: center;
   }
 }
+
+/* Admin Forms responsive and alignment fixes */
+.admin-forms-page-react {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.admin-forms-page-react .afc-toolbar {
+  width: 100%;
+}
+
+.admin-forms-page-react .afc-toolbar-left {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.admin-forms-page-react .afc-toolbar-right {
+  justify-content: flex-end;
+}
+
+.admin-forms-page-react .afc-tabs {
+  max-width: 100%;
+}
+
+.admin-forms-page-react .afc-tab svg,
+.admin-forms-page-react .afc-btn-primary svg,
+.admin-forms-page-react .afc-btn-secondary svg,
+.admin-forms-page-react .afc-btn-danger svg,
+.admin-forms-page-react .afc-btn-soft svg,
+.admin-forms-page-react .afc-btn-muted svg {
+  flex: 0 0 auto;
+}
+
+.admin-forms-page-react .afc-input-with-prefix {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-forms-page-react .afc-input-with-prefix .afc-input {
+  min-width: 0;
+}
+
+.admin-forms-page-react .afc-edit-row,
+.admin-forms-page-react .afc-edit-row-wide {
+  grid-template-columns: repeat(3, minmax(170px, 1fr));
+  align-items: start;
+}
+
+.admin-forms-page-react .afc-row-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--afc-line);
+}
+
+.admin-forms-page-react .afc-section-head {
+  align-items: center;
+}
+
+.admin-forms-page-react .afc-section-actions {
+  margin-left: auto;
+}
+
+.admin-forms-page-react .afp-booking-summary,
+.admin-forms-page-react .afc-audit-item,
+.admin-forms-page-react .afc-meta-card {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Admin-friendly audit logs */
+.admin-forms-page-react .afc-audit-list {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-forms-page-react .afc-audit-item {
+  border: 1px solid var(--afc-line);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(31, 59, 38, 0.04);
+}
+
+.admin-forms-page-react .afc-audit-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-forms-page-react .afc-audit-main strong {
+  color: var(--afc-ink);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-audit-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f4f8f4;
+  color: var(--afc-green-2);
+  border: 1px solid var(--afc-line);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.admin-forms-page-react .afc-audit-details {
+  margin-top: 12px;
+}
+
+.admin-forms-page-react .afc-audit-details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--afc-green-2);
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-audit-change-table {
+  margin-top: 12px;
+  border: 1px solid var(--afc-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.admin-forms-page-react .afc-audit-change-head,
+.admin-forms-page-react .afc-audit-change-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(160px, 1fr) minmax(160px, 1fr);
+  gap: 0;
+}
+
+.admin-forms-page-react .afc-audit-change-head span {
+  background: var(--afc-panel);
+  color: var(--afc-green-2);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.admin-forms-page-react .afc-audit-change-row + .afc-audit-change-row {
+  border-top: 1px solid var(--afc-line);
+}
+
+.admin-forms-page-react .afc-audit-change-head span,
+.admin-forms-page-react .afc-audit-change-row span {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid var(--afc-line);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.admin-forms-page-react .afc-audit-change-head span:last-child,
+.admin-forms-page-react .afc-audit-change-row span:last-child {
+  border-right: 0;
+}
+
+.admin-forms-page-react .afc-audit-change-row span:first-child {
+  color: var(--afc-green-2);
+  font-weight: 900;
+}
+
+.admin-forms-page-react .afc-audit-empty {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--afc-line);
+  border-radius: 12px;
+  color: var(--afc-muted);
+  font-weight: 800;
+}
+
+@media (max-width: 1180px) {
+  .admin-forms-page-react .afc-edit-row,
+  .admin-forms-page-react .afc-edit-row-wide {
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-forms-page-react .afc-toolbar,
+  .admin-forms-page-react .afc-settings-card {
+    border-radius: 16px;
+  }
+
+  .admin-forms-page-react .afc-toolbar-left,
+  .admin-forms-page-react .afc-toolbar-right,
+  .admin-forms-page-react .afc-section-actions {
+    width: 100%;
+  }
+
+  .admin-forms-page-react .afc-section-actions .afc-btn-secondary,
+  .admin-forms-page-react .afc-toolbar-right .afc-btn-secondary,
+  .admin-forms-page-react .afc-toolbar-right .afc-btn-primary {
+    width: 100%;
+  }
+
+  .admin-forms-page-react .afc-edit-row,
+  .admin-forms-page-react .afc-edit-row-wide {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .admin-forms-page-react .afc-row-actions {
+    justify-content: stretch;
+  }
+
+  .admin-forms-page-react .afc-row-actions button {
+    flex: 1 1 160px;
+  }
+
+  .admin-forms-page-react .afc-audit-main {
+    flex-direction: column;
+  }
+
+  .admin-forms-page-react .afc-audit-pill {
+    width: fit-content;
+  }
+
+  .admin-forms-page-react .afc-audit-change-head,
+  .admin-forms-page-react .afc-audit-change-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-forms-page-react .afc-audit-change-head span,
+  .admin-forms-page-react .afc-audit-change-row span {
+    border-right: 0;
+    border-bottom: 1px solid var(--afc-line);
+  }
+
+  .admin-forms-page-react .afc-audit-change-head span:last-child,
+  .admin-forms-page-react .afc-audit-change-row span:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-forms-page-react .afc-settings-card,
+  .admin-forms-page-react .afc-toolbar,
+  .admin-forms-page-react .afc-audit-item {
+    padding: 14px;
+  }
+
+  .admin-forms-page-react .afc-section-number {
+    width: 100%;
+  }
+
+  .admin-forms-page-react .afc-btn-primary,
+  .admin-forms-page-react .afc-btn-secondary,
+  .admin-forms-page-react .afc-btn-danger,
+  .admin-forms-page-react .afc-btn-soft,
+  .admin-forms-page-react .afc-btn-muted {
+    width: 100%;
+  }
+}

@@ -60,12 +60,29 @@ function buildEditForm(w) {
 
 function posterSrc(path) {
   if (!path) return "";
-  if (/^https?:\/\//i.test(path)) return path;
-  const clean = String(path).trim().replace(/^\/+/, "");
-  if (clean.startsWith("uploads/")) {
-    return `/api/${clean}`;
+
+  const rawPath = String(path).trim();
+  if (!rawPath) return "";
+
+  if (/^blob:/i.test(rawPath) || /^https?:\/\//i.test(rawPath)) {
+    return rawPath;
   }
-  return `/${clean}`;
+
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
+  }
+
+  if (clean.startsWith("api/")) {
+    return `/backend/${clean}`;
+  }
+
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
 }
 
 function EmptyState({ text }) {
@@ -174,7 +191,7 @@ export default function AdminWorkshops() {
   }, [loadData]);
 
   const filteredWorkshops = useMemo(() => {
-    const needle = search.trim().toLowerCase();
+    const needle = String(search || "").trim().toLowerCase();
 
     return workshops.filter((w) => {
       const title = String(w.title || "").toLowerCase();
@@ -529,7 +546,7 @@ export default function AdminWorkshops() {
                           <div>
                             <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 800 }}>Schedule</span>
                             <div style={{ fontSize: '0.9rem', color: 'var(--ink)', fontWeight: 600 }}>{w.workshop_date || "TBD"}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{toTimeInput(w.start_time)} - {toTimeInput(w.end_time) || "TBD"}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{toTimeInput(w.start_time)} to {toTimeInput(w.end_time) || "TBD"}</div>
                           </div>
                           <div>
                             <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 800 }}>Location</span>
@@ -544,7 +561,7 @@ export default function AdminWorkshops() {
 
                         <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
                           <Link className="admin-pill-react" to={`/public-workshops/${wid}`} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-                            <Eye size={14} /> Preview Front-End
+                            <Eye size={14} /> Preview Front End
                           </Link>
                           <button className="admin-pill-react" type="button" onClick={() => exportRegsCsv(wid)} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
                             <Download size={14} /> Export CSV

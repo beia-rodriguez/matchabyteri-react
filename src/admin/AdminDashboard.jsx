@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import Chart from "chart.js/auto";
 import {
+  AlertCircle,
   BarChart3,
+  CalendarCheck,
+  CheckCircle2,
   Clock,
   Package,
   PartyPopper,
   PhilippinePeso,
+  RefreshCw,
 } from "lucide-react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
@@ -61,7 +66,9 @@ const STATUS_COLORS = {
   pending: COLORS.blue,
   approved: COLORS.green,
   completed: COLORS.greenDark,
+  complete: COLORS.greenDark,
   cancelled: COLORS.gray,
+  canceled: COLORS.gray,
   rejected: COLORS.red,
   unpaid: COLORS.gray,
   partial: COLORS.orange,
@@ -81,7 +88,7 @@ function SkeletonCard() {
 function StatCard({ icon: Icon, label, tag, value, sub, accent }) {
   return (
     <div
-      className="admin-card-react admin-card-feature-react"
+      className="admin-card-react admin-card-feature-react dash-stat-card"
       style={accent ? { borderLeft: `4px solid ${accent}` } : {}}
     >
       <div className="admin-card-label-react">
@@ -113,29 +120,112 @@ function hasAnyNumber(values = []) {
   return values.some((value) => Number(value || 0) > 0);
 }
 
-function ChartBox({ title, subtitle, loading, emptyMessage, hasData, children }) {
+function ChartBox({
+  title,
+  subtitle,
+  loading,
+  emptyMessage,
+  hasData,
+  chartType = "standard",
+  children,
+}) {
   return (
-    <div className="admin-panel-react">
-      <h3 style={{ marginBottom: 4 }}>{title}</h3>
-
-      {subtitle && (
-        <p
-          className="admin-muted-react"
-          style={{ marginTop: 0, marginBottom: 14, fontSize: "0.86rem" }}
-        >
-          {subtitle}
-        </p>
-      )}
+    <div className={`admin-panel-react dash-chart-card dash-chart-card-${chartType}`}>
+      <div className="dash-panel-title-row">
+        <div>
+          <h3>{title}</h3>
+          {subtitle && <p className="admin-muted-react">{subtitle}</p>}
+        </div>
+      </div>
 
       {loading ? (
-        <div className="admin-muted-react" role="status">
+        <div className="admin-muted-react dash-chart-loading" role="status">
           Loading chart…
         </div>
       ) : !hasData ? (
         <EmptyChart message={emptyMessage} />
       ) : (
-        <div style={{ position: "relative", minHeight: 280 }}>{children}</div>
+        <div className={`dash-chart-wrap dash-chart-wrap-${chartType}`}>
+          {children}
+        </div>
       )}
+    </div>
+  );
+}
+
+function ActionSummary({ loading, pendingBookings, pendingPayments, cancellations }) {
+  const total = Number(pendingBookings || 0) +
+    Number(pendingPayments || 0) +
+    Number(cancellations || 0);
+
+  if (loading) {
+    return (
+      <div className="dash-action-panel dash-action-panel-loading">
+        <div className="skel-line skel-short" />
+        <div className="skel-line skel-medium" />
+      </div>
+    );
+  }
+
+  if (total <= 0) {
+    return (
+      <div className="dash-action-panel dash-action-panel-ok">
+        <div className="dash-action-icon dash-action-icon-ok">
+          <CheckCircle2 size={20} aria-hidden="true" />
+        </div>
+        <div>
+          <strong>No urgent admin action right now.</strong>
+          <span>Pending bookings, payment reviews, and cancellation requests are clear.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dash-action-panel dash-action-panel-warning">
+      <div className="dash-action-icon dash-action-icon-warning">
+        <AlertCircle size={20} aria-hidden="true" />
+      </div>
+
+      <div className="dash-action-content">
+        <strong>{total} item{total === 1 ? "" : "s"} need admin review</strong>
+        <span>
+          {pendingBookings} booking{pendingBookings === 1 ? "" : "s"}, {pendingPayments} payment{pendingPayments === 1 ? "" : "s"}, and {cancellations} cancellation request{cancellations === 1 ? "" : "s"}.
+        </span>
+      </div>
+
+      <div className="dash-action-links" aria-label="Dashboard action links">
+        <Link to="/admin/reservations">Review Bookings</Link>
+        <Link to="/admin/payments">Check Payments</Link>
+      </div>
+    </div>
+  );
+}
+
+function StatusList({ labels = [], rawLabels = [], values = [] }) {
+  const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+
+  return (
+    <div className="dash-status-list">
+      {labels.map((label, index) => {
+        const value = Number(values[index] || 0);
+        const raw = rawLabels[index];
+        const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+        const color = STATUS_COLORS[raw] || COLORS.gray;
+
+        return (
+          <div className="dash-status-row" key={`${raw || label}-${index}`}>
+            <div className="dash-status-main">
+              <span className="dash-status-dot" style={{ backgroundColor: color }} />
+              <span>{label}</span>
+            </div>
+            <div className="dash-status-value">
+              <strong>{value}</strong>
+              <span>{percent}%</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -149,7 +239,6 @@ export default function AdminDashboard() {
   const revenueCanvasRef = useRef(null);
   const statusCanvasRef = useRef(null);
   const paymentCanvasRef = useRef(null);
-
 
   useEffect(() => {
     const load = async () => {
@@ -187,9 +276,7 @@ export default function AdminDashboard() {
             []
           ).map(Number),
           eventCounts: (data.eventCounts || []).map(Number),
-          publicRegistrationCounts: (data.publicRegistrationCounts || []).map(
-            Number
-          ),
+          publicRegistrationCounts: (data.publicRegistrationCounts || []).map(Number),
           pendingCounts: (data.pendingCounts || []).map(Number),
 
           revenue: (data.revenue || []).map(Number),
@@ -217,11 +304,21 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!stats || !stats.labels.length) return;
 
-
     let bookingChart = null;
     let revenueChart = null;
     let statusChart = null;
     let paymentChart = null;
+
+    const sharedLegend = {
+      position: "bottom",
+      labels: {
+        boxWidth: 10,
+        boxHeight: 10,
+        usePointStyle: true,
+        pointStyle: "circle",
+        padding: 14,
+      },
+    };
 
     const frame = requestAnimationFrame(() => {
       const bookingCtx = bookingCanvasRef.current?.getContext("2d");
@@ -239,25 +336,29 @@ export default function AdminDashboard() {
                 label: "Events",
                 data: stats.eventCounts,
                 backgroundColor: COLORS.yellow,
-                borderRadius: 6,
+                borderRadius: 7,
+                maxBarThickness: 34,
               },
               {
                 label: "Private Workshops",
                 data: stats.privateWorkshopCounts,
                 backgroundColor: COLORS.green,
-                borderRadius: 6,
+                borderRadius: 7,
+                maxBarThickness: 34,
               },
               {
                 label: "Public Registrations",
                 data: stats.publicRegistrationCounts,
                 backgroundColor: COLORS.blue,
-                borderRadius: 6,
+                borderRadius: 7,
+                maxBarThickness: 34,
               },
               {
-                label: "Pending / Awaiting Payment",
+                label: "Needs Review",
                 data: stats.pendingCounts,
                 backgroundColor: COLORS.orange,
-                borderRadius: 6,
+                borderRadius: 7,
+                maxBarThickness: 34,
               },
             ],
           },
@@ -269,9 +370,7 @@ export default function AdminDashboard() {
               intersect: false,
             },
             plugins: {
-              legend: {
-                position: "bottom",
-              },
+              legend: sharedLegend,
               tooltip: {
                 callbacks: {
                   label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}`,
@@ -292,7 +391,9 @@ export default function AdminDashboard() {
               x: {
                 ticks: {
                   color: COLORS.gray,
-                  maxRotation: 45,
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 6,
                 },
                 grid: {
                   display: false,
@@ -317,7 +418,8 @@ export default function AdminDashboard() {
                 tension: 0.35,
                 fill: true,
                 pointBackgroundColor: COLORS.green,
-                pointRadius: 4,
+                pointRadius: 3,
+                pointHoverRadius: 5,
                 yAxisID: "y",
               },
               {
@@ -328,7 +430,8 @@ export default function AdminDashboard() {
                 tension: 0.35,
                 fill: false,
                 pointBackgroundColor: COLORS.orange,
-                pointRadius: 4,
+                pointRadius: 3,
+                pointHoverRadius: 5,
                 yAxisID: "y1",
               },
             ],
@@ -341,9 +444,7 @@ export default function AdminDashboard() {
               intersect: false,
             },
             plugins: {
-              legend: {
-                position: "bottom",
-              },
+              legend: sharedLegend,
               tooltip: {
                 callbacks: {
                   label: (ctx) => {
@@ -363,6 +464,7 @@ export default function AdminDashboard() {
                 beginAtZero: true,
                 ticks: {
                   color: COLORS.gray,
+                  maxTicksLimit: 5,
                   callback: (value) => `₱${Number(value).toLocaleString("en-PH")}`,
                 },
                 grid: {
@@ -376,6 +478,7 @@ export default function AdminDashboard() {
                 ticks: {
                   precision: 0,
                   color: COLORS.gray,
+                  maxTicksLimit: 5,
                 },
                 grid: {
                   drawOnChartArea: false,
@@ -384,7 +487,9 @@ export default function AdminDashboard() {
               x: {
                 ticks: {
                   color: COLORS.gray,
-                  maxRotation: 45,
+                  maxRotation: 0,
+                  autoSkip: true,
+                  maxTicksLimit: 6,
                 },
                 grid: {
                   display: false,
@@ -409,16 +514,18 @@ export default function AdminDashboard() {
                 ),
                 borderWidth: 2,
                 borderColor: "#ffffff",
+                hoverOffset: 4,
               },
             ],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: "62%",
+            cutout: "72%",
+            radius: "82%",
             plugins: {
               legend: {
-                position: "bottom",
+                display: false,
               },
               tooltip: {
                 callbacks: {
@@ -444,16 +551,18 @@ export default function AdminDashboard() {
                 ),
                 borderWidth: 2,
                 borderColor: "#ffffff",
+                hoverOffset: 4,
               },
             ],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: "62%",
+            cutout: "72%",
+            radius: "82%",
             plugins: {
               legend: {
-                position: "bottom",
+                display: false,
               },
               tooltip: {
                 callbacks: {
@@ -473,7 +582,6 @@ export default function AdminDashboard() {
       revenueChart?.destroy();
       statusChart?.destroy();
       paymentChart?.destroy();
-
     };
   }, [stats]);
 
@@ -525,10 +633,14 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div
-        className="admin-cards-react admin-cards-hero-react"
-        style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}
-      >
+      <ActionSummary
+        loading={loading}
+        pendingBookings={stats?.pendingBookings ?? 0}
+        pendingPayments={stats?.pendingPaymentBookings ?? 0}
+        cancellations={stats?.cancellationRequests ?? 0}
+      />
+
+      <div className="admin-cards-react admin-cards-hero-react">
         {loading ? (
           <>
             <SkeletonCard />
@@ -543,7 +655,7 @@ export default function AdminDashboard() {
               tag="Events"
               label="Total Events"
               value={stats?.totalEvent ?? 0}
-              sub="Approved & completed"
+              sub="Approved and completed"
             />
 
             <StatCard
@@ -551,7 +663,7 @@ export default function AdminDashboard() {
               tag="Private Workshops"
               label="Total Workshops"
               value={stats?.totalPrivateWorkshops ?? 0}
-              sub="Approved & completed"
+              sub="Approved and completed"
             />
 
             <StatCard
@@ -574,10 +686,10 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <div className="admin-grid-2-react">
+      <div className="admin-grid-2-react dash-main-chart-grid">
         <ChartBox
           title="Booking Trends"
-          subtitle="Events, private workshops, public registrations, and pending bookings by month."
+          subtitle="Monthly bookings grouped by type and pending status."
           loading={loading}
           hasData={hasBookingChartData}
           emptyMessage="No booking data for the past 12 months yet."
@@ -586,8 +698,8 @@ export default function AdminDashboard() {
         </ChartBox>
 
         <ChartBox
-          title="Revenue & Paid Payments"
-          subtitle="Revenue amount and number of paid payment submissions by month."
+          title="Revenue and Paid Payments"
+          subtitle="Paid revenue and verified payment count by month."
           loading={loading}
           hasData={hasRevenueChartData}
           emptyMessage="No paid payment data for the past 12 months yet."
@@ -596,30 +708,42 @@ export default function AdminDashboard() {
         </ChartBox>
       </div>
 
-      <div className="admin-grid-2-react">
+      <div className="admin-grid-2-react dash-status-grid">
         <ChartBox
-          title="Booking Status Distribution"
-          subtitle="Current status of all booking records."
+          title="Booking Status"
+          subtitle="Current booking state. Use this to spot backlogs quickly."
           loading={loading}
+          chartType="compact"
           hasData={hasStatusChartData}
           emptyMessage="No booking status data available yet."
         >
           <canvas ref={statusCanvasRef} aria-label="Booking status distribution chart" />
+          <StatusList
+            labels={stats?.statusLabels}
+            rawLabels={stats?.statusRawLabels}
+            values={stats?.statusCounts}
+          />
         </ChartBox>
 
         <ChartBox
-          title="Payment Status Distribution"
-          subtitle="Computed payment state from bookings, payments, and workshop registrations."
+          title="Payment Status"
+          subtitle="Payment state from bookings, payments, and public registrations."
           loading={loading}
+          chartType="compact"
           hasData={hasPaymentStatusChartData}
           emptyMessage="No payment status data available yet."
         >
           <canvas ref={paymentCanvasRef} aria-label="Payment status distribution chart" />
+          <StatusList
+            labels={stats?.paymentStatusLabels}
+            rawLabels={stats?.paymentStatusRawLabels}
+            values={stats?.paymentStatusCounts}
+          />
         </ChartBox>
       </div>
 
-      <div className="admin-grid-3-react">
-        <div className="admin-panel-react">
+      <div className="admin-grid-3-react dash-insight-grid">
+        <div className="admin-panel-react dash-info-panel">
           <h3>Quick Insights</h3>
 
           <div className="admin-stat-list-react">
@@ -640,12 +764,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="admin-panel-react">
+        <div className="admin-panel-react dash-info-panel">
           <h3>Bookings Snapshot</h3>
 
           <div className="admin-stat-list-react">
             <div className="admin-stat-item-react">
-              <span>Meaningful bookings</span>
+              <span>Confirmed business records</span>
               <strong>{loading ? "—" : totalMeaningfulBookings}</strong>
             </div>
 
@@ -667,10 +791,25 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="admin-panel-react">
-          <h3>System Status</h3>
+        <div className="admin-panel-react dash-info-panel">
+          <h3>Admin Shortcuts</h3>
 
-          <div className="admin-stat-list-react">
+          <div className="dash-shortcut-list">
+            <Link to="/admin/reservations">
+              <CalendarCheck size={16} aria-hidden="true" />
+              Reservations
+            </Link>
+            <Link to="/admin/payments">
+              <PhilippinePeso size={16} aria-hidden="true" />
+              Payments
+            </Link>
+            <Link to="/admin/forms">
+              <RefreshCw size={16} aria-hidden="true" />
+              Pricing Forms
+            </Link>
+          </div>
+
+          <div className="admin-stat-list-react dash-system-list">
             <div className="admin-stat-item-react">
               <span>Dashboard API</span>
               <strong style={{ color: error ? COLORS.red : COLORS.green }}>
@@ -687,11 +826,6 @@ export default function AdminDashboard() {
                   ? "Ready"
                   : "No data"}
               </strong>
-            </div>
-
-            <div className="admin-stat-item-react">
-              <span>Data source</span>
-              <strong>Bookings / Payments</strong>
             </div>
           </div>
         </div>

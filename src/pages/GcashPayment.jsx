@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useReducer, useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../assets/css/gcash-payment.css";
@@ -55,6 +55,23 @@ const ALLOWED_PURPOSES = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
+const paymentResponseInitialState = {
+  response: null,
+};
+
+function paymentResponseReducer(state, action) {
+  switch (action.type) {
+    case "reset":
+      return paymentResponseInitialState;
+
+    case "success":
+      return { response: action.response };
+
+    default:
+      return state;
+  }
+}
+
 export default function GcashPayment() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -79,8 +96,12 @@ export default function GcashPayment() {
   const [referenceNo, setReferenceNo] = useState("");
   const [proof, setProof] = useState(null);
 
-  const [paymentResponse, setPaymentResponse] = useState(null);
+  const [paymentResponseState, dispatchPaymentResponse] = useReducer(
+    paymentResponseReducer,
+    paymentResponseInitialState
+  );
 
+  const paymentResponse = paymentResponseState.response;
   const loading = !paymentResponse && !err;
 
   const paymentData = useMemo(() => {
@@ -120,7 +141,7 @@ export default function GcashPayment() {
   }, [isPublicWorkshop, purpose, registrationId, bookingId]);
 
   const loadPaymentInfo = useCallback(async () => {
-    setPaymentResponse(null);
+    dispatchPaymentResponse({ type: "reset" });
     setErr("");
 
     try {
@@ -140,7 +161,7 @@ export default function GcashPayment() {
         return;
       }
 
-      setPaymentResponse(res.data);
+      dispatchPaymentResponse({ type: "success", response: res.data });
     } catch (error) {
       setErr(error.response?.data?.error || "Failed to load payment details.");
     }

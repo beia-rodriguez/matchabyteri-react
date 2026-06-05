@@ -2,6 +2,15 @@
    Shared admin layout + reusable UI utilities only.
    Keep page-specific CSS in separate files imported by each page component. */
 
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+}
+
 .admin-shell-react{
   --green:#2f5a2b;
   --green-2:#37664c;

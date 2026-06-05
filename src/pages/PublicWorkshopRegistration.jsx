@@ -20,10 +20,27 @@ const initialState = {
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
   if (!path) return fallback;
-  if (/^https?:\/\//i.test(path)) return path;
-  const clean = String(path).trim().replace(/^\/+/, "");
-  if (clean.startsWith("uploads/")) return `/api/${clean}`;
-  return `/${clean}`;
+
+  const rawPath = String(path).trim();
+  if (!rawPath) return fallback;
+
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
+  }
+
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/uploads/${clean}`;
+}
+
+function formatPrice(value) {
+  return `₱${Number(value || 0).toFixed(2)}`;
 }
 
 function registrationReducer(state, action) {
@@ -34,6 +51,7 @@ function registrationReducer(state, action) {
         loading: true,
         err: "",
       };
+
     case "LOAD_SUCCEEDED":
       return {
         ...state,
@@ -45,12 +63,14 @@ function registrationReducer(state, action) {
           phone: action.payload.user?.phone_number || "",
         },
       };
+
     case "LOAD_FAILED":
       return {
         ...state,
         loading: false,
         err: action.payload,
       };
+
     case "FIELD_CHANGED":
       return {
         ...state,
@@ -59,28 +79,33 @@ function registrationReducer(state, action) {
           [action.name]: action.value,
         },
       };
+
     case "SUBMIT_STARTED":
       return {
         ...state,
         submitting: true,
         err: "",
       };
+
     case "SUBMIT_FAILED":
       return {
         ...state,
         submitting: false,
         err: action.payload,
       };
+
     case "SUBMIT_FINISHED":
       return {
         ...state,
         submitting: false,
       };
+
     case "SET_ERROR":
       return {
         ...state,
         err: action.payload,
       };
+
     default:
       return state;
   }
@@ -101,6 +126,7 @@ function useReadableRegistrationContent({
     const isVisible = (element) => {
       const style = window.getComputedStyle(element);
       const rect = element.getBoundingClientRect();
+
       return (
         style.display !== "none" &&
         style.visibility !== "hidden" &&
@@ -111,7 +137,7 @@ function useReadableRegistrationContent({
     };
 
     const readableElements = readableContent.querySelectorAll(
-      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .pwr-card, .pwr-alert, .pwr-meta, .pwr-package-pill, .pwr-back"
+      "h1, h2, h3, h4, h5, h6, p, label, input, textarea, select, button, img, a, li, .pwr-card, .pwr-alert, .pwr-meta, .pwr-package-pill, .pwr-back, .pwr-price, .pwr-helper"
     );
 
     readableElements.forEach((element) => {
@@ -140,6 +166,7 @@ function useReadableRegistrationContent({
       ) {
         const parentDiv = element.closest("div");
         const label = parentDiv?.querySelector("label");
+
         textToRead =
           element.getAttribute("aria-label") ||
           label?.innerText ||
@@ -180,39 +207,46 @@ function PageShell({ children }) {
     <>
       <Navbar />
       <div className="pwr-page" id="readable-content">
-        <div className="pwr-wrap">{children}</div>
+        <main className="pwr-wrap">{children}</main>
       </div>
     </>
   );
 }
 
 function LoadingCard() {
-  return <div className="pwr-card">Loading registration…</div>;
+  return (
+    <div className="pwr-card">
+      <div className="pwr-meta">Loading registration...</div>
+    </div>
+  );
 }
 
 function ErrorCard({ err, onBack }) {
   return (
     <div className="pwr-card">
       <div className="pwr-alert pwr-alert-bad">{err}</div>
+
       <button
         className="pwr-back"
         type="button"
         aria-label="Back to Workshops"
         onClick={onBack}
       >
-        ← Back to Workshops
+        Back to Workshops
       </button>
     </div>
   );
 }
 
 function WorkshopSummary({ workshop, price, packageType }) {
+  const packageLabel = packageType === "premium" ? "Premium" : "Standard";
+
   return (
     <div className="pwr-top">
       <div className="pwr-poster">
         <img
           src={posterSrc(workshop?.poster_path)}
-          alt="Workshop Poster"
+          alt={workshop?.title || "Workshop poster"}
           onError={(e) => {
             e.currentTarget.src = "/pics/default-workshop.jpg";
           }}
@@ -220,25 +254,38 @@ function WorkshopSummary({ workshop, price, packageType }) {
       </div>
 
       <div className="pwr-title">
+        <div className="pwr-kicker">Workshop Registration</div>
+
         <h1>Register Now</h1>
-        <div className="pwr-meta">
-          {workshop?.title}
-          <br />
-          Date: {workshop?.dateText}
-          <br />
-          Time: {workshop?.timeText}
-          <br />
-          Location: {workshop?.location}
-          <br />
-          Price: ₱{Number(price || 0).toFixed(2)}
-        </div>
+
+        <div className="pwr-workshop-name">{workshop?.title}</div>
+
         <div
           className="pwr-package-pill"
-          aria-label={`Package: ${
-            packageType === "premium" ? "Premium" : "Standard"
-          }`}
+          aria-label={`Package: ${packageLabel}`}
         >
-          Package: {packageType.toUpperCase()}
+          {packageLabel} Package
+        </div>
+
+        <div className="pwr-price">
+          <span>Price</span>
+          {formatPrice(price)}
+        </div>
+
+        <div className="pwr-meta">
+          {workshop?.dateText && (
+            <>
+              Date: {workshop.dateText}
+              <br />
+            </>
+          )}
+          {workshop?.timeText && (
+            <>
+              Time: {workshop.timeText}
+              <br />
+            </>
+          )}
+          {workshop?.location && <>Location: {workshop.location}</>}
         </div>
       </div>
     </div>
@@ -248,7 +295,14 @@ function WorkshopSummary({ workshop, price, packageType }) {
 function RegistrationForm({ form, submitting, onChange, onSubmit }) {
   return (
     <form className="pwr-form" onSubmit={onSubmit}>
-      <div>
+      <div className="pwr-form-heading">
+        <h2>Your Details</h2>
+        <p className="pwr-helper">
+          Please review your information before continuing to payment.
+        </p>
+      </div>
+
+      <div className="pwr-field">
         <label htmlFor="full_name">Full Name</label>
         <input
           type="text"
@@ -258,13 +312,15 @@ function RegistrationForm({ form, submitting, onChange, onSubmit }) {
           onChange={onChange}
           required
           aria-label={
-            form.full_name.trim() ? `Full Name: ${form.full_name}` : "Enter Full Name"
+            form.full_name.trim()
+              ? `Full Name: ${form.full_name}`
+              : "Enter Full Name"
           }
         />
       </div>
 
       <div className="pwr-row">
-        <div>
+        <div className="pwr-field">
           <label htmlFor="email">Email Address</label>
           <input
             type="email"
@@ -274,12 +330,14 @@ function RegistrationForm({ form, submitting, onChange, onSubmit }) {
             onChange={onChange}
             required
             aria-label={
-              form.email.trim() ? `Email Address: ${form.email}` : "Enter Email Address"
+              form.email.trim()
+                ? `Email Address: ${form.email}`
+                : "Enter Email Address"
             }
           />
         </div>
 
-        <div>
+        <div className="pwr-field">
           <label htmlFor="phone">Phone Number</label>
           <input
             type="text"
@@ -289,7 +347,9 @@ function RegistrationForm({ form, submitting, onChange, onSubmit }) {
             onChange={onChange}
             required
             aria-label={
-              form.phone.trim() ? `Phone Number: ${form.phone}` : "Enter Phone Number"
+              form.phone.trim()
+                ? `Phone Number: ${form.phone}`
+                : "Enter Phone Number"
             }
           />
         </div>
@@ -301,7 +361,7 @@ function RegistrationForm({ form, submitting, onChange, onSubmit }) {
         disabled={submitting}
         aria-label={submitting ? "Registering" : "Register"}
       >
-        {submitting ? "REGISTERING..." : "REGISTER"}
+        {submitting ? "Registering..." : "Register"}
       </button>
     </form>
   );
@@ -341,7 +401,7 @@ function RegistrationCard({
         aria-label="Back to Packages"
         onClick={onBackToPackages}
       >
-        ← Back to Packages
+        Back to Packages
       </button>
     </div>
   );

@@ -35,12 +35,27 @@ function readableText(text = "") {
 function profilePictureSrc(path, fallback = "/pics/default-avatar.png") {
   if (!path || !String(path).trim()) return fallback;
 
-  const clean = String(path).trim();
+  const rawPath = String(path).trim();
 
-  if (/^blob:/i.test(clean) || /^https?:\/\//i.test(clean)) return clean;
-  if (clean.startsWith("/api/")) return clean;
+  if (/^blob:/i.test(rawPath) || /^https?:\/\//i.test(rawPath)) {
+    return rawPath;
+  }
 
-  return `/api/${clean.replace(/^\/+/, "")}`;
+  const clean = rawPath.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/")) {
+    return `/${clean}`;
+  }
+
+  if (clean.startsWith("api/")) {
+    return `/backend/${clean}`;
+  }
+
+  if (clean.startsWith("uploads/")) {
+    return `/backend/api/${clean}`;
+  }
+
+  return `/backend/api/${clean}`;
 }
 
 function buildProfileForm(userData = {}) {
@@ -280,7 +295,7 @@ function CancelModal({ booking, onClose, onSuccess }) {
             <div className="cancel-request-modal__summary-row" tabIndex={0}>
               <span className="cancel-request-modal__summary-label">Time</span>
               <strong className="cancel-request-modal__summary-value">
-                {booking.start_time?.slice(0, 5)} –{" "}
+                {booking.start_time?.slice(0, 5)} to{" "}
                 {booking.end_time?.slice(0, 5)}
               </strong>
             </div>
@@ -959,9 +974,9 @@ export default function UserProfile() {
                               >
                                 {b.start_time && b.end_time
                                   ? `${b.start_time?.slice(
-                                      0,
-                                      5
-                                    )} – ${b.end_time?.slice(0, 5)}`
+    0,
+    5
+  )} to ${b.end_time?.slice(0, 5)}`
                                   : "N/A"}
                               </td>
 

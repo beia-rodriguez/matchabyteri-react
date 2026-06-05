@@ -1,9 +1,28 @@
 <?php
-require_once __DIR__ . "/../admin/admin-common-api.php";
+session_start();
+
+require_once __DIR__ . "/../../config/db.php";
 
 header("Content-Type: application/json; charset=utf-8");
 
-$type = $_GET["type"] ?? "";
+if ($_SERVER["REQUEST_METHOD"] !== "GET") {
+  http_response_code(405);
+  echo json_encode([
+    "success" => false,
+    "error" => "Method not allowed."
+  ]);
+  exit();
+}
+
+$type = trim($_GET["type"] ?? "");
+
+if ($type === "event") {
+  $type = "event_booking";
+}
+
+if ($type === "workshop") {
+  $type = "private_workshop";
+}
 
 if (!in_array($type, ["event_booking", "private_workshop"], true)) {
   http_response_code(400);
@@ -63,7 +82,9 @@ try {
       SELECT
         id,
         quantity,
-        price_per_cup
+        price_per_cup,
+        is_active,
+        sort_order
       FROM event_cup_packages
       WHERE is_active = 1
       ORDER BY sort_order ASC, quantity ASC
@@ -76,7 +97,9 @@ try {
         label,
         description,
         addon_price,
-        included_drinks_count
+        included_drinks_count,
+        is_active,
+        sort_order
       FROM event_menu_packages
       WHERE is_active = 1
       ORDER BY sort_order ASC, id ASC
@@ -87,7 +110,9 @@ try {
         id,
         drink_name,
         category,
-        is_signature
+        is_signature,
+        is_active,
+        sort_order
       FROM event_drinks
       WHERE is_active = 1
       ORDER BY sort_order ASC, drink_name ASC
@@ -119,7 +144,9 @@ try {
         package_code,
         label,
         price_per_person,
-        description
+        description,
+        is_active,
+        sort_order
       FROM private_workshop_packages
       WHERE is_active = 1
       ORDER BY sort_order ASC, id ASC

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "./AdminLayout";
 import adminApi from "@/services/adminApi";
 import "./../assets/css/AdminForms.css";
@@ -1079,7 +1079,145 @@ function PrivateWorkshopPricingEditor({ form, setForm }) {
   );
 }
 
+function humanizeAuditText(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function auditTargetLabel(value) {
+  const key = String(value || "").toLowerCase();
+
+  const labels = {
+    event_cup_packages: "Event Cup Packages",
+    event_menu_packages: "Event Menu Packages",
+    event_drinks: "Event Drinks",
+    private_workshop_packages: "Private Workshop Packages",
+    system_settings: "System Settings",
+  };
+
+  return labels[key] || humanizeAuditText(value || "Pricing Settings");
+}
+
+function auditActionLabel(value) {
+  const key = String(value || "").toLowerCase();
+
+  if (key.includes("create") || key.includes("add")) return "added";
+  if (key.includes("delete") || key.includes("remove")) return "removed";
+  if (key.includes("disable") || key.includes("hide")) return "hid";
+  if (key.includes("enable") || key.includes("active")) return "enabled";
+
+  return "updated";
+}
+
+function parseAuditValue(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return value;
+
+  let parsed = value;
+
+  for (let i = 0; i < 3; i += 1) {
+    if (typeof parsed !== "string") return parsed;
+
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return parsed;
+    }
+  }
+
+  return parsed;
+}
+
+function formatAuditValue(value) {
+  const parsed = parseAuditValue(value);
+
+  if (parsed === null || parsed === undefined || parsed === "") {
+    return "Empty";
+  }
+
+  if (typeof parsed === "boolean") {
+    return parsed ? "Yes" : "No";
+  }
+
+  if (typeof parsed === "number") {
+    return String(parsed);
+  }
+
+  if (typeof parsed === "string") {
+    return parsed;
+  }
+
+  if (Array.isArray(parsed)) {
+    return `${parsed.length} item${parsed.length === 1 ? "" : "s"}`;
+  }
+
+  if (typeof parsed === "object") {
+    if (parsed.label) return String(parsed.label);
+    if (parsed.drink_name) return String(parsed.drink_name);
+    if (parsed.package_code) return String(parsed.package_code);
+    if (parsed.quantity && parsed.price_per_cup) {
+      return `${parsed.quantity} cups at ₱${money(parsed.price_per_cup)}`;
+    }
+
+    return JSON.stringify(parsed, null, 2);
+  }
+
+  return String(parsed);
+}
+
+function buildAuditRows(log) {
+  const oldValue = parseAuditValue(log.old_value);
+  const newValue = parseAuditValue(log.new_value);
+
+  if (
+    oldValue &&
+    newValue &&
+    typeof oldValue === "object" &&
+    typeof newValue === "object" &&
+    !Array.isArray(oldValue) &&
+    !Array.isArray(newValue)
+  ) {
+    const hiddenFields = new Set([
+      "id",
+      "admin_id",
+      "created_at",
+      "updated_at",
+      "reviewed_at",
+    ]);
+
+    return Array.from(
+      new Set([...Object.keys(oldValue), ...Object.keys(newValue)])
+    )
+      .filter((field) => !hiddenFields.has(field))
+      .filter((field) => {
+        return JSON.stringify(oldValue[field]) !== JSON.stringify(newValue[field]);
+      })
+      .map((field) => ({
+        field: humanizeAuditText(field),
+        before: formatAuditValue(oldValue[field]),
+        after: formatAuditValue(newValue[field]),
+      }));
+  }
+
+  if (JSON.stringify(oldValue) === JSON.stringify(newValue)) {
+    return [];
+  }
+
+  return [
+    {
+      field: "Record",
+      before: formatAuditValue(oldValue),
+      after: formatAuditValue(newValue),
+    },
+  ];
+}
+
 function AuditLogs({ logs }) {
+  const auditLogs = safeArray(logs);
+
   return (
     <div className="afc-settings-card">
       <div className="afc-section-number afc-inline-title">
@@ -1087,28 +1225,66 @@ function AuditLogs({ logs }) {
         Pricing Audit Logs
       </div>
 
-      {safeArray(logs).length === 0 ? (
+      <p className="afc-downpayment-preview">
+        This section shows who changed pricing settings and what was changed.
+      </p>
+
+      {auditLogs.length === 0 ? (
         <div className="afc-loading">No pricing audit logs yet.</div>
       ) : (
         <div className="afc-audit-list">
-          {safeArray(logs).map((log) => (
-            <div className="afc-audit-item" key={log.id}>
-              <div>
-                <strong>{log.action_type}</strong> on{" "}
-                <strong>{log.target_table}</strong>
-              </div>
+          {auditLogs.map((log) => {
+            const rows = buildAuditRows(log);
+            const adminName = log.admin_name || "Admin";
+            const targetLabel = auditTargetLabel(log.target_table);
+            const actionLabel = auditActionLabel(log.action_type);
 
-              <div className="afc-label-hint">
-                {log.created_at}
-                {log.admin_name ? ` • ${log.admin_name}` : ""}
-              </div>
+            return (
+              <article className="afc-audit-item" key={log.id}>
+                <div className="afc-audit-main">
+                  <div>
+                    <strong>
+                      {adminName} {actionLabel} {targetLabel}
+                    </strong>
 
-              <details>
-                <summary>View details</summary>
-                <pre>{JSON.stringify(log, null, 2)}</pre>
-              </details>
-            </div>
-          ))}
+                    <div className="afc-label-hint">
+                      {log.created_at || "Date not available"}
+                    </div>
+                  </div>
+
+                  <span className="afc-audit-pill">
+                    {humanizeAuditText(log.action_type || "Update")}
+                  </span>
+                </div>
+
+                <details className="afc-audit-details">
+                  <summary>View changes</summary>
+
+                  {rows.length === 0 ? (
+                    <div className="afc-audit-empty">
+                      No detailed field changes were recorded for this item.
+                    </div>
+                  ) : (
+                    <div className="afc-audit-change-table">
+                      <div className="afc-audit-change-head">
+                        <span>Field</span>
+                        <span>Before</span>
+                        <span>After</span>
+                      </div>
+
+                      {rows.map((row, index) => (
+                        <div className="afc-audit-change-row" key={`${row.field}-${index}`}>
+                          <span>{row.field}</span>
+                          <span>{row.before}</span>
+                          <span>{row.after}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </details>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1118,33 +1294,25 @@ function AuditLogs({ logs }) {
 export default function AdminForms() {
   const [bookingType, setBookingType] = useState("event_booking");
   const [csrfToken, setCsrfToken] = useState("");
-  const [form, setForm] = useState(null);
-  const savedFormSnapshotRef = useRef(null);
-  const [auditLogs, setAuditLogs] = useState(null);
+  const [form, setForm] = useState(clone(DEFAULT_EVENT_FORM));
+  const [originalForm, setOriginalForm] = useState(clone(DEFAULT_EVENT_FORM));
+  const [auditLogs, setAuditLogs] = useState([]);
 
+  const [loadStatus, setLoadStatus] = useState("idle");
   const [saving, setSaving] = useState(false);
+
+  const loading = loadStatus === "loading";
 
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-
-  const loading =
-    bookingType === "audit_logs"
-      ? auditLogs === null && !error
-      : form === null && !error;
 
   const hasUnsavedChanges = useMemo(() => {
     if (bookingType === "audit_logs") {
       return false;
     }
 
-    const originalForm = savedFormSnapshotRef.current;
-
-    if (!form || !originalForm) {
-      return false;
-    }
-
     return JSON.stringify(form) !== JSON.stringify(originalForm);
-  }, [form, bookingType]);
+  }, [form, originalForm, bookingType]);
 
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -1205,15 +1373,9 @@ export default function AdminForms() {
   };
 
   const loadForm = async (type) => {
+    setLoadStatus("loading");
     setNotice("");
     setError("");
-
-    if (type === "audit_logs") {
-      setAuditLogs(null);
-    } else {
-      setForm(null);
-      savedFormSnapshotRef.current = null;
-    }
 
     try {
       const { data } = await adminApi.get("/admin/get-booking-form.php", {
@@ -1227,27 +1389,29 @@ export default function AdminForms() {
       if (type === "audit_logs") {
         setAuditLogs(data.logs || []);
         setForm({});
-        savedFormSnapshotRef.current = {};
+        setOriginalForm({});
         return;
       }
 
       const nextForm = normalizeLoadedForm(type, data.form);
 
       setForm(clone(nextForm));
-      savedFormSnapshotRef.current = clone(nextForm);
+      setOriginalForm(clone(nextForm));
     } catch (err) {
       console.error(err);
       setError("Failed to load settings.");
 
       if (type === "event_booking") {
         setForm(clone(DEFAULT_EVENT_FORM));
-        savedFormSnapshotRef.current = clone(DEFAULT_EVENT_FORM);
+        setOriginalForm(clone(DEFAULT_EVENT_FORM));
       }
 
       if (type === "private_workshop") {
         setForm(clone(DEFAULT_PRIVATE_FORM));
-        savedFormSnapshotRef.current = clone(DEFAULT_PRIVATE_FORM);
+        setOriginalForm(clone(DEFAULT_PRIVATE_FORM));
       }
+    } finally {
+      setLoadStatus("ready");
     }
   };
 
@@ -1568,7 +1732,6 @@ export default function AdminForms() {
                 type="button"
                 className="afc-btn-secondary"
                 onClick={handleResetDefaults}
-            aria-label="Add item"
                 disabled={saving || loading}
               >
                 <RefreshCw size={16} />
