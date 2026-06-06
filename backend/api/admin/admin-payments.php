@@ -42,6 +42,117 @@ function money_to_float($value) {
     return round((float)$value, 2);
 }
 
+function normalize_label($value) {
+    $value = trim((string)$value);
+
+    if ($value === "") {
+        return "";
+    }
+
+    $value = str_replace(["_", "-"], " ", $value);
+    $value = preg_replace("/\s+/", " ", $value);
+
+    return ucwords(strtolower($value));
+}
+
+function first_non_empty_string(array $values): string {
+    foreach ($values as $value) {
+        if (is_string($value) || is_numeric($value)) {
+            $text = trim((string)$value);
+
+            if ($text !== "") {
+                return $text;
+            }
+        }
+    }
+
+    return "";
+}
+
+function find_value_by_keys_recursive($data, array $keys): string {
+    if (!is_array($data)) {
+        return "";
+    }
+
+    foreach ($data as $key => $value) {
+        $normalizedKey = strtolower(trim((string)$key));
+
+        if (in_array($normalizedKey, $keys, true)) {
+            if (is_string($value) || is_numeric($value)) {
+                $text = trim((string)$value);
+
+                if ($text !== "") {
+                    return $text;
+                }
+            }
+        }
+
+        if (is_array($value)) {
+            $found = find_value_by_keys_recursive($value, $keys);
+
+            if ($found !== "") {
+                return $found;
+            }
+        }
+    }
+
+    return "";
+}
+
+function extract_booking_display_title(array $row, array $ctx): string {
+    $notes = decode_context($row["booking_notes"] ?? "");
+    $snapshot = decode_context($row["form_snapshot"] ?? "");
+
+    $keys = [
+        "event_name",
+        "event title",
+        "event_title",
+        "eventname",
+        "name_of_event",
+        "event",
+        "occasion",
+        "type_of_event",
+        "event_type",
+        "workshop_name",
+        "workshop title",
+        "workshop_title",
+        "private_workshop_name",
+        "private workshop name",
+        "title",
+        "service_name",
+        "package_name",
+        "booking_title"
+    ];
+
+    $fromContext = find_value_by_keys_recursive($ctx, $keys);
+    if ($fromContext !== "") {
+        return $fromContext;
+    }
+
+    $fromNotes = find_value_by_keys_recursive($notes, $keys);
+    if ($fromNotes !== "") {
+        return $fromNotes;
+    }
+
+    $fromSnapshot = find_value_by_keys_recursive($snapshot, $keys);
+    if ($fromSnapshot !== "") {
+        return $fromSnapshot;
+    }
+
+    $bookingType = strtolower(trim((string)($row["booking_type"] ?? "")));
+    $purpose = strtolower(trim((string)($row["purpose"] ?? "")));
+
+    if ($purpose === "private_workshop" || $purpose === "workshop_booking" || $bookingType === "private_workshop") {
+        return "Private Workshop";
+    }
+
+    if ($purpose === "event_booking" || $bookingType === "event_booking" || $bookingType === "event") {
+        return "Event Booking";
+    }
+
+    return normalize_label($bookingType ?: $purpose ?: "Booking");
+}
+
 function sync_booking_payment_summary(mysqli $conn, int $bookingId): void {
     if ($bookingId <= 0) {
         return;
@@ -461,6 +572,8 @@ $baseSelect = "
         b.start_time,
         b.end_time,
         b.booking_type,
+        b.notes AS booking_notes,
+        b.form_snapshot,
         b.payment_status AS booking_payment_status,
         b.amount_paid AS booking_amount_paid,
         b.total_amount AS booking_total_amount,
@@ -545,6 +658,9 @@ if ($statusFilter === "all" && $q === "") {
             OR r.email LIKE ?
             OR r.phone_number LIKE ?
             OR w.title LIKE ?
+            OR b.booking_type LIKE ?
+            OR b.notes LIKE ?
+            OR b.form_snapshot LIKE ?
             OR p.payer_name LIKE ?
             OR p.reference_no LIKE ?
             OR p.purpose LIKE ?
@@ -558,7 +674,10 @@ if ($statusFilter === "all" && $q === "") {
 
     if ($stmt) {
         $stmt->bind_param(
-            "ssssssssssss",
+            "sssssssssssssss",
+            $like,
+            $like,
+            $like,
             $like,
             $like,
             $like,
@@ -585,6 +704,9 @@ if ($statusFilter === "all" && $q === "") {
             OR r.email LIKE ?
             OR r.phone_number LIKE ?
             OR w.title LIKE ?
+            OR b.booking_type LIKE ?
+            OR b.notes LIKE ?
+            OR b.form_snapshot LIKE ?
             OR p.payer_name LIKE ?
             OR p.reference_no LIKE ?
             OR p.purpose LIKE ?
@@ -598,8 +720,11 @@ if ($statusFilter === "all" && $q === "") {
 
     if ($stmt) {
         $stmt->bind_param(
-            "sssssssssssss",
+            "ssssssssssssssss",
             $statusFilter,
+            $like,
+            $like,
+            $like,
             $like,
             $like,
             $like,
@@ -641,27 +766,47 @@ while ($r = $res->fetch_assoc()) {
     $r["linked_payment_status"] = $r["linked_payment_status"] ?? "unpaid";
 
     if ($isRegistration) {
+        $workshopTitle = trim((string)($r["workshop_title"] ?? ""));
+
+        if ($workshopTitle === "") {
+            $workshopTitle = "Public Workshop";
+        }
+
         $r["linked_record_label"] = "Public Workshop Registration";
+        $r["linked_title"] = $workshopTitle;
+        $r["display_title"] = $workshopTitle;
         $r["linked_schedule"] = trim((string)($r["workshop_date"] ?? ""));
 
         if (!empty($r["workshop_start_time"]) && !empty($r["workshop_end_time"])) {
             $r["linked_schedule"] .= " • " . $r["workshop_start_time"] . " - " . $r["workshop_end_time"];
         }
 
-        $r["linked_type"] = trim((string)($r["workshop_title"] ?? "Public Workshop"));
+        if (!empty($r["workshop_location"])) {
+            $r["linked_schedule"] .= " | " . $r["workshop_location"];
+        }
+
+        $r["linked_type"] = $workshopTitle;
 
         if (!empty($r["registration_package"])) {
             $r["linked_type"] .= " • " . strtoupper((string)$r["registration_package"]);
         }
     } else {
+        $bookingTitle = extract_booking_display_title($r, $ctx);
+
+        if ($bookingTitle === "") {
+            $bookingTitle = "Booking";
+        }
+
         $r["linked_record_label"] = "Booking";
+        $r["linked_title"] = $bookingTitle;
+        $r["display_title"] = $bookingTitle;
         $r["linked_schedule"] = trim((string)($r["booking_date"] ?? ""));
 
         if (!empty($r["start_time"]) && !empty($r["end_time"])) {
             $r["linked_schedule"] .= " • " . $r["start_time"] . " - " . $r["end_time"];
         }
 
-        $r["linked_type"] = strtoupper((string)($r["booking_type"] ?? ""));
+        $r["linked_type"] = $bookingTitle;
     }
 
     $payments[] = $r;

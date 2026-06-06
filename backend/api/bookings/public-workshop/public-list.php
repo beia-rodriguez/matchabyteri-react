@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . "/../../../config/db.php";
-header("Content-Type: application/json");
+
+header("Content-Type: application/json; charset=utf-8");
 
 function respond($data, $code = 200) {
   http_response_code($code);
@@ -19,10 +20,17 @@ function has_column($conn, $table, $col) {
   ";
 
   $stmt = $conn->prepare($sql);
+
+  if (!$stmt) {
+    return false;
+  }
+
   $stmt->bind_param("ss", $table, $col);
   $stmt->execute();
+
   $res = $stmt->get_result();
   $ok = ($res && $res->num_rows > 0);
+
   $stmt->close();
 
   return $ok;
@@ -38,13 +46,68 @@ function table_exists($conn, $table) {
   ";
 
   $stmt = $conn->prepare($sql);
+
+  if (!$stmt) {
+    return false;
+  }
+
   $stmt->bind_param("s", $table);
   $stmt->execute();
+
   $res = $stmt->get_result();
   $ok = ($res && $res->num_rows > 0);
+
   $stmt->close();
 
   return $ok;
+}
+
+function get_base_url() {
+  $isHttps = (
+    (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off") ||
+    (!empty($_SERVER["HTTP_X_FORWARDED_PROTO"]) && $_SERVER["HTTP_X_FORWARDED_PROTO"] === "https")
+  );
+
+  $scheme = $isHttps ? "https" : "http";
+  $host = $_SERVER["HTTP_HOST"] ?? "localhost";
+
+  return $scheme . "://" . $host;
+}
+
+function build_poster_url($posterPath) {
+  if (!$posterPath) {
+    return null;
+  }
+
+  $posterPath = trim($posterPath);
+
+  if ($posterPath === "") {
+    return null;
+  }
+
+  if (preg_match("/^https?:\/\//i", $posterPath)) {
+    return $posterPath;
+  }
+
+  $posterPath = str_replace("\\", "/", $posterPath);
+  $posterPath = ltrim($posterPath, "/");
+
+  /*
+    Database usually saves:
+    uploads/workshops/image.png
+
+    But public access usually needs:
+    /backend/uploads/workshops/image.png
+  */
+  if (strpos($posterPath, "backend/") === 0) {
+    return get_base_url() . "/" . $posterPath;
+  }
+
+  if (strpos($posterPath, "uploads/") === 0) {
+    return get_base_url() . "/backend/" . $posterPath;
+  }
+
+  return get_base_url() . "/backend/uploads/workshops/" . basename($posterPath);
 }
 
 if (!isset($conn) || !$conn) {
@@ -54,7 +117,15 @@ if (!isset($conn) || !$conn) {
   ], 500);
 }
 
+if (!table_exists($conn, "workshops_public")) {
+  respond([
+    "success" => false,
+    "message" => "The workshops_public table does not exist."
+  ], 500);
+}
+
 $scope = strtolower(trim($_GET["scope"] ?? "upcoming"));
+
 if (!in_array($scope, ["upcoming", "past"], true)) {
   $scope = "upcoming";
 }
@@ -71,16 +142,43 @@ if ($hasRegsTable) {
 }
 
 $dateFilter = ($scope === "past")
-  ? "(workshop_date < CURDATE() OR (workshop_date = CURDATE() AND end_time IS NOT NULL AND end_time < CURTIME()))"
-  : "(workshop_date > CURDATE() OR workshop_date = CURDATE())";
+  ? "
+    (
+      workshop_date < CURDATE()
+      OR (
+        workshop_date = CURDATE()
+        AND end_time IS NOT NULL
+        AND end_time < CURTIME()
+      )
+    )
+  "
+  : "
+    (
+      workshop_date > CURDATE()
+      OR (
+        workshop_date = CURDATE()
+        AND (
+          end_time IS NULL
+          OR end_time >= CURTIME()
+        )
+      )
+    )
+  ";
 
 $orderBy = ($scope === "past")
   ? "workshop_date DESC, start_time DESC"
   : "workshop_date ASC, start_time ASC";
 
 $sql = "
-  SELECT id, title, poster_path, workshop_date, start_time, end_time, location
-  " . ($hasMaxSlots ? ", max_slots" : "") . "
+  SELECT
+    id,
+    title,
+    poster_path,
+    workshop_date,
+    start_time,
+    end_time,
+    location
+    " . ($hasMaxSlots ? ", max_slots" : "") . "
   FROM workshops_public
   WHERE is_active = 1
     AND $dateFilter
@@ -89,6 +187,7 @@ $sql = "
 ";
 
 $stmt = $conn->prepare($sql);
+
 if (!$stmt) {
   respond([
     "success" => false,
@@ -107,6 +206,7 @@ while ($r = $res->fetch_assoc()) {
   $workshops[] = $r;
   $ids[] = (int)$r["id"];
 }
+
 $stmt->close();
 
 $regCounts = [];
@@ -115,11 +215,19 @@ if ($hasRegsTable && count($ids) > 0) {
   $placeholders = implode(",", array_fill(0, count($ids), "?"));
   $types = str_repeat("i", count($ids));
 
-  $countExpr = $regsHasAttendees ? "COALESCE(SUM(attendees),0)" : "COUNT(*)";
+  $countExpr = $regsHasAttendees
+    ? "COALESCE(SUM(COALESCE(attendees, 1)), 0)"
+    : "COUNT(*)";
 
   $whereStatus = "";
+
   if ($regsHasStatus) {
-    $whereStatus = " AND status NOT IN ('cancelled','rejected')";
+    $whereStatus = "
+      AND (
+        status IS NULL
+        OR status NOT IN ('cancelled', 'rejected')
+      )
+    ";
   }
 
   $q = "
@@ -131,9 +239,11 @@ if ($hasRegsTable && count($ids) > 0) {
   ";
 
   $stmt = $conn->prepare($q);
+
   if ($stmt) {
     $stmt->bind_param($types, ...$ids);
     $stmt->execute();
+
     $rs = $stmt->get_result();
 
     while ($row = $rs->fetch_assoc()) {
@@ -145,13 +255,39 @@ if ($hasRegsTable && count($ids) > 0) {
   }
 }
 
+$formattedWorkshops = array_map(function($w) use ($regCounts, $hasMaxSlots) {
+  $wid = (int)$w["id"];
+  $taken = (int)($regCounts[$wid] ?? 0);
+
+  $maxSlots = null;
+  $slotsLeft = null;
+
+  if ($hasMaxSlots) {
+    $maxSlots = isset($w["max_slots"]) ? (int)$w["max_slots"] : null;
+
+    if ($maxSlots !== null && $maxSlots > 0) {
+      $slotsLeft = max(0, $maxSlots - $taken);
+    }
+  }
+
+  return [
+    "id" => $wid,
+    "title" => $w["title"] ?? "",
+    "poster_path" => $w["poster_path"] ?? null,
+    "poster_url" => build_poster_url($w["poster_path"] ?? null),
+    "workshop_date" => $w["workshop_date"] ?? null,
+    "start_time" => $w["start_time"] ?? null,
+    "end_time" => $w["end_time"] ?? null,
+    "location" => $w["location"] ?? "",
+    "max_slots" => $maxSlots,
+    "taken" => $taken,
+    "slots_left" => $slotsLeft
+  ];
+}, $workshops);
+
 respond([
   "success" => true,
   "scope" => $scope,
   "hasMaxSlots" => $hasMaxSlots,
-  "workshops" => array_map(function($w) use ($regCounts) {
-    $wid = (int)$w["id"];
-    $w["taken"] = (int)($regCounts[$wid] ?? 0);
-    return $w;
-  }, $workshops)
+  "workshops" => $formattedWorkshops
 ]);

@@ -64,20 +64,24 @@ function stableTextKey(value) {
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
+
   const d = new Date(`${dateStr}T00:00:00`);
   return DATE_FORMATTER.format(d);
 }
 
 function formatTime(timeStr) {
   if (!timeStr) return "";
+
   const t = timeStr.length >= 5 ? timeStr.slice(0, 5) : timeStr;
   const d = new Date(`1970-01-01T${t}:00`);
+
   return TIME_FORMATTER.format(d);
 }
 
 function timeRange(start, end) {
   if (!start) return "";
   if (!end) return formatTime(start);
+
   return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
@@ -111,24 +115,43 @@ function buildBullets(workshop) {
 
 function posterSrc(path) {
   const fallback = "/pics/default-workshop.jpg";
+
   if (!path) return fallback;
 
   const rawPath = String(path).trim();
+
   if (!rawPath) return fallback;
 
-  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+  let clean = rawPath.replace(/\\/g, "/");
 
-  const clean = rawPath.replace(/^\/+/, "");
+  if (/^https?:\/\//i.test(clean)) {
+    clean = clean.replace(
+      "/backend/uploads/workshops/",
+      "/backend/api/uploads/workshops/"
+    );
 
-  if (clean.startsWith("backend/api/")) {
+    return clean;
+  }
+
+  clean = clean.replace(/^\/+/, "");
+
+  if (clean.startsWith("backend/api/uploads/")) {
     return `/${clean}`;
+  }
+
+  if (clean.startsWith("backend/uploads/")) {
+    return `/${clean.replace("backend/uploads/", "backend/api/uploads/")}`;
   }
 
   if (clean.startsWith("uploads/")) {
     return `/backend/api/${clean}`;
   }
 
-  return `/backend/api/uploads/${clean}`;
+  if (clean.startsWith("workshops/")) {
+    return `/backend/api/uploads/${clean}`;
+  }
+
+  return `/backend/api/uploads/workshops/${clean}`;
 }
 
 export default function WorkshopRegister() {
@@ -195,6 +218,7 @@ export default function WorkshopRegister() {
       regCount: Number(payload.regCount || 0),
       remaining: payload.remaining === null ? null : Number(payload.remaining),
       isFull: !!payload.isFull,
+      posterImage: posterSrc(w.poster_url || w.poster_path),
     };
   }, [payload]);
 
@@ -334,7 +358,7 @@ export default function WorkshopRegister() {
               <div className="ws-reg-posterCard">
                 <img
                   className="ws-reg-poster"
-                  src={posterSrc(view.w.poster_path)}
+                  src={view.posterImage}
                   alt={view.w.title || "Workshop poster"}
                   onError={(e) => {
                     e.currentTarget.src = "/pics/default-workshop.jpg";
@@ -351,9 +375,7 @@ export default function WorkshopRegister() {
               <div className="ws-reg-capRow">
                 <div className="ws-reg-pill">
                   {view.maxSlots > 0 ? (
-                    <>
-                      {view.remaining} slots left
-                    </>
+                    <>{view.remaining} slots left</>
                   ) : (
                     <>Unlimited slots</>
                   )}

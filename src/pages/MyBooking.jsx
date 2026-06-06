@@ -1070,7 +1070,7 @@ export default function MyBooking() {
         />
       )}
 
-      <main className="my-booking-page" id="readable-content">
+      <main className="my-booking-page" id="readable-content" data-voice-page-name="My Booking">
         <div className="my-booking-title">My Booking</div>
 
         <section className="my-booking-card-shell">
@@ -1082,16 +1082,6 @@ export default function MyBooking() {
                 available actions.
               </p>
             </div>
-
-            <button
-              type="button"
-              className="my-booking-soft-button"
-              onClick={loadBookings}
-              disabled={loading}
-              aria-label="Refresh booking records"
-            >
-              {loading ? "Loading..." : "Refresh"}
-            </button>
           </div>
 
           <div className="my-booking-filter-tabs" aria-label="Booking filters">

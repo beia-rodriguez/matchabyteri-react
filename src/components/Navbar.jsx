@@ -1,29 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import API from "../services/api";
 import "../assets/css/header.css";
-
-function getProfilePictureUrl(profilePicture) {
-  const picture = profilePicture?.trim();
-
-  if (!picture) {
-    return null;
-  }
-
-  if (picture.startsWith("http://") || picture.startsWith("https://")) {
-    return picture;
-  }
-
-  if (picture.startsWith("/backend/")) {
-    return picture;
-  }
-
-  if (picture.startsWith("/")) {
-    return picture;
-  }
-
-  return `/backend/api/${picture}`;
-}
 
 function Navbar() {
   const { user, logout } = useAuth();
@@ -32,10 +11,136 @@ function Navbar() {
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [failedAvatarUrl, setFailedAvatarUrl] = useState(null);
+  const [navbarUser, setNavbarUser] = useState(user || null);
+  const [avatarIndex, setAvatarIndex] = useState(0);
 
   const dropdownRef = useRef(null);
   const profileDropdownRef = useRef(null);
+
+  const currentUser = navbarUser || user;
+  const isLoggedIn = Boolean(currentUser?.id || currentUser?.email);
+
+  const buildAvatarCandidates = useCallback((profilePicture) => {
+    const rawPicture = String(profilePicture || "").trim();
+
+    if (!rawPicture) return [];
+
+    if (
+      rawPicture.startsWith("http://") ||
+      rawPicture.startsWith("https://") ||
+      rawPicture.startsWith("data:image/")
+    ) {
+      return [rawPicture];
+    }
+
+    const cleanPicture = rawPicture
+      .replace(/^(\.\.\/)+/, "")
+      .replace(/^(\.\/)+/, "")
+      .replace(/^\/+/, "");
+
+    if (!cleanPicture) return [];
+
+    const candidates = [];
+
+    if (cleanPicture.startsWith("backend/api/")) {
+      candidates.push(`/${cleanPicture}`);
+    } else if (cleanPicture.startsWith("backend/")) {
+      candidates.push(`/${cleanPicture}`);
+      candidates.push(`/backend/api/${cleanPicture.replace(/^backend\//, "")}`);
+    } else if (cleanPicture.startsWith("uploads/")) {
+      candidates.push(`/backend/api/${cleanPicture}`);
+      candidates.push(`/backend/${cleanPicture}`);
+      candidates.push(`/${cleanPicture}`);
+    } else {
+      candidates.push(`/backend/api/${cleanPicture}`);
+      candidates.push(`/backend/${cleanPicture}`);
+      candidates.push(`/${cleanPicture}`);
+    }
+
+    return [...new Set(candidates)];
+  }, []);
+
+  const avatarCandidates = useMemo(() => {
+    return buildAvatarCandidates(currentUser?.profile_picture);
+  }, [buildAvatarCandidates, currentUser?.profile_picture]);
+
+  const profileImageSrc = avatarCandidates[avatarIndex] || "";
+
+  const loadLatestProfile = useCallback(async () => {
+    if (!isLoggedIn) return;
+
+    try {
+      const { data } = await API.get("/user/get-profile.php");
+
+      if (!data || data.error) return;
+
+      setNavbarUser((previousUser) => ({
+        ...(previousUser || {}),
+        ...data,
+      }));
+
+      setAvatarIndex(0);
+
+      try {
+        const storedUserV1 = JSON.parse(
+          localStorage.getItem("user:v1") || "null"
+        );
+
+        if (storedUserV1) {
+          localStorage.setItem(
+            "user:v1",
+            JSON.stringify({
+              ...storedUserV1,
+              ...data,
+            })
+          );
+        }
+
+        const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+
+        if (storedUser) {
+          localStorage.setItem(
+            "user",
+            JSON.stringify({
+              ...storedUser,
+              ...data,
+            })
+          );
+        }
+      } catch {
+        // Ignore invalid saved user data.
+      }
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        console.error("Navbar profile fetch error:", err);
+      }
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    setNavbarUser(user || null);
+    setAvatarIndex(0);
+  }, [user]);
+
+  useEffect(() => {
+    loadLatestProfile();
+  }, [loadLatestProfile]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      loadLatestProfile();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [loadLatestProfile]);
+
+  useEffect(() => {
+    setAvatarIndex(0);
+  }, [currentUser?.profile_picture]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -56,6 +161,18 @@ function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleAvatarError = () => {
+    setAvatarIndex((previousIndex) => {
+      const nextIndex = previousIndex + 1;
+
+      if (nextIndex >= avatarCandidates.length) {
+        return avatarCandidates.length;
+      }
+
+      return nextIndex;
+    });
+  };
+
   const handleLinkClick = () => {
     setOpen(false);
     setProfileOpen(false);
@@ -67,20 +184,36 @@ function Navbar() {
     setProfileOpen(false);
     setIsMobileOpen(false);
 
-    if (typeof logout === "function") {
-      await logout();
-    } else {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      sessionStorage.clear();
+    try {
+      if (typeof logout === "function") {
+        await logout();
+      }
+    } catch {
+      // Continue clearing frontend auth even if backend logout fails.
     }
 
-    navigate("/login");
+    localStorage.removeItem("user:v1");
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    sessionStorage.clear();
+
+    setNavbarUser(null);
+    setAvatarIndex(0);
+
+    navigate("/login", { replace: true });
   };
 
-  const profilePictureUrl = getProfilePictureUrl(user?.profile_picture);
-  const avatarFailed =
-    Boolean(profilePictureUrl) && failedAvatarUrl === profilePictureUrl;
+  const handleAvatarClick = () => {
+    if (!isLoggedIn) {
+      setProfileOpen(false);
+      setOpen(false);
+      setIsMobileOpen(false);
+      navigate("/login");
+      return;
+    }
+
+    setProfileOpen((previousValue) => !previousValue);
+  };
 
   return (
     <header>
@@ -92,7 +225,7 @@ function Navbar() {
 
       <button
         className={`hamburger ${isMobileOpen ? "active" : ""}`}
-        onClick={() => setIsMobileOpen((prev) => !prev)}
+        onClick={() => setIsMobileOpen((previousValue) => !previousValue)}
         aria-label="Toggle navigation"
         type="button"
       >
@@ -125,8 +258,10 @@ function Navbar() {
             <li className={`dropdown ${open ? "open" : ""}`} ref={dropdownRef}>
               <button
                 className="dropbtn"
-                onClick={() => setOpen((prev) => !prev)}
+                onClick={() => setOpen((previousValue) => !previousValue)}
                 type="button"
+                aria-expanded={open}
+                aria-label="Open workshop menu"
               >
                 Workshop <span className="caret"></span>
               </button>
@@ -153,25 +288,39 @@ function Navbar() {
         </Link>
 
         <div
-          className={`profile-dropdown ${profileOpen ? "open" : ""}`}
+          className={`profile-dropdown ${
+            profileOpen && isLoggedIn ? "open" : ""
+          } ${!isLoggedIn ? "profile-dropdown-guest" : ""}`}
           ref={profileDropdownRef}
-          onMouseEnter={() => setProfileOpen(true)}
-          onMouseLeave={() => setProfileOpen(false)}
+          onMouseEnter={() => {
+            if (isLoggedIn) {
+              setProfileOpen(true);
+            }
+          }}
+          onMouseLeave={() => {
+            if (isLoggedIn) {
+              setProfileOpen(false);
+            }
+          }}
         >
           <button
             className="avatar-button"
             type="button"
-            aria-label="Open profile menu"
-            aria-expanded={profileOpen}
-            onClick={() => setProfileOpen((prev) => !prev)}
+            aria-label={isLoggedIn ? "Open account menu" : "Go to login"}
+            aria-expanded={isLoggedIn ? profileOpen : false}
+            onClick={handleAvatarClick}
           >
-            <div className="avatar" aria-label="Profile">
-              {profilePictureUrl && !avatarFailed ? (
+            <div className="avatar" aria-label="Account">
+              {isLoggedIn && profileImageSrc ? (
                 <img
-                  className="avatar-img"
-                  src={profilePictureUrl}
-                  alt="Profile"
-                  onError={() => setFailedAvatarUrl(profilePictureUrl)}
+                  className="avatar-image"
+                  src={profileImageSrc}
+                  alt={
+                    currentUser?.name
+                      ? `${currentUser.name} profile picture`
+                      : "User profile picture"
+                  }
+                  onError={handleAvatarError}
                 />
               ) : (
                 <svg
@@ -186,29 +335,31 @@ function Navbar() {
             </div>
           </button>
 
-          <div className="profile-menu">
-            <div className="profile-menu-head">
-              <div className="profile-menu-name">
-                {user?.name || "My Account"}
+          {isLoggedIn && (
+            <div className="profile-menu">
+              <div className="profile-menu-head">
+                <div className="profile-menu-name">
+                  {currentUser?.name || "My Account"}
+                </div>
+
+                <div className="profile-menu-email">
+                  {currentUser?.email || "Manage your account"}
+                </div>
               </div>
 
-              <div className="profile-menu-email">
-                {user?.email || "Manage your account"}
-              </div>
+              <Link to="/profile" onClick={handleLinkClick}>
+                Account
+              </Link>
+
+              <Link to="/my-booking" onClick={handleLinkClick}>
+                My Booking
+              </Link>
+
+              <button type="button" onClick={handleLogout}>
+                Logout
+              </button>
             </div>
-
-            <Link to="/profile" onClick={handleLinkClick}>
-              Profile
-            </Link>
-
-            <Link to="/my-booking" onClick={handleLinkClick}>
-              My Booking
-            </Link>
-
-            <button type="button" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
+          )}
         </div>
       </div>
     </header>

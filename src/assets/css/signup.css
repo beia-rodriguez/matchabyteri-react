@@ -23,21 +23,22 @@
   --auth-signup-ok-border: #bbf7d0;
 
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(16px, 2.2vw, 34px);
-
-  background: radial-gradient(
-    1100px 600px at 10% 30%,
-    var(--auth-signup-bg-3) 0%,
-    var(--auth-signup-bg) 55%,
-    var(--auth-signup-bg-2) 100%
-  );
-
+  padding: clamp(16px, 3vw, 34px);
+  background:
+    radial-gradient(
+      1100px 600px at 10% 30%,
+      var(--auth-signup-bg-3) 0%,
+      var(--auth-signup-bg) 55%,
+      var(--auth-signup-bg-2) 100%
+    );
   color: var(--auth-signup-text);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  overflow-x: hidden;
 }
 
 .auth-signup-page,
@@ -48,12 +49,14 @@
 .auth-signup-shell {
   width: min(1200px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
   align-items: center;
-  gap: clamp(18px, 3vw, 44px);
+  justify-content: center;
+  gap: clamp(20px, 4vw, 48px);
 }
 
 .auth-signup-brand {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,30 +64,33 @@
 }
 
 .auth-signup-brand-logo {
-  width: min(560px, 95%);
+  width: min(560px, 100%);
+  max-height: 70vh;
   height: auto;
   display: block;
+  object-fit: contain;
   filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.22));
   user-select: none;
   -webkit-user-drag: none;
 }
 
 .auth-signup-card {
-  width: 420px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 430px;
   justify-self: end;
   background: var(--auth-signup-card);
   border-radius: var(--auth-signup-radius);
   box-shadow: var(--auth-signup-shadow);
-  padding: 18px 20px;
+  padding: clamp(20px, 2.4vw, 28px) clamp(18px, 2.2vw, 26px);
   font-family: "Bricolage Grotesque", system-ui, sans-serif;
 }
 
 .auth-signup-title {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--auth-signup-text);
   text-align: center;
-  font-size: 22px;
+  font-size: clamp(22px, 2vw, 25px);
+  line-height: 1.15;
   letter-spacing: 0.3px;
   font-weight: 800;
   font-family: "Brasika Display Regular", serif;
@@ -98,7 +104,7 @@
 }
 
 .auth-signup-alert {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--auth-signup-danger-bg);
@@ -112,12 +118,12 @@
 .auth-signup-field {
   width: 100%;
   display: block;
-  margin: 8px 0;
+  margin: 9px 0;
 }
 
 .auth-signup-label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   color: var(--auth-signup-text);
   font-size: 13px;
   font-weight: 700;
@@ -131,11 +137,12 @@
 
 .auth-signup-input {
   width: 100%;
-  height: 42px;
+  min-width: 0;
+  height: 44px;
   display: block;
   border: 1px solid var(--auth-signup-border);
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   outline: none;
   background: #ffffff;
   color: var(--auth-signup-text);
@@ -196,7 +203,7 @@
   color: var(--auth-signup-muted);
   font-size: 12.5px;
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.3;
 }
 
 .auth-signup-message-ok {
@@ -213,20 +220,17 @@
 
 .auth-signup-rule {
   display: grid;
-  grid-template-columns: 16px 1fr;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
-
   max-height: 0;
   opacity: 0;
   transform: translateY(-6px);
   overflow: hidden;
-
   padding: 0 10px;
   border: 0 solid var(--auth-signup-border);
   border-radius: 12px;
   background: #fafafa;
-
   transition:
     max-height 0.24s ease,
     opacity 0.2s ease,
@@ -236,7 +240,7 @@
 }
 
 .auth-signup-rule-show {
-  max-height: 56px;
+  max-height: 70px;
   opacity: 1;
   transform: translateY(0);
   padding-top: 8px;
@@ -262,8 +266,11 @@
 }
 
 .auth-signup-rule-text {
+  min-width: 0;
   color: #991b1b;
   font-size: 12.5px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
   transition: color 0.18s ease;
 }
 
@@ -274,13 +281,13 @@
 
 .auth-signup-btn {
   width: 100%;
-  height: 44px;
+  min-height: 46px;
   display: block;
-  margin-top: 10px;
+  margin-top: 12px;
   border: none;
   border-radius: 999px;
   background: var(--auth-signup-btn);
-  color: #fff;
+  color: #ffffff;
   font: inherit;
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -307,10 +314,11 @@
 }
 
 .auth-signup-footer {
-  margin-top: 12px;
+  margin-top: 14px;
   color: var(--auth-signup-muted);
   text-align: center;
   font-size: 13px;
+  line-height: 1.45;
 }
 
 .auth-signup-link {
@@ -354,68 +362,267 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
 
 @media (min-width: 1400px) {
   .auth-signup-shell {
-    grid-template-columns: minmax(0, 1fr) 460px;
+    grid-template-columns: minmax(0, 1fr) minmax(430px, 470px);
+  }
+
+  .auth-signup-card {
+    max-width: 470px;
   }
 
   .auth-signup-brand-logo {
-    width: min(620px, 95%);
+    width: min(620px, 100%);
   }
 }
 
 @media (max-width: 1100px) {
   .auth-signup-shell {
-    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-columns: minmax(0, 1fr) minmax(350px, 410px);
+    gap: 24px;
   }
 
   .auth-signup-brand-logo {
-    width: min(520px, 95%);
+    width: min(500px, 100%);
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 860px) {
+  .auth-signup-page {
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+  }
+
   .auth-signup-shell {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    min-height: calc(100dvh - 40px);
+    width: 100%;
+    grid-template-columns: 1fr;
+    align-items: center;
+    justify-items: center;
+    align-content: center;
     gap: 18px;
   }
 
-  .auth-signup-card {
-    justify-self: center;
-  }
-}
-
-@media (max-width: 760px) {
-  .auth-signup-shell {
-    grid-template-columns: 1fr;
-  }
-
   .auth-signup-brand {
-    padding: 6px 0;
+    width: 100%;
+    padding: 0;
   }
 
   .auth-signup-brand-logo {
-    width: min(420px, 92%);
+    width: min(420px, 86vw);
+    max-height: 210px;
   }
 
   .auth-signup-card {
     justify-self: center;
+    width: min(100%, 520px);
+    max-width: 520px;
+    padding: 28px 24px;
+  }
+
+  .auth-signup-title {
+    font-size: 25px;
+  }
+
+  .auth-signup-label {
+    font-size: 14px;
+  }
+
+  .auth-signup-input {
+    height: 50px;
+    font-size: 15px;
+  }
+
+  .auth-signup-btn {
+    min-height: 50px;
+    font-size: 15px;
+  }
+
+  .auth-signup-footer {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .auth-signup-page {
+    padding: 18px 14px;
+  }
+
+  .auth-signup-shell {
+    min-height: calc(100dvh - 36px);
+    gap: 16px;
+  }
+
+  .auth-signup-brand-logo {
+    width: min(370px, 84vw);
+    max-height: 180px;
+  }
+
+  .auth-signup-card {
+    width: min(100%, 470px);
+    max-width: 470px;
+    border-radius: 16px;
+    padding: 26px 22px;
+  }
+
+  .auth-signup-title {
+    margin-bottom: 16px;
+    font-size: 24px;
+  }
+
+  .auth-signup-field {
+    margin: 11px 0;
+  }
+
+  .auth-signup-label {
+    margin-bottom: 7px;
+    font-size: 13.5px;
+  }
+
+  .auth-signup-input {
+    height: 50px;
+    font-size: 15px;
+    border-radius: 11px;
+  }
+
+  .auth-signup-btn {
+    min-height: 50px;
+    font-size: 15px;
+  }
+
+  .auth-signup-footer {
+    margin-top: 17px;
+    font-size: 13.5px;
   }
 }
 
 @media (max-width: 420px) {
   .auth-signup-page {
-    padding: 14px;
+    padding: 16px 12px;
   }
 
-  .auth-signup-input {
-    height: 42px;
+  .auth-signup-shell {
+    min-height: calc(100dvh - 32px);
+    gap: 14px;
   }
 
-  .auth-signup-btn {
-    height: 44px;
+  .auth-signup-brand-logo {
+    width: min(330px, 86vw);
+    max-height: 160px;
   }
 
   .auth-signup-card {
-    border-radius: 14px;
+    width: 100%;
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+
+  .auth-signup-title {
+    font-size: 23px;
+  }
+
+  .auth-signup-field {
+    margin: 10px 0;
+  }
+
+  .auth-signup-input {
+    height: 49px;
+    font-size: 15px;
+  }
+
+  .auth-signup-btn {
+    min-height: 49px;
+    font-size: 14.5px;
+  }
+
+  .auth-signup-message,
+  .auth-signup-rule-text {
+    font-size: 12px;
+  }
+
+  .auth-signup-footer {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-signup-page {
+    padding: 14px 10px;
+  }
+
+  .auth-signup-shell {
+    min-height: calc(100dvh - 28px);
+    gap: 12px;
+  }
+
+  .auth-signup-brand-logo {
+    width: min(295px, 84vw);
+    max-height: 135px;
+  }
+
+  .auth-signup-card {
+    padding: 22px 16px;
+  }
+
+  .auth-signup-title {
+    font-size: 22px;
+  }
+
+  .auth-signup-label,
+  .auth-signup-footer {
+    font-size: 12.8px;
+  }
+
+  .auth-signup-input {
+    height: 47px;
+    font-size: 14px;
+  }
+
+  .auth-signup-btn {
+    min-height: 47px;
+    font-size: 14px;
+  }
+}
+
+@media (max-height: 760px) and (max-width: 860px) {
+  .auth-signup-page {
+    align-items: flex-start;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .auth-signup-shell {
+    min-height: auto;
+    gap: 10px;
+  }
+
+  .auth-signup-brand-logo {
+    width: min(280px, 68vw);
+    max-height: 120px;
+  }
+
+  .auth-signup-card {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .auth-signup-title {
+    margin-bottom: 10px;
+  }
+
+  .auth-signup-field {
+    margin: 7px 0;
+  }
+
+  .auth-signup-input {
+    height: 44px;
+  }
+
+  .auth-signup-btn {
+    min-height: 44px;
+  }
+
+  .auth-signup-footer {
+    margin-top: 10px;
   }
 }
 
@@ -456,21 +663,22 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
   --auth-signup-ok-border: #bbf7d0;
 
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(16px, 2.2vw, 34px);
-
-  background: radial-gradient(
-    1100px 600px at 10% 30%,
-    var(--auth-signup-bg-3) 0%,
-    var(--auth-signup-bg) 55%,
-    var(--auth-signup-bg-2) 100%
-  );
-
+  padding: clamp(16px, 3vw, 34px);
+  background:
+    radial-gradient(
+      1100px 600px at 10% 30%,
+      var(--auth-signup-bg-3) 0%,
+      var(--auth-signup-bg) 55%,
+      var(--auth-signup-bg-2) 100%
+    );
   color: var(--auth-signup-text);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  overflow-x: hidden;
 }
 
 .signup-page,
@@ -479,12 +687,12 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
 }
 
 .signup-card {
-  width: 420px;
-  max-width: 100%;
+  width: min(100%, 430px);
+  max-width: 430px;
   background: var(--auth-signup-card);
   border-radius: var(--auth-signup-radius);
   box-shadow: var(--auth-signup-shadow);
-  padding: 26px 24px;
+  padding: 28px 24px;
   font-family: "Bricolage Grotesque", system-ui, sans-serif;
 }
 
@@ -492,7 +700,8 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
   margin: 0 0 14px;
   color: var(--auth-signup-text);
   text-align: center;
-  font-size: 26px;
+  font-size: clamp(23px, 3vw, 28px);
+  line-height: 1.15;
   letter-spacing: 0.3px;
   font-weight: 800;
   font-family: "Brasika Display Regular", serif;
@@ -545,11 +754,12 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
 
 .input {
   width: 100%;
-  height: 42px;
+  min-width: 0;
+  height: 44px;
   display: block;
   border: 1px solid var(--auth-signup-border);
   border-radius: 10px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   outline: none;
   background: #ffffff;
   color: var(--auth-signup-text);
@@ -572,7 +782,7 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
 
 .btn {
   width: 100%;
-  height: 44px;
+  min-height: 46px;
   display: grid;
   place-items: center;
   margin-top: 10px;
@@ -612,6 +822,7 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
   color: var(--auth-signup-muted);
   text-align: center;
   font-size: 13px;
+  line-height: 1.45;
 }
 
 .signup-footer a {
@@ -634,27 +845,128 @@ body.screen-reader-on #readable-content .auth-signup-brand-logo:focus {
   box-shadow: 0 0 0 6px rgba(47, 93, 78, 0.18);
 }
 
-@media (max-width: 420px) {
+@media (max-width: 600px) {
   .signup-page {
-    padding: 14px;
+    padding: 18px 14px;
   }
 
   .signup-card {
-    border-radius: 14px;
-    padding: 22px 18px;
+    width: min(100%, 470px);
+    max-width: 470px;
+    padding: 26px 22px;
+    border-radius: 16px;
+  }
+
+  .signup-card h1 {
+    font-size: 25px;
+  }
+
+  .msg,
+  .alert {
+    font-size: 13.5px;
+  }
+
+  .input {
+    height: 49px;
+    font-size: 15px;
+  }
+
+  .btn {
+    min-height: 49px;
+    font-size: 14.5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .signup-page {
+    padding: 16px 12px;
+  }
+
+  .signup-card {
+    width: 100%;
+    border-radius: 16px;
+    padding: 24px 18px;
   }
 
   .signup-card h1 {
     font-size: 23px;
   }
 
+  .msg,
+  .alert {
+    padding: 11px 12px;
+    font-size: 13px;
+  }
+
   .input {
-    height: 42px;
+    height: 48px;
   }
 
   .btn {
-    height: 44px;
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .signup-footer {
     font-size: 13px;
+  }
+}
+
+@media (max-width: 360px) {
+  .signup-page {
+    padding: 14px 10px;
+  }
+
+  .signup-card {
+    padding: 22px 16px;
+  }
+
+  .signup-card h1 {
+    font-size: 22px;
+  }
+
+  .label,
+  .signup-footer {
+    font-size: 12.8px;
+  }
+
+  .input {
+    height: 46px;
+    font-size: 14px;
+  }
+
+  .btn {
+    min-height: 46px;
+    font-size: 13.5px;
+  }
+}
+
+@media (max-height: 680px) and (max-width: 600px) {
+  .signup-page {
+    align-items: flex-start;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .signup-card {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .signup-card h1 {
+    margin-bottom: 10px;
+  }
+
+  .field {
+    margin: 7px 0 10px;
+  }
+
+  .input {
+    height: 44px;
+  }
+
+  .btn {
+    min-height: 44px;
   }
 }
 

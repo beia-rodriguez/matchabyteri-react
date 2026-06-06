@@ -17,15 +17,15 @@ import "@/assets/css/admin-panel.css";
 
 const navItems = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/reservations", label: "Reservations", icon: ClipboardList },
-  { to: "/admin/forms", label: "Forms", icon: FilePenLine },
-  { to: "/admin/calendar", label: "Calendar", icon: CalendarDays },
-  { to: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { to: "/admin/workshops", label: "Workshops", icon: GraduationCap },
-  { to: "/admin/contacts", label: "Contacts", icon: Users },
-  { to: "/admin/concerns", label: "Concerns", icon: MessageSquare },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/reservations", label: "Reservations", icon: ClipboardList },
+  { to: "/admin/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/admin/workshops", label: "Workshops", icon: GraduationCap },
+  { to: "/admin/forms", label: "Forms", icon: FilePenLine },
+  { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/refunds", label: "Refunds", icon: HandCoins },
+  { to: "/admin/concerns", label: "Concerns", icon: MessageSquare },
+  { to: "/admin/contacts", label: "Contacts", icon: Users },
 ];
 
 export default function AdminLayout({ title, children }) {

@@ -54,6 +54,7 @@ const ALLOWED_PURPOSES = [
 ];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const GCASH_REFERENCE_LENGTH = 13;
 
 const paymentResponseInitialState = {
   response: null,
@@ -285,8 +286,31 @@ export default function GcashPayment() {
     : `booking number ${digitsForReader(bookingId)}`;
 
   const readableGcashNumber = digitsForReader(gcash.number);
+  const readableReferenceNo = digitsForReader(referenceNo);
+
   const readableTotalAmount = `Total amount is ${money(totalAmount)} pesos.`;
   const readableAmountToPay = `Amount to pay is ${money(amountToPay)} pesos.`;
+
+  const handleReferenceNoChange = (e) => {
+    const onlyNumbers = e.target.value
+      .replace(/\D/g, "")
+      .slice(0, GCASH_REFERENCE_LENGTH);
+
+    setReferenceNo(onlyNumbers);
+    dispatchPaymentResponse({ type: "clearError" });
+  };
+
+  const handleReferenceNoPaste = (e) => {
+    e.preventDefault();
+
+    const pastedText = e.clipboardData.getData("text");
+    const onlyNumbers = pastedText
+      .replace(/\D/g, "")
+      .slice(0, GCASH_REFERENCE_LENGTH);
+
+    setReferenceNo(onlyNumbers);
+    dispatchPaymentResponse({ type: "clearError" });
+  };
 
   const handleProofChange = (e) => {
     const file = e.target.files?.[0];
@@ -328,6 +352,14 @@ export default function GcashPayment() {
       dispatchPaymentResponse({
         type: "setError",
         message: "Please enter payer name, reference number, and upload proof.",
+      });
+      return;
+    }
+
+    if (!/^\d{13}$/.test(referenceNo)) {
+      dispatchPaymentResponse({
+        type: "setError",
+        message: "GCash reference number must be exactly 13 numbers.",
       });
       return;
     }
@@ -379,6 +411,7 @@ export default function GcashPayment() {
         id="readable-content"
         className="gpmt-page"
         aria-label="GCash payment page"
+        data-voice-page-name="Gcash Payment"
       >
         <section className="gpmt-wrap">
           <div
@@ -710,11 +743,28 @@ export default function GcashPayment() {
                           type="text"
                           id="gpmt-reference-no"
                           value={referenceNo}
-                          onChange={(e) => setReferenceNo(e.target.value)}
-                          placeholder="Enter your GCash reference number"
+                          onChange={handleReferenceNoChange}
+                          onPaste={handleReferenceNoPaste}
+                          placeholder="Enter 13-digit GCash reference number"
                           required
-                          aria-label="GCash reference number. Enter the reference number from your receipt."
+                          inputMode="numeric"
+                          pattern="[0-9]{13}"
+                          maxLength={GCASH_REFERENCE_LENGTH}
+                          autoComplete="off"
+                          aria-label={
+                            referenceNo
+                              ? `GCash reference number. Current input is ${readableReferenceNo}. It must be exactly 13 numbers.`
+                              : "GCash reference number. Enter exactly 13 numbers from your receipt."
+                          }
                         />
+
+                        <p
+                          className="gpmt-file-hint voice-readable"
+                          tabIndex="0"
+                          aria-label="GCash reference number must contain exactly 13 numbers only."
+                        >
+                          Must be exactly 13 numbers only.
+                        </p>
                       </div>
 
                       <div className="gpmt-field">

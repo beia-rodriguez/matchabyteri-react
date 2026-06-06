@@ -269,6 +269,7 @@ export default function AdminReports() {
             <label className="admin-muted-react" htmlFor="reports-from-date">
               <CalendarDays size={14} /> From
             </label>
+
             <input
               id="reports-from-date"
               className="admin-input-react"
@@ -283,6 +284,7 @@ export default function AdminReports() {
             <label className="admin-muted-react" htmlFor="reports-to-date">
               <CalendarDays size={14} /> To
             </label>
+
             <input
               id="reports-to-date"
               className="admin-input-react"
@@ -349,35 +351,51 @@ export default function AdminReports() {
             <span>Try another date range or add new paid transactions.</span>
           </div>
         ) : (
-          <div className="admin-table-scroll-wrap reports-table-wrap">
-            <table className="admin-table-react reports-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Workshop/Event</th>
-                  <th>Customer</th>
-                  <th>Time</th>
-                  <th style={{ textAlign: "right" }}>Amount</th>
-                  <th>Payment</th>
-                  <th>Reference</th>
-                </tr>
-              </thead>
+          <div className="reports-grid-wrap">
+            <div className="reports-grid-table" role="table" aria-label="Sales report table">
+              <div className="reports-grid-head" role="row">
+                <div role="columnheader">Date</div>
+                <div role="columnheader">Workshop/Event</div>
+                <div role="columnheader">Customer</div>
+                <div role="columnheader">Time</div>
+                <div role="columnheader" className="reports-align-right">
+                  Amount
+                </div>
+                <div role="columnheader">Payment</div>
+                <div role="columnheader">Reference</div>
+              </div>
 
-              <tbody>
+              <div className="reports-grid-body" role="rowgroup">
                 {activeRows.map((row, index) => {
                   const paymentStatus = getPaymentStatus(row);
+                  const date = row.workshop_date || row.booking_date || "—";
+                  const title = getTitle(row, tab);
+                  const customer = getCustomer(row);
+                  const time = formatTimeRange(row.start_time, row.end_time);
+                  const amount = money(getAmount(row));
+                  const reference = row.paid_reference_no || row.reference_no || "—";
 
                   return (
-                    <tr key={row.report_key || row.id || row.reg_id || index}>
-                      <td data-label="Date" className="reports-date-cell">
+                    <div
+                      className="reports-grid-row"
+                      role="row"
+                      key={row.report_key || row.id || row.reg_id || index}
+                    >
+                      <div
+                        className="reports-grid-cell reports-date-cell"
+                        role="cell"
+                        data-label="Date"
+                      >
                         <CalendarDays size={14} />
-                        <span>{row.workshop_date || row.booking_date || "—"}</span>
-                      </td>
+                        <span>{date}</span>
+                      </div>
 
-                      <td data-label="Workshop/Event">
-                        <strong className="reports-title-cell">
-                          {getTitle(row, tab)}
-                        </strong>
+                      <div
+                        className="reports-grid-cell reports-event-cell"
+                        role="cell"
+                        data-label="Workshop/Event"
+                      >
+                        <strong className="reports-title-cell">{title}</strong>
 
                         {tab === "private-workshop" && (
                           <span className="reports-sub-cell">
@@ -400,27 +418,43 @@ export default function AdminReports() {
                             {row.package} Package
                           </span>
                         )}
-                      </td>
+                      </div>
 
-                      <td data-label="Customer">
+                      <div
+                        className="reports-grid-cell reports-customer-cell"
+                        role="cell"
+                        data-label="Customer"
+                      >
                         <span className="reports-icon-text">
                           <UserRound size={14} />
-                          {getCustomer(row)}
+                          <span>{customer}</span>
                         </span>
-                      </td>
+                      </div>
 
-                      <td data-label="Time">
+                      <div
+                        className="reports-grid-cell reports-time-cell"
+                        role="cell"
+                        data-label="Time"
+                      >
                         <span className="reports-icon-text">
                           <Clock3 size={14} />
-                          {formatTimeRange(row.start_time, row.end_time)}
+                          <span>{time}</span>
                         </span>
-                      </td>
+                      </div>
 
-                      <td data-label="Amount" className="reports-amount-cell">
-                        {money(getAmount(row))}
-                      </td>
+                      <div
+                        className="reports-grid-cell reports-amount-cell"
+                        role="cell"
+                        data-label="Amount"
+                      >
+                        {amount}
+                      </div>
 
-                      <td data-label="Payment">
+                      <div
+                        className="reports-grid-cell reports-payment-cell"
+                        role="cell"
+                        data-label="Payment"
+                      >
                         <span
                           className={`pill-mini-react ${paymentBadgeClass(
                             paymentStatus
@@ -428,16 +462,20 @@ export default function AdminReports() {
                         >
                           {readableStatus(paymentStatus)}
                         </span>
-                      </td>
+                      </div>
 
-                      <td data-label="Reference" className="reports-reference-cell">
-                        {row.paid_reference_no || row.reference_no || "—"}
-                      </td>
-                    </tr>
+                      <div
+                        className="reports-grid-cell reports-reference-cell"
+                        role="cell"
+                        data-label="Reference"
+                      >
+                        {reference}
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         )}
       </div>

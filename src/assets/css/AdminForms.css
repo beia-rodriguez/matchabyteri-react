@@ -846,3 +846,77 @@
     width: 100%;
   }
 }
+
+/* Compact Event Drinks layout */
+.admin-forms-page-react .afc-drink-row {
+  grid-template-columns:
+    minmax(220px, 1.8fr)
+    minmax(135px, 0.75fr)
+    minmax(145px, 0.75fr)
+    minmax(95px, 0.45fr)
+    auto;
+  gap: 12px;
+  align-items: end;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.admin-forms-page-react .afc-drink-row .afc-settings-field {
+  gap: 5px;
+}
+
+.admin-forms-page-react .afc-drink-row .afc-label {
+  font-size: 0.74rem;
+}
+
+.admin-forms-page-react .afc-drink-row .afc-input {
+  min-height: 40px;
+  padding: 9px 11px;
+  font-size: 0.9rem;
+}
+
+.admin-forms-page-react .afc-drink-row .afc-row-actions {
+  grid-column: auto;
+  justify-content: flex-end;
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+  align-self: end;
+  flex-wrap: nowrap;
+}
+
+.admin-forms-page-react .afc-drink-row .afc-btn-soft,
+.admin-forms-page-react .afc-drink-row .afc-btn-muted,
+.admin-forms-page-react .afc-drink-row .afc-btn-danger {
+  min-height: 40px;
+  padding: 8px 13px;
+}
+
+@media (max-width: 1320px) {
+  .admin-forms-page-react .afc-drink-row {
+    grid-template-columns: minmax(220px, 1.5fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(90px, 0.7fr);
+  }
+
+  .admin-forms-page-react .afc-drink-row .afc-row-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    padding-top: 10px;
+    margin-top: 2px;
+    border-top: 1px dashed var(--afc-line);
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-forms-page-react .afc-drink-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-forms-page-react .afc-drink-row .afc-row-actions {
+    justify-content: stretch;
+  }
+
+  .admin-forms-page-react .afc-drink-row .afc-row-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

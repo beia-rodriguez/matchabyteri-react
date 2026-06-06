@@ -12,6 +12,23 @@ import { login as loginAPI } from "../services/authService";
 const AuthContext = createContext();
 const AUTH_USER_STORAGE_KEY = "user:v1";
 
+function normalizeUser(user) {
+  if (!user || typeof user !== "object") {
+    return null;
+  }
+
+  return {
+    ...user,
+    id: Number(user.id || 0),
+    name: user.name || "",
+    email: user.email || "",
+    role: String(user.role || "user").toLowerCase(),
+    status: user.status || "active",
+    email_verified: Number(user.email_verified || 0),
+    profile_picture: user.profile_picture || null,
+  };
+}
+
 function readStoredUser() {
   try {
     const rawUser = localStorage.getItem(AUTH_USER_STORAGE_KEY);
@@ -20,7 +37,7 @@ function readStoredUser() {
       return null;
     }
 
-    return JSON.parse(rawUser);
+    return normalizeUser(JSON.parse(rawUser));
   } catch {
     localStorage.removeItem(AUTH_USER_STORAGE_KEY);
     localStorage.removeItem("user");
@@ -71,8 +88,13 @@ function getServerAuthSnapshot() {
 }
 
 function storeUser(nextUser) {
-  if (nextUser) {
-    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(nextUser));
+  const normalizedUser = normalizeUser(nextUser);
+
+  if (normalizedUser) {
+    localStorage.setItem(
+      AUTH_USER_STORAGE_KEY,
+      JSON.stringify(normalizedUser)
+    );
     localStorage.removeItem("user");
   } else {
     localStorage.removeItem(AUTH_USER_STORAGE_KEY);
@@ -80,7 +102,7 @@ function storeUser(nextUser) {
   }
 
   setAuthSnapshot({
-    user: nextUser,
+    user: normalizedUser,
     status: "ready",
   });
 }
@@ -95,7 +117,7 @@ async function checkSessionOnce() {
   try {
     const res = await API.get("/auth/me.php");
 
-    if (res.data.status === "success") {
+    if (res.data?.status === "success" && res.data?.user) {
       storeUser(res.data.user);
     } else {
       storeUser(null);
@@ -119,7 +141,7 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (credentials) => {
     const res = await loginAPI(credentials);
 
-    if (res.status === "success") {
+    if (res?.status === "success" && res?.user) {
       storeUser(res.user);
     }
 
@@ -130,7 +152,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await API.post("/auth/logout.php");
     } catch {
-      // still clear frontend auth even if backend logout fails
+      // Still clear frontend auth even if backend logout fails.
     }
 
     storeUser(null);

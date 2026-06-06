@@ -686,7 +686,10 @@ function EventPricingEditor({ form, setForm }) {
         </p>
 
         {drinks.map((item, index) => (
-          <div className="afc-edit-row" key={item.id || item._local_id || index}>
+          <div
+            className="afc-edit-row afc-drink-row"
+            key={item.id || item._local_id || index}
+          >
             <TextInput
               label="Drink Name"
               value={item.drink_name}
@@ -758,7 +761,8 @@ function EventPricingEditor({ form, setForm }) {
             min={1}
             max={100}
             suffix="%"
-            helper="This controls how much the customer must pay first for event bookings."
+            integer
+            helper="Use whole numbers only. This controls how much the customer must pay first for event bookings."
           />
         </div>
       </div>
@@ -1027,6 +1031,8 @@ function PrivateWorkshopPricingEditor({ form, setForm }) {
             min={1}
             max={100}
             suffix="%"
+            integer
+            helper="Use whole numbers only."
           />
         </div>
       </div>
@@ -1533,6 +1539,10 @@ export default function AdminForms() {
         return "Event downpayment percentage must be between 1 and 100.";
       }
 
+      if (!Number.isInteger(downpayment)) {
+        return "Event downpayment percentage must be a whole number.";
+      }
+
       const cupPackages = safeArray(form?.cup_packages);
       const menuPackages = safeArray(form?.menu_packages);
       const drinks = safeArray(form?.drinks);
@@ -1625,6 +1635,10 @@ export default function AdminForms() {
         return "Private workshop downpayment percentage must be between 1 and 100.";
       }
 
+      if (!Number.isInteger(downpayment)) {
+        return "Private workshop downpayment percentage must be a whole number.";
+      }
+
       const packages = safeArray(form?.packages);
 
       const activePackages = packages.filter(
@@ -1663,7 +1677,7 @@ export default function AdminForms() {
     if (bookingType === "event_booking") {
       return {
         ...form,
-        downpayment_percentage: toMoneyNumber(form?.downpayment_percentage, 50),
+        downpayment_percentage: toInteger(form?.downpayment_percentage, 50),
         cup_packages: safeArray(form?.cup_packages).map((item, index) => ({
           ...item,
           quantity: toInteger(item.quantity, 0),
@@ -1695,7 +1709,7 @@ export default function AdminForms() {
     if (bookingType === "private_workshop") {
       return {
         ...form,
-        downpayment_percentage: toMoneyNumber(form?.downpayment_percentage, 50),
+        downpayment_percentage: toInteger(form?.downpayment_percentage, 50),
         packages: safeArray(form?.packages).map((item, index) => ({
           ...item,
           package_code: makeCode(item.package_code),

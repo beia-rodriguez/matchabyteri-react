@@ -80,7 +80,7 @@ function Home() {
         </div>
       </section>
 
-      <div id="readable-content">
+      <div id="readable-content" data-voice-page-name="Home">
         <section className="welcome-section">
           <div className="welcome-inner">
             <div className="welcome-text">
@@ -163,8 +163,8 @@ function Home() {
               </h2>
 
               <p tabIndex="0">
-                We host private workshops where you can learn how to prepare,
-                whisk, and enjoy authentic matcha the traditional way.
+                We host private events where you can enjoy various matcha drinks, 
+                on your special occassion.
               </p>
 
               <Link

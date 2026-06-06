@@ -16,34 +16,29 @@ body.access-text-scaled {
 
 .accessibility-bubble-wrapper {
   position: fixed;
+  right: max(24px, env(safe-area-inset-right));
   bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  width: auto !important;
+  height: auto !important;
+  max-width: 72px;
+  max-height: 72px;
+  pointer-events: none !important;
 }
 
 .accessibility-bubble-wrapper.position-right {
   right: max(24px, env(safe-area-inset-right));
-}
-
-.accessibility-bubble-wrapper.position-right {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: auto !important;
-  height: auto !important;
-  z-index: 9999;
+  left: auto;
+  align-items: flex-end;
 }
 
 .accessibility-bubble-wrapper.position-left {
   left: max(24px, env(safe-area-inset-left));
   right: auto;
   align-items: flex-start;
-}
-
-.accessibility-bubble-wrapper {
-  pointer-events: none !important;
 }
 
 /* But keep the actual floating accessibility button clickable */
@@ -56,6 +51,7 @@ body.access-text-scaled {
 .accessibility-bubble-wrapper .fab {
   pointer-events: auto !important;
 }
+
 .accessibility-main-button {
   width: 64px;
   height: 64px;
@@ -115,20 +111,43 @@ body.access-text-scaled {
 }
 
 .accessibility-menu {
+  position: absolute;
+  right: 0;
+  bottom: 76px;
+  width: max-content;
+  max-width: calc(100vw - 48px);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
+  visibility: hidden;
   opacity: 0;
   transform: translateY(14px) scale(0.96);
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  pointer-events: none !important;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+}
+
+.position-left .accessibility-menu {
+  left: 0;
+  right: auto;
+}
+
+.accessibility-menu * {
+  pointer-events: none !important;
 }
 
 .accessibility-menu.show {
+  visibility: visible;
   opacity: 1;
   transform: translateY(0) scale(1);
-  pointer-events: auto;
+  pointer-events: auto !important;
+}
+
+.accessibility-menu.show button,
+.accessibility-menu.show a,
+.accessibility-menu.show [role="button"],
+.accessibility-menu.show .accessibility-option,
+.accessibility-menu.show .accessibility-shortcuts-toggle {
+  pointer-events: auto !important;
 }
 
 .accessibility-main-column {
@@ -138,8 +157,13 @@ body.access-text-scaled {
   gap: 10px;
 }
 
+.position-left .accessibility-main-column {
+  align-items: flex-start;
+}
+
 .accessibility-reader-warning {
-  max-width: 390px;
+  width: 390px;
+  max-width: calc(100vw - 48px);
   padding: 12px 14px;
   border-radius: 16px;
   background: #fff2f0;
@@ -152,7 +176,9 @@ body.access-text-scaled {
 }
 
 .accessibility-option {
-  min-width: 292px;
+  width: 292px;
+  max-width: calc(100vw - 48px);
+  min-width: 0;
   padding: 14px 17px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -221,7 +247,8 @@ body.access-text-scaled {
 }
 
 .accessibility-status {
-  max-width: 295px;
+  width: 295px;
+  max-width: calc(100vw - 48px);
   padding: 15px 16px;
   border-radius: 18px;
   border: 1px solid var(--line);
@@ -362,6 +389,8 @@ body.access-text-scaled {
 }
 
 .accessibility-shortcuts-toggle {
+  width: 292px;
+  max-width: calc(100vw - 48px);
   border: 1px solid var(--line);
   background: var(--white);
   color: var(--ink);
@@ -393,7 +422,8 @@ body.access-text-scaled {
 
 .accessibility-shortcuts-below {
   width: 292px;
-  min-width: 292px;
+  max-width: calc(100vw - 48px);
+  min-width: 0;
   justify-content: center;
 }
 
@@ -464,12 +494,19 @@ body.access-text-scaled {
   justify-content: flex-end;
   gap: 10px;
   z-index: 10000;
+  pointer-events: auto !important;
 }
 
 .position-left .accessibility-tools-side {
   left: 76px;
   right: auto;
   flex-direction: row-reverse;
+}
+
+.accessibility-tools-side button,
+.accessibility-tools-side a,
+.accessibility-tools-side [role="button"] {
+  pointer-events: auto !important;
 }
 
 .accessibility-tools-list {
@@ -487,6 +524,7 @@ body.access-text-scaled {
   backdrop-filter: blur(8px);
   max-width: min(860px, calc(100vw - 160px));
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
 }
 
@@ -556,6 +594,12 @@ body.screen-reader-on *:focus {
   outline-offset: 4px !important;
 }
 
+@media (max-width: 1200px) {
+  .accessibility-tools-list {
+    max-width: min(720px, calc(100vw - 160px));
+  }
+}
+
 @media (max-width: 900px) {
   .accessibility-tools-side {
     right: 70px;
@@ -578,17 +622,16 @@ body.screen-reader-on *:focus {
   }
 }
 
-@media (max-width: 600px) {
-  .accessibility-bubble-wrapper {
-    bottom: 16px;
-  }
-
+@media (max-width: 700px) {
+  .accessibility-bubble-wrapper,
   .accessibility-bubble-wrapper.position-right {
-    right: 16px;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
   }
 
   .accessibility-bubble-wrapper.position-left {
-    left: 16px;
+    left: max(16px, env(safe-area-inset-left));
+    bottom: max(16px, env(safe-area-inset-bottom));
   }
 
   .accessibility-main-button {
@@ -596,19 +639,27 @@ body.screen-reader-on *:focus {
     height: 60px;
   }
 
+  .accessibility-menu {
+    bottom: 72px;
+    max-width: calc(100vw - 32px);
+  }
+
   .accessibility-option {
-    min-width: min(310px, calc(100vw - 32px));
+    width: min(310px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
     font-size: 14px;
   }
 
   .accessibility-status,
   .accessibility-reader-warning {
-    max-width: min(350px, calc(100vw - 32px));
+    width: min(350px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
   }
 
+  .accessibility-shortcuts-toggle,
   .accessibility-shortcuts-below {
     width: min(310px, calc(100vw - 32px));
-    min-width: min(310px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
   }
 
   .shortcut-table {
@@ -656,6 +707,180 @@ body.screen-reader-on *:focus {
   }
 }
 
+@media (max-width: 520px) {
+  .accessibility-bubble-wrapper,
+  .accessibility-bubble-wrapper.position-right {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .accessibility-bubble-wrapper.position-left {
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .accessibility-main-button {
+    width: 56px;
+    height: 56px;
+  }
+
+  .accessibility-menu {
+    bottom: 66px;
+    max-width: calc(100vw - 24px);
+  }
+
+  .accessibility-option {
+    width: min(300px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    min-height: 52px;
+    border-radius: 18px;
+    padding: 12px 13px;
+    font-size: 13.5px;
+  }
+
+  .accessibility-option:hover,
+  .position-left .accessibility-option:hover {
+    transform: none;
+  }
+
+  .accessibility-option kbd {
+    font-size: 11px;
+    padding: 3px 7px;
+  }
+
+  .accessibility-status,
+  .accessibility-reader-warning {
+    width: min(320px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    padding: 13px 14px;
+    font-size: 13px;
+  }
+
+  .accessibility-shortcuts-toggle,
+  .accessibility-shortcuts-below {
+    width: min(300px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+  }
+
+  .shortcut-table {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .shortcut-table span {
+    justify-content: flex-start;
+    white-space: normal;
+    border-radius: 12px;
+  }
+
+  .shortcut-table p {
+    font-size: 12.5px;
+    line-height: 1.35;
+  }
+
+  .accessibility-tools-side {
+    right: 62px;
+    bottom: 0;
+    gap: 6px;
+  }
+
+  .position-left .accessibility-tools-side {
+    left: 62px;
+    right: auto;
+  }
+
+  .accessibility-tools-list {
+    max-width: min(232px, calc(100vw - 100px));
+    padding: 6px;
+    gap: 6px;
+    border-radius: 17px;
+  }
+
+  .accessibility-mini {
+    width: 78px;
+    min-width: 78px;
+    flex: 0 0 78px;
+    min-height: 52px;
+    padding: 7px 6px;
+    font-size: 11.5px;
+  }
+
+  .accessibility-mini span {
+    white-space: normal;
+    line-height: 1.1;
+  }
+
+  .accessibility-tools-toggle {
+    min-width: 50px;
+    height: 40px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 380px) {
+  .accessibility-menu {
+    max-width: calc(100vw - 20px);
+  }
+
+  .accessibility-option {
+    width: min(286px, calc(100vw - 20px));
+    max-width: calc(100vw - 20px);
+    gap: 8px;
+  }
+
+  .accessibility-icon {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+  }
+
+  .accessibility-option kbd {
+    display: none;
+  }
+
+  .accessibility-status,
+  .accessibility-reader-warning,
+  .accessibility-shortcuts-toggle,
+  .accessibility-shortcuts-below {
+    width: min(286px, calc(100vw - 20px));
+    max-width: calc(100vw - 20px);
+  }
+
+  .accessibility-tools-side {
+    right: 60px;
+  }
+
+  .position-left .accessibility-tools-side {
+    left: 60px;
+    right: auto;
+  }
+
+  .accessibility-tools-list {
+    max-width: min(214px, calc(100vw - 96px));
+  }
+
+  .accessibility-mini {
+    width: 72px;
+    min-width: 72px;
+    flex: 0 0 72px;
+    min-height: 50px;
+    padding: 7px 5px;
+    font-size: 11px;
+  }
+}
+
+@media (max-height: 640px) {
+  .accessibility-menu.show {
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    padding-right: 3px;
+  }
+
+  .accessibility-tools-list {
+    max-height: calc(100vh - 120px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .accessibility-main-button,
   .accessibility-option,
@@ -671,72 +896,5 @@ body.screen-reader-on *:focus {
   .accessibility-main-button:hover,
   .accessibility-option:hover {
     transform: none !important;
-  }
-}
-
-/* ── Accessibility closed-menu click-block fix ─────────────────────────────
-   When the panel is closed, its hidden menu buttons must not sit over the page.
-   The main round button remains clickable; invisible menu/tool items do not. */
-
-.accessibility-bubble-wrapper {
-  width: auto !important;
-  height: auto !important;
-  max-width: 72px;
-  max-height: 72px;
-  pointer-events: none !important;
-}
-
-.accessibility-bubble-wrapper .accessibility-main-button {
-  pointer-events: auto !important;
-}
-
-.accessibility-menu {
-  position: absolute;
-  right: 0;
-  bottom: 76px;
-  width: max-content;
-  max-width: calc(100vw - 48px);
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none !important;
-}
-
-.accessibility-menu * {
-  pointer-events: none !important;
-}
-
-.accessibility-menu.show {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto !important;
-}
-
-.accessibility-menu.show button,
-.accessibility-menu.show a,
-.accessibility-menu.show [role="button"],
-.accessibility-menu.show .accessibility-option,
-.accessibility-menu.show .accessibility-shortcuts-toggle {
-  pointer-events: auto !important;
-}
-
-.accessibility-tools-side {
-  pointer-events: auto !important;
-}
-
-.accessibility-tools-side button,
-.accessibility-tools-side a,
-.accessibility-tools-side [role="button"] {
-  pointer-events: auto !important;
-}
-
-.position-left .accessibility-menu {
-  left: 0;
-  right: auto;
-}
-
-@media (max-width: 600px) {
-  .accessibility-menu {
-    bottom: 72px;
-    max-width: calc(100vw - 32px);
   }
 }

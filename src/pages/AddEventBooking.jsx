@@ -398,7 +398,7 @@ export default function AddEventBooking() {
     <>
       <Navbar />
 
-      <div className="booking-page" id="readable-content">
+      <div className="booking-page" id="readable-content" data-voice-page-name="Event Booking">
         <div className="wrap">
           <div className="top">
             <button

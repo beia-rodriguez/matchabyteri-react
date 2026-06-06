@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
@@ -10,7 +10,9 @@ export default function Login() {
   const location = useLocation();
   const { login } = useAuth();
 
-  const redirect = new URLSearchParams(location.search).get("redirect");
+  const redirect = useMemo(() => {
+    return new URLSearchParams(location.search).get("redirect");
+  }, [location.search]);
 
   const safeRedirect =
     redirect && redirect.startsWith("/") && !redirect.startsWith("//")
@@ -85,7 +87,7 @@ export default function Login() {
     readableElements.forEach((element) => {
       if (element.closest(".accessibility-bubble-wrapper")) return;
 
-      const tagName = element.tagName.toLowerCase();
+      const tagName = String(element.tagName || "").toLowerCase();
 
       if (tagName !== "button" && tagName !== "a" && tagName !== "input") {
         element.removeAttribute("tabindex");
@@ -129,7 +131,9 @@ export default function Login() {
     setError("");
     setNotice("");
 
-    if (!email.trim() || !password) {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
       setError("Please fill in all fields.");
       return;
     }
@@ -138,20 +142,25 @@ export default function Login() {
       setSubmitting(true);
 
       const res = await login({
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
       });
 
-      if (res.status === "success") {
-        if (res.user.role === "admin") {
+      if (res?.status === "success" && res?.user) {
+        const role = String(res.user.role || "user").toLowerCase();
+
+        if (role === "admin") {
           navigate("/admin/dashboard", { replace: true });
         } else {
           navigate(safeRedirect, { replace: true });
         }
-      } else {
-        setError(res.message || "Login failed.");
+
+        return;
       }
-    } catch {
+
+      setError(res?.message || "Login failed.");
+    } catch (err) {
+      console.error("Login error:", err);
       setError("Server error. Please try again.");
     } finally {
       setSubmitting(false);
@@ -163,6 +172,7 @@ export default function Login() {
       className="auth-login-page"
       id="readable-content"
       aria-label="Login page"
+      data-voice-page-name="Login"
     >
       <div className="auth-login-shell">
         <section className="auth-login-brand" aria-label="Matcha By Teri brand">

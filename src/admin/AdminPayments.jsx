@@ -70,6 +70,19 @@ function readablePurpose(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function getPaymentDisplayTitle(payment) {
+  const title =
+    payment.display_title ||
+    payment.linked_title ||
+    payment.workshop_title ||
+    payment.event_title ||
+    payment.private_workshop_title ||
+    payment.linked_type ||
+    readablePurpose(payment.purpose);
+
+  return String(title || readablePurpose(payment.purpose)).trim();
+}
+
 function getLinkedRecordText(payment) {
   if (payment.linked_record_type === "registration" || payment.registration_id) {
     return `Registration #${payment.registration_id || payment.linked_record_id}`;
@@ -178,7 +191,9 @@ export default function AdminPayments() {
       return;
     }
 
-    if (!window.confirm(`Save this payment as ${nextStatus.toUpperCase()}?`)) return;
+    if (!window.confirm(`Save this payment as ${nextStatus.toUpperCase()}?`)) {
+      return;
+    }
 
     setSavingId(paymentId);
     setMsg("");
@@ -280,7 +295,7 @@ export default function AdminPayments() {
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Name, email, payer, ref, purpose, token, booking id"
+              placeholder="Customer, email, payer, ref, title, token, booking id"
               autoComplete="off"
             />
           </div>
@@ -337,19 +352,26 @@ export default function AdminPayments() {
             const paidAt = ctx._paid_at || p.reviewed_at || "";
             const adminCtx = ctx._admin || null;
 
+            const displayTitle = getPaymentDisplayTitle(p);
+            const purposeLabel = readablePurpose(p.purpose);
             const linkedRecordText = getLinkedRecordText(p);
             const linkedSchedule = p.linked_schedule || "";
-            const linkedType = p.linked_type || readablePurpose(p.purpose);
+            const packageText = p.registration_package
+              ? `Package: ${String(p.registration_package).toUpperCase()}`
+              : "";
 
             return (
               <article className="pay-card-react" key={paymentId}>
                 <div className="p-header-react">
                   <div className="p-header-info">
                     <h4 className="p-title-react">
-                      {readablePurpose(p.purpose)}
+                      {displayTitle}
                       <span className="p-ref">{linkedRecordText}</span>
                     </h4>
+
+                    <span className="p-date-react">{purposeLabel}</span>
                     <span className="p-date-react">Submitted: {p.created_at || "N/A"}</span>
+
                     {paidAt && st === "paid" && (
                       <span className="p-date-react">Reviewed/Paid: {paidAt}</span>
                     )}
@@ -385,9 +407,11 @@ export default function AdminPayments() {
                       {linkedRecordText}
                       <br />
                       <span className="p-subtext">
-                        {linkedSchedule || "No schedule"}
-                        {linkedType ? ` | ${linkedType}` : ""}
+                        {displayTitle}
+                        {packageText ? ` | ${packageText}` : ""}
                       </span>
+                      <br />
+                      <span className="p-subtext">{linkedSchedule || "No schedule"}</span>
                       <br />
                       <span className="p-subtext">Token: {p.short_payment_token || "-"}</span>
                     </span>
@@ -396,11 +420,11 @@ export default function AdminPayments() {
                   <div className="p-data-group">
                     <span className="p-label-sm">Amount Details</span>
                     <span className="p-value">
-                      This Proof: {" "}
+                      This Proof:{" "}
                       <strong style={{ color: "var(--green-2)" }}>₱{money(expectedAmount)}</strong>
                       <br />
                       <span className="p-subtext">
-                        Total: ₱{money(totalAmount)} {" "}
+                        Total: ₱{money(totalAmount)}{" "}
                         {paymentChoice ? `(${String(paymentChoice).toUpperCase()})` : ""}
                       </span>
                       <br />

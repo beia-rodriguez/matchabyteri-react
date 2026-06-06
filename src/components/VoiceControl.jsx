@@ -4,7 +4,6 @@ import React, {
   useRef,
   useCallback,
   useReducer,
-  useEffectEvent,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -27,9 +26,6 @@ import {
 import API from "../services/api";
 import "../assets/css/VoiceControl.css";
 
-/*
-  ROUTES BASED ON YOUR NAVBAR
-*/
 const HOME_PAGE_PATH = "/";
 const ABOUT_PAGE_PATH = "/about";
 const EVENT_PAGE_PATH = "/event";
@@ -120,10 +116,46 @@ function getMainContent() {
 }
 
 function getPageName() {
+  const pathname = window.location.pathname;
+
+  const pageNameFromRoute = {
+    "/": "Home",
+    "/about": "About Us",
+    "/event": "Event",
+    "/calendar": "Calendar",
+    "/profile": "Profile",
+    "/my-booking": "My Booking",
+    "/public-workshops": "Public Workshop",
+    "/private-workshop": "Private Workshop",
+    "/login": "Login",
+    "/sign-up": "Sign Up",
+    "/forgot-password": "Forgot Password",
+  };
+
+  if (pageNameFromRoute[pathname]) {
+    return pageNameFromRoute[pathname];
+  }
+
+  const customPageName =
+    document.querySelector("[data-voice-page-name]")?.getAttribute(
+      "data-voice-page-name"
+    ) ||
+    document.querySelector("[data-page-title]")?.getAttribute(
+      "data-page-title"
+    );
+
+  if (customPageName) {
+    return customPageName.replace(/\s+/g, " ").trim();
+  }
+
   const title =
     document.querySelector("h1")?.innerText ||
     document.querySelector(".page-title")?.innerText ||
     document.querySelector(".profile-title")?.innerText ||
+    document.querySelector(".my-booking-title")?.innerText ||
+    document.querySelector(".date-title")?.innerText ||
+    document.querySelector(".title")?.innerText ||
+    document.querySelector(".section-title")?.innerText ||
     document.title ||
     "current";
 
@@ -218,6 +250,8 @@ function spokenLettersToWord(text = "") {
     b: "b",
     bee: "b",
     be: "b",
+    we: "b",
+    wee: "b",
     c: "c",
     see: "c",
     sea: "c",
@@ -273,41 +307,144 @@ function spokenLettersToWord(text = "") {
 
   const rawWords = String(text)
     .toLowerCase()
-    .replace(/letter/gi, "")
-    .replace(/dash/gi, "-")
-    .replace(/hyphen/gi, "-")
-    .replace(/underscore/gi, "_")
-    .replace(/space/gi, " ")
-    .split(/\s+/);
+    .replace(/@/g, " at ")
+    .replace(/\./g, " dot ")
+    .replace(/-/g, " dash ")
+    .replace(/_/g, " underscore ")
+    .replace(/\bspell\b/g, "")
+    .replace(/\bspelling\b/g, "")
+    .replace(/\btype\b/g, "")
+    .replace(/\bletter\b/g, "")
+    .replace(/\bletters\b/g, "")
+    .trim()
+    .split(/\s+/)
+    .map((word) => normalizeText(word))
+    .filter(Boolean);
 
-  const converted = [];
+  if (!rawWords.length) return null;
 
-  for (const word of rawWords) {
-    if (!word) continue;
+  const isUpperCommand = (word = "") => {
+    return (
+      word === "upper" ||
+      word === "uppercase" ||
+      word === "capital" ||
+      word === "cap" ||
+      word === "caps"
+    );
+  };
 
+  const isLowerCommand = (word = "") => {
+    return word === "lower" || word === "lowercase";
+  };
+
+  const hasUpperCommand = rawWords.some((word) => isUpperCommand(word));
+  const hasLowerCommand = rawWords.some((word) => isLowerCommand(word));
+  const shouldUpperAll = hasUpperCommand && rawWords.includes("all");
+  const shouldLowerAll = hasLowerCommand && rawWords.includes("all");
+
+  const convertToken = (word = "") => {
     const clean = normalizeText(word);
 
-    if (letterMap[clean]) {
-      converted.push(letterMap[clean]);
-      continue;
-    }
+    if (!clean) return "";
 
-    if (/^\d+$/.test(clean)) {
-      converted.push(clean);
-      continue;
-    }
-
-    if (word === "-" || word === "_") {
-      converted.push(word);
-      continue;
-    }
+    if (clean === "space") return " ";
+    if (clean === "dash" || clean === "hyphen" || clean === "minus") return "-";
+    if (clean === "underscore") return "_";
+    if (clean === "dot" || clean === "period" || clean === "point") return ".";
+    if (clean === "at" || clean === "add" || clean === "ad" || clean === "alt") return "@";
+    if (letterMap[clean]) return letterMap[clean];
+    if (/^\d+$/.test(clean)) return clean;
+    if (/^[a-z0-9]+$/.test(clean)) return clean;
 
     return null;
+  };
+
+  const capitalizeFirst = (value = "") => {
+    if (!value) return value;
+
+    const firstAlphaIndex = value.search(/[a-z]/i);
+
+    if (firstAlphaIndex < 0) return value;
+
+    return `${value.slice(0, firstAlphaIndex)}${value
+      .charAt(firstAlphaIndex)
+      .toUpperCase()}${value.slice(firstAlphaIndex + 1)}`;
+  };
+
+  const lowerFirst = (value = "") => {
+    if (!value) return value;
+
+    const firstAlphaIndex = value.search(/[a-z]/i);
+
+    if (firstAlphaIndex < 0) return value;
+
+    return `${value.slice(0, firstAlphaIndex)}${value
+      .charAt(firstAlphaIndex)
+      .toLowerCase()}${value.slice(firstAlphaIndex + 1)}`;
+  };
+
+  const converted = [];
+  let pendingCase = "";
+
+  for (let index = 0; index < rawWords.length; index += 1) {
+    const clean = rawWords[index];
+    const nextClean = rawWords[index + 1] || "";
+
+    if (!clean) continue;
+
+    if (clean === "all") continue;
+
+    if (clean === "case" && (pendingCase || rawWords[index - 1] === "upper" || rawWords[index - 1] === "lower")) {
+      continue;
+    }
+
+    if (isUpperCommand(clean)) {
+      if (clean === "upper" && nextClean === "case") {
+        index += 1;
+      }
+
+      if (!shouldUpperAll) {
+        pendingCase = "upper-first";
+      }
+
+      continue;
+    }
+
+    if (isLowerCommand(clean)) {
+      if (clean === "lower" && nextClean === "case") {
+        index += 1;
+      }
+
+      if (!shouldLowerAll) {
+        pendingCase = "lower-first";
+      }
+
+      continue;
+    }
+
+    let value = convertToken(clean);
+
+    if (value === null) return null;
+
+    if (pendingCase === "upper-first") {
+      value = capitalizeFirst(value);
+      pendingCase = "";
+    } else if (pendingCase === "lower-first") {
+      value = lowerFirst(value);
+      pendingCase = "";
+    }
+
+    converted.push(value);
   }
 
-  if (converted.length < 2) return null;
+  if (!converted.length) return null;
 
-  return converted.join("");
+  const joinedValue = converted.join("").replace(/\s+/g, "");
+
+  if (shouldUpperAll) return joinedValue.toUpperCase();
+  if (shouldLowerAll) return joinedValue.toLowerCase();
+
+  return joinedValue;
 }
 
 function formatDictatedText(text = "") {
@@ -316,6 +453,91 @@ function formatDictatedText(text = "") {
   if (spelled) return spelled;
 
   return String(text).trim();
+}
+
+function getSpelledSpeechPreview(text = "") {
+  const rawText = String(text || "").trim();
+
+  if (!rawText) return null;
+
+  const spelledValue = spokenLettersToWord(rawText);
+
+  if (!spelledValue) return null;
+
+  const cleanedSpokenLetters = rawText
+    .toLowerCase()
+    .replace(/\bspell\b/g, "")
+    .replace(/\bspelling\b/g, "")
+    .replace(/\btype\b/g, "")
+    .replace(/\bletter\b/g, "")
+    .replace(/\bletters\b/g, "")
+    .replace(/\bupper case\b/g, "uppercase")
+    .replace(/\blower case\b/g, "lowercase")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    spelledLetters: cleanedSpokenLetters,
+    connectedWord: spelledValue,
+  };
+}
+
+function isEmailFieldElement(inputElement, fieldIdentity = "", inputName = "") {
+  return (
+    activeElementType(inputElement) === "email" ||
+    inputName.includes("email") ||
+    fieldIdentity.includes("email") ||
+    fieldIdentity.includes("emailaddress")
+  );
+}
+
+function activeElementType(inputElement) {
+  return String(inputElement?.type || "").toLowerCase();
+}
+
+function formatEmailDictation(text = "") {
+  const spelled = spokenLettersToWord(text);
+
+  if (spelled) {
+    return spelled.replace(/\s+/g, "").toLowerCase();
+  }
+
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\b(at|add|ad|alt)\b/g, " @ ")
+    .replace(/\b(dot|period|point)\b/g, " . ")
+    .replace(/\b(dash|hyphen)\b/g, " - ")
+    .replace(/\bunderscore\b/g, " _ ")
+    .replace(/\s*@\s*/g, "@")
+    .replace(/\s*\.\s*/g, ".")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s*_\s*/g, "_")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function formatEmailForSpeech(value = "") {
+  return String(value || "")
+    .replace(/@/g, " at ")
+    .replace(/\./g, " dot ")
+    .replace(/_/g, " underscore ")
+    .replace(/-/g, " dash ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function chooseBestTranscript(alternatives = []) {
+  const cleanAlternatives = alternatives
+    .map((item) => String(item || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  if (!cleanAlternatives.length) return "";
+
+  const spelledAlternative = cleanAlternatives.find((item) =>
+    Boolean(spokenLettersToWord(item))
+  );
+
+  return spelledAlternative || cleanAlternatives[0];
 }
 
 function formatNumbersForSpeech(text = "") {
@@ -605,7 +827,6 @@ export default function VoiceControl() {
   const isListeningRef = useRef(false);
   const shouldRestartRef = useRef(false);
   const spacePressedRef = useRef(false);
-  const shortcutRef = useRef({ waitingForNumber: false, timer: null });
   const lastSpokenRef = useRef("");
   const pendingCancelRef = useRef(null);
 
@@ -632,6 +853,9 @@ export default function VoiceControl() {
   const pendingAnswerRef = useRef(null);
   const ignoreVoiceUntilRef = useRef(0);
   const lastSpokenByAssistantRef = useRef("");
+  const lastAssistantMessageRef = useRef("");
+
+  const pointerHoldToTalkRef = useRef(false);
 
   const splitSpeechText = useCallback((text, maxLength = 160) => {
     const cleanText = String(text || "").replace(/\s+/g, " ").trim();
@@ -704,7 +928,7 @@ export default function VoiceControl() {
 
       const now = Date.now();
 
-      if (now - lastRecognitionStartRef.current < 650) {
+      if (now - lastRecognitionStartRef.current < 120) {
         return;
       }
 
@@ -750,14 +974,21 @@ export default function VoiceControl() {
 
       if (!chunks.length) return;
 
+      lastAssistantMessageRef.current = String(text || "").trim();
       lastSpokenByAssistantRef.current = String(text || "").toLowerCase();
       ignoreVoiceUntilRef.current = Date.now() + 1200;
 
       const shouldResumeMic =
-        keepListeningRef.current &&
-        recognitionRef.current &&
-        !spacePressedRef.current &&
-        !manualStopRef.current;
+        options.startMicAfterSpeech === true ||
+        (keepListeningRef.current &&
+          !spacePressedRef.current &&
+          !manualStopRef.current);
+
+      if (options.startMicAfterSpeech === true) {
+        keepListeningRef.current = true;
+        manualStopRef.current = false;
+        shouldRestartRef.current = true;
+      }
 
       resumeMicAfterSpeechRef.current = shouldResumeMic;
 
@@ -786,7 +1017,6 @@ export default function VoiceControl() {
 
         if (
           resumeMicAfterSpeechRef.current &&
-          recognitionRef.current &&
           keepListeningRef.current &&
           !manualStopRef.current
         ) {
@@ -812,7 +1042,7 @@ export default function VoiceControl() {
         }
 
         const utterance = new SpeechSynthesisUtterance(currentText);
-        utterance.rate = options.rate || 0.88;
+        utterance.rate = options.rate || 1.05;
         utterance.pitch = 1;
         utterance.volume = 1;
 
@@ -844,15 +1074,19 @@ export default function VoiceControl() {
 
     lastInstructionSpokenAtRef.current = now;
 
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
     speak(
-      "Accessibility opened. Press Alt Shift H for shortcuts. Press Alt Shift M for voice assistance."
+      isMobile
+        ? "Accessibility menu opened. Voice assistance and tab reader are available. After this message, I will listen for your command. You can say: turn on tab reader, read page, read buttons, what can I say, or stop listening. You can also press and hold the Voice Assistance button to speak anytime."
+        : "Accessibility menu opened. Voice assistance and tab reader are available. After this message, I will listen for your command. You can say: turn on tab reader, read page, read buttons, what can I say, or stop listening. You can also hold F9 to speak anytime.",
+      { startMicAfterSpeech: true }
     );
   }, [speak]);
 
   const stopTalking = useCallback(() => {
     const shouldResumeMic =
       resumeMicAfterSpeechRef.current &&
-      recognitionRef.current &&
       keepListeningRef.current &&
       !manualStopRef.current;
 
@@ -898,25 +1132,34 @@ export default function VoiceControl() {
       recognitionRestartTimerRef.current = null;
     }
 
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch {
-        // ignore stop error
+        // Ignore stop error.
       }
     }
 
     recognitionActiveRef.current = false;
     setIsListening(false);
     setStatusMessage("Microphone is off.");
-  }, [clearHearingTimer, setIsHearing, setIsListening, setStatusMessage]);
+  }, [
+    clearHearingTimer,
+    setIsHearing,
+    setIsListening,
+    setStatusMessage,
+  ]);
 
   const startMicrophoneOnly = useCallback(() => {
-    if (recognitionActiveRef.current || recognitionStartingRef.current) return;
+    if (recognitionActiveRef.current || recognitionStartingRef.current) {
+      return;
+    }
 
     keepListeningRef.current = true;
     manualStopRef.current = false;
     shouldRestartRef.current = true;
+
     startRecognitionSafely("Listening...");
   }, [startRecognitionSafely]);
 
@@ -1012,7 +1255,7 @@ export default function VoiceControl() {
       return;
     }
 
-    speak(readableItems.join(". "), { rate: 0.86, maxLength: 220 });
+    speak(readableItems.join(". "), { rate: 1.0, maxLength: 220 });
   }, [speak]);
 
   const readButtons = useCallback(() => {
@@ -1180,23 +1423,13 @@ export default function VoiceControl() {
     lastHelpSpokenAtRef.current = now;
 
     speak(
-      "Shortcuts. Alt Shift A opens accessibility. Alt Shift M starts voice. Alt Shift H reads help. Escape stops talking. On booking forms, say current question, clear field, or submit form. After you confirm an answer, I will automatically continue to the next question."
+      "Available tools are voice assistance and tab reader. To start voice assistance, press and hold the Voice Assistance button, or hold F9 while speaking. You can say: where am I, read page, read buttons, read fields, current question, clear field, submit form, go back, repeat, or stop talking. For spelling, say spell then the letters, for example: spell h e l l o. I will say the letters back and connect them into a word. Say space to add a space. You can also say upper case h or lower case h when spelling."
     );
   }, [speak]);
 
-  const collapseToolsAfterAction = useCallback(() => {
-    window.setTimeout(() => {
-      setShowTools(false);
-    }, 700);
-  }, [setShowTools]);
-
-  const handleMiniAction = useCallback(
-    (action) => {
-      action();
-      collapseToolsAfterAction();
-    },
-    [collapseToolsAfterAction]
-  );
+  const handleMiniAction = useCallback((action) => {
+    action();
+  }, []);
 
   const speakFormVoiceGuide = useCallback(() => {
     const pageName = getPageName();
@@ -1313,29 +1546,47 @@ export default function VoiceControl() {
     return true;
   }, [speak]);
 
-  const toggleMicrophone = useCallback(() => {
-    if (!recognitionRef.current) {
-      setStatusMessage(
-        "Voice assistance is not supported in this browser. Please use Chrome or Edge."
+  const clearVoiceInputAndRestart = useCallback(() => {
+    pendingAnswerRef.current = null;
+    activeQuestionIndexRef.current = -1;
+
+    const activeInput =
+      document.getElementById(activeFieldRef.current) || document.activeElement;
+
+    if (
+      activeInput &&
+      (activeInput.tagName === "INPUT" || activeInput.tagName === "TEXTAREA")
+    ) {
+      setNativeInputValue(activeInput, "");
+    }
+
+    const fields = getCurrentFormFields();
+
+    if (fields.length > 0) {
+      const firstField = fields[0];
+
+      if (!firstField.id) {
+        firstField.id = `voice-id-${Date.now()}`;
+      }
+
+      firstField.focus();
+      activeFieldRef.current = firstField.id;
+      activeQuestionIndexRef.current = 0;
+
+      setStatusMessage("Cleared. Starting again from the first question.");
+      speak(
+        `Cleared. Starting again. First question: ${getFieldLabelText(
+          firstField
+        )}. Please say your answer.`
       );
+
       return;
     }
 
-    if (isListeningRef.current || recognitionActiveRef.current) {
-      stopMicrophone();
-      return;
-    }
-
-    keepListeningRef.current = true;
-    manualStopRef.current = false;
-    shouldRestartRef.current = false;
-
-    setIsListening(true);
-    setIsHearing(false);
-    setStatusMessage("Voice assistance is starting.");
-
-    speakFormVoiceGuide();
-  }, [speakFormVoiceGuide, stopMicrophone, setIsHearing, setIsListening, setStatusMessage]);
+    activeFieldRef.current = null;
+    setStatusMessage("Cleared.");
+    speak("Cleared. You can start again.");
+  }, [setStatusMessage, speak]);
 
   const applyTextScale = useCallback(() => {
     const scalableSelectors = [
@@ -1442,7 +1693,7 @@ export default function VoiceControl() {
     isListeningRef.current = isListening;
   }, [isListening]);
 
-  const handleGlobalKeyDown = useEffectEvent((event) => {
+  const handleGlobalKeyDown = useCallback((event) => {
       const target = event.target;
       const tag = target?.tagName?.toLowerCase();
       const key = event.key.toLowerCase();
@@ -1451,14 +1702,7 @@ export default function VoiceControl() {
         tag === "input" || tag === "textarea" || target?.isContentEditable;
 
       const isOpenShortcut = event.altKey && event.shiftKey && key === "a";
-      const isMicShortcut = event.altKey && event.shiftKey && key === "m";
-      const isHelpShortcut = event.altKey && event.shiftKey && key === "h";
-
-      const isHoldToSpeakShortcut =
-        event.code === "F9" ||
-        ((event.code === "Space" || key === " ") &&
-          event.ctrlKey &&
-          event.shiftKey);
+      const isHoldToSpeakShortcut = event.code === "F9" && !event.repeat;
 
       if (key === "escape") {
         event.preventDefault();
@@ -1501,38 +1745,17 @@ export default function VoiceControl() {
         return;
       }
 
-      if (isMicShortcut) {
-        event.preventDefault();
-        setIsOpen(true);
-        setShowTools(false);
-        toggleMicrophone();
-        return;
-      }
-
-      if (isHelpShortcut) {
-        event.preventDefault();
-        setIsOpen(true);
-        setShowTools(false);
-        readHelp();
-        return;
-      }
-
       if (isHoldToSpeakShortcut) {
         event.preventDefault();
 
         if (!spacePressedRef.current) {
           spacePressedRef.current = true;
           setIsOpen(true);
-          setShowTools(false);
           startMicrophoneOnly();
 
-          if (event.code === "F9") {
-            setStatusMessage("Hold F9 to speak. Release F9 to stop listening.");
-          } else {
-            setStatusMessage(
-              "Hold Control Shift Space to speak. Release Space to stop listening."
-            );
-          }
+          setStatusMessage(
+            "Voice assistance is on. Hold F9 to speak. Release F9 to turn off the microphone only."
+          );
         }
 
         return;
@@ -1542,56 +1765,18 @@ export default function VoiceControl() {
         return;
       }
 
-      if (key === "v") {
-        shortcutRef.current.waitingForNumber = true;
+    }, [
+      isOpen,
+      setIsOpen,
+      setShowTools,
+      setShowShortcuts,
+      setStatusMessage,
+      speakInstructions,
+      startMicrophoneOnly,
+      stopTalking,
+    ]);
 
-        if (shortcutRef.current.timer) {
-          clearTimeout(shortcutRef.current.timer);
-        }
-
-        shortcutRef.current.timer = setTimeout(() => {
-          shortcutRef.current.waitingForNumber = false;
-        }, 1200);
-
-        setIsOpen(true);
-        setShowTools(false);
-        setStatusMessage(
-          "Shortcut active. Press 1 Voice, 2 Tab Reader, or 4 Stop Talking."
-        );
-
-        return;
-      }
-
-      if (shortcutRef.current.waitingForNumber) {
-        if (shortcutRef.current.timer) {
-          clearTimeout(shortcutRef.current.timer);
-        }
-
-        shortcutRef.current.waitingForNumber = false;
-
-        if (key === "1") {
-          event.preventDefault();
-          setIsOpen(true);
-          toggleMicrophone();
-          return;
-        }
-
-        if (key === "2") {
-          event.preventDefault();
-          setIsOpen(true);
-          toggleTabReader();
-          return;
-        }
-
-        if (key === "4") {
-          event.preventDefault();
-          setIsOpen(true);
-          stopTalking();
-        }
-      }
-    });
-
-  const handleGlobalKeyUp = useEffectEvent((event) => {
+  const handleGlobalKeyUp = useCallback((event) => {
       const target = event.target;
       const tag = target?.tagName?.toLowerCase();
       const key = event.key.toLowerCase();
@@ -1599,37 +1784,43 @@ export default function VoiceControl() {
       const isTypingField =
         tag === "input" || tag === "textarea" || target?.isContentEditable;
 
-      if (isTypingField) {
+      const isReleaseHoldToSpeak = event.code === "F9";
+
+      if (isTypingField && !isReleaseHoldToSpeak) {
         return;
       }
-
-      const isReleaseHoldToSpeak =
-        event.code === "F9" || event.code === "Space" || key === " ";
 
       if (isReleaseHoldToSpeak && spacePressedRef.current) {
         event.preventDefault();
         spacePressedRef.current = false;
+        shouldRestartRef.current = false;
+        keepListeningRef.current = false;
+        manualStopRef.current = true;
 
-        if (isListeningRef.current) {
-          shouldRestartRef.current = false;
-          keepListeningRef.current = false;
-          manualStopRef.current = true;
-
-          if (recognitionRef.current) {
-            try {
-              recognitionRef.current.stop();
-            } catch {
-              // ignore stop error
-            }
-          }
-
-          recognitionActiveRef.current = false;
-          setIsListening(false);
-          setIsHearing(false);
-          setStatusMessage("Microphone is off.");
+        if (recognitionRestartTimerRef.current) {
+          clearTimeout(recognitionRestartTimerRef.current);
+          recognitionRestartTimerRef.current = null;
         }
+
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch {
+            // Ignore stop error.
+          }
+        }
+
+        recognitionActiveRef.current = false;
+        recognitionStartingRef.current = false;
+        setIsListening(false);
+        setIsHearing(false);
+        setStatusMessage("Voice assistance is on. Microphone is off.");
       }
-    });
+    }, [
+      setIsHearing,
+      setIsListening,
+      setStatusMessage,
+    ]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -1640,22 +1831,16 @@ export default function VoiceControl() {
       handleGlobalKeyUp(event);
     };
 
-    const shortcutState = shortcutRef.current;
-
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-
-      if (shortcutState.timer) {
-        clearTimeout(shortcutState.timer);
-      }
     };
-  }, []);
+  }, [handleGlobalKeyDown, handleGlobalKeyUp]);
 
-  const handleTabReaderFocus = useEffectEvent((event) => {
+  const handleTabReaderFocus = useCallback((event) => {
     const el = event.target;
 
     if (!el || el === document.body || el === document.documentElement) {
@@ -1670,8 +1855,8 @@ export default function VoiceControl() {
     if (lastSpokenRef.current === textToRead) return;
 
     lastSpokenRef.current = textToRead;
-    speak(textToRead, { rate: 0.9 });
-  });
+    speak(textToRead, { rate: 1.05 });
+  }, [speak]);
 
   useEffect(() => {
     if (!isTabReaderOn) {
@@ -1689,7 +1874,7 @@ export default function VoiceControl() {
       document.removeEventListener("focus", handleFocus, true);
       window.speechSynthesis.cancel();
     };
-  }, [isTabReaderOn]);
+  }, [handleTabReaderFocus, isTabReaderOn]);
 
   useEffect(() => {
     return () => {
@@ -1755,7 +1940,9 @@ export default function VoiceControl() {
       const fieldIdentity = normalizeText(
         `${inputName} ${inputPlaceholder} ${inputId} ${labelIdentity}`
       );
+      const isEmailField = isEmailFieldElement(inputElement, fieldIdentity, inputName);
 
+      const spelledPreview = getSpelledSpeechPreview(transcript);
       const dictatedValue = formatDictatedText(transcript);
       let finalValue = dictatedValue;
       const confirmationLabel = labelText || "this field";
@@ -1786,17 +1973,8 @@ export default function VoiceControl() {
           );
           return;
         }
-      } else if (
-        activeFieldRef.current === "email" ||
-        inputElement.type === "email" ||
-        inputName.includes("email") ||
-        fieldIdentity.includes("emailaddress")
-      ) {
-        finalValue = transcript
-          .replace(/\s+at\s+/gi, "@")
-          .replace(/\s+dot\s+/gi, ".")
-          .replace(/\s/g, "")
-          .toLowerCase();
+      } else if (isEmailField) {
+        finalValue = formatEmailDictation(transcript);
       } else if (
         inputElement.type === "time" ||
         fieldIdentity.includes("starttime") ||
@@ -1838,7 +2016,19 @@ export default function VoiceControl() {
         label: confirmationLabel,
       };
 
-      speak(`I heard ${finalValue}. Is this correct? Say yes or no.`);
+      const spokenFinalValue = isEmailField
+        ? formatEmailForSpeech(finalValue)
+        : finalValue;
+
+      if (spelledPreview) {
+        speak(
+          `You spelled ${spelledPreview.spelledLetters}. The full ${
+            isEmailField ? "email" : "word"
+          } is ${spokenFinalValue}. Is this correct? Say yes or no.`
+        );
+      } else {
+        speak(`I heard ${spokenFinalValue}. Is this correct? Say yes or no.`);
+      }
     },
     [speak]
   );
@@ -1971,6 +2161,80 @@ export default function VoiceControl() {
         }
 
         speak("Please say yes if correct, or no to change.");
+        return;
+      }
+
+      if (
+        includesAny(lowerTranscript, [
+          "turn on voice assistance",
+          "open voice assistance",
+          "start voice assistance",
+          "voice assistance on",
+        ])
+      ) {
+        speak("Voice assistance is on. Hold F9 while speaking, then release F9.");
+        startMicrophoneOnly();
+        return;
+      }
+
+      if (
+        includesAny(lowerTranscript, [
+          "turn off voice assistance",
+          "close voice assistance",
+          "stop voice assistance",
+          "voice assistance off",
+        ])
+      ) {
+        stopMicrophone();
+        speak("Voice assistance is off.");
+        return;
+      }
+
+      if (
+        includesAny(lowerTranscript, [
+          "turn on tab reader",
+          "open tab reader",
+          "start tab reader",
+          "tab reader on",
+        ])
+      ) {
+        if (!isTabReaderOn) {
+          toggleTabReader();
+        } else {
+          speak("Tab reader is already on.");
+        }
+        return;
+      }
+
+      if (
+        includesAny(lowerTranscript, [
+          "turn off tab reader",
+          "close tab reader",
+          "stop tab reader",
+          "tab reader off",
+        ])
+      ) {
+        if (isTabReaderOn) {
+          toggleTabReader();
+        } else {
+          speak("Tab reader is already off.");
+        }
+        return;
+      }
+
+      if (
+        includesAny(lowerTranscript, [
+          "repeat",
+          "say again",
+          "repeat that",
+          "ulit",
+        ])
+      ) {
+        if (lastAssistantMessageRef.current) {
+          speak(lastAssistantMessageRef.current);
+        } else {
+          speak("There is nothing to repeat yet.");
+        }
         return;
       }
 
@@ -2135,24 +2399,13 @@ export default function VoiceControl() {
         lowerTranscript === "delete" ||
         lowerTranscript === "clear" ||
         lowerTranscript === "clear field" ||
+        lowerTranscript === "clear answer" ||
+        lowerTranscript === "start again" ||
+        lowerTranscript === "restart answer" ||
         lowerTranscript === "undo" ||
         lowerTranscript === "burahin"
       ) {
-        const inputElement =
-          document.getElementById(activeFieldRef.current) ||
-          document.activeElement;
-
-        if (
-          inputElement &&
-          (inputElement.tagName === "INPUT" ||
-            inputElement.tagName === "TEXTAREA")
-        ) {
-          setNativeInputValue(inputElement, "");
-          speak("Field cleared.");
-        } else {
-          speak("No active field to clear.");
-        }
-
+        clearVoiceInputAndRestart();
         return;
       }
 
@@ -2573,9 +2826,11 @@ export default function VoiceControl() {
       navigate,
       pathname,
       speak,
+      startMicrophoneOnly,
       stopMicrophone,
       stopTalking,
       toggleTabReader,
+      isTabReaderOn,
       readPageContent,
       readButtons,
       readForm,
@@ -2588,10 +2843,76 @@ export default function VoiceControl() {
       readCurrentQuestion,
       readNextQuestion,
       addSpaceToActiveField,
+      clearVoiceInputAndRestart,
       setIsHearing,
       setStatusMessage,
     ]
   );
+
+  const toggleMicrophone = useCallback(() => {
+    if (isListeningRef.current || recognitionActiveRef.current) {
+      stopMicrophone();
+      return;
+    }
+
+    keepListeningRef.current = true;
+    manualStopRef.current = false;
+    shouldRestartRef.current = false;
+
+    setIsListening(true);
+    setIsHearing(false);
+    setStatusMessage("Voice assistance is starting.");
+
+    speakFormVoiceGuide();
+
+    window.setTimeout(() => {
+      startRecognitionSafely("Listening...");
+    }, 1300);
+  }, [
+    speakFormVoiceGuide,
+    startRecognitionSafely,
+    stopMicrophone,
+    setIsHearing,
+    setIsListening,
+    setStatusMessage,
+  ]);
+
+  const startHoldToTalk = useCallback(() => {
+    setIsOpen(true);
+    spacePressedRef.current = true;
+    startMicrophoneOnly();
+    setStatusMessage(
+      "Voice assistance is on. Hold to speak. Release to turn off the microphone only."
+    );
+  }, [setIsOpen, setStatusMessage, startMicrophoneOnly]);
+
+  const stopHoldToTalk = useCallback(() => {
+    if (!spacePressedRef.current) return;
+
+    spacePressedRef.current = false;
+    shouldRestartRef.current = false;
+    keepListeningRef.current = false;
+    manualStopRef.current = true;
+
+    if (recognitionRestartTimerRef.current) {
+      clearTimeout(recognitionRestartTimerRef.current);
+      recognitionRestartTimerRef.current = null;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Ignore stop error.
+      }
+    }
+
+    recognitionActiveRef.current = false;
+    recognitionStartingRef.current = false;
+    setIsListening(false);
+    setIsHearing(false);
+    setStatusMessage("Voice assistance is on. Microphone is off.");
+  }, [setIsHearing, setIsListening, setStatusMessage]);
 
 useEffect(() => {
   const SpeechRecognition =
@@ -2633,7 +2954,10 @@ useEffect(() => {
     let interimTranscript = "";
 
     for (let i = event.resultIndex; i < event.results.length; i += 1) {
-      const transcript = event.results[i][0].transcript.trim();
+      const alternatives = Array.from(event.results[i])
+        .map((alternative) => alternative.transcript)
+        .filter(Boolean);
+      const transcript = chooseBestTranscript(alternatives);
 
       if (event.results[i].isFinal) {
         finalTranscript += ` ${transcript}`;
@@ -2699,7 +3023,7 @@ useEffect(() => {
         return;
       }
 
-      speak("I did not hear anything. Press Alt Shift M to try again.");
+      speak("I did not hear anything. Hold F9 and try again.");
       stopMicrophone();
       return;
     }
@@ -2735,7 +3059,7 @@ useEffect(() => {
     if (manualStopRef.current || !keepListeningRef.current) {
       setIsListening(false);
       setIsHearing(false);
-      setStatusMessage("Microphone is off.");
+      setStatusMessage("Voice assistance is on. Microphone is off.");
       return;
     }
 
@@ -2753,7 +3077,7 @@ useEffect(() => {
 
     setIsListening(false);
     setIsHearing(false);
-    setStatusMessage("Microphone is off.");
+    setStatusMessage("Voice assistance is on. Microphone is off.");
   };
 
   recognitionRef.current = recognition;
@@ -2806,7 +3130,34 @@ useEffect(() => {
             className={`accessibility-option ${
               isListening ? "active danger" : ""
             }`}
-            onClick={toggleMicrophone}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              pointerHoldToTalkRef.current = true;
+              startHoldToTalk();
+            }}
+            onPointerUp={(event) => {
+              event.preventDefault();
+              stopHoldToTalk();
+            }}
+            onPointerCancel={(event) => {
+              event.preventDefault();
+              stopHoldToTalk();
+            }}
+            onPointerLeave={(event) => {
+              if (pointerHoldToTalkRef.current) {
+                event.preventDefault();
+                stopHoldToTalk();
+              }
+            }}
+            onClick={(event) => {
+              if (pointerHoldToTalkRef.current) {
+                event.preventDefault();
+                pointerHoldToTalkRef.current = false;
+                return;
+              }
+
+              toggleMicrophone();
+            }}
             aria-label={
               isListening
                 ? "Stop voice assistance microphone"
@@ -2819,7 +3170,7 @@ useEffect(() => {
             <span>
               {isListening ? "Stop Voice Assistance" : "Voice Assistance"}
             </span>
-            <kbd>Voice</kbd>
+            <kbd>{isListening ? "On" : "Start"}</kbd>
           </button>
 
           <button
@@ -2834,7 +3185,7 @@ useEffect(() => {
               {isTabReaderOn ? <Volume2 size={19} /> : <VolumeX size={19} />}
             </span>
             <span>{isTabReaderOn ? "Tab Reader ON" : "Tab Reader"}</span>
-            <kbd>Tab</kbd>
+            <kbd>{isTabReaderOn ? "On" : "Start"}</kbd>
           </button>
 
           <button
@@ -2855,9 +3206,9 @@ useEffect(() => {
             className="accessibility-shortcuts-toggle accessibility-shortcuts-below"
             onClick={() => setShowShortcuts((prev) => !prev)}
             aria-expanded={showShortcuts}
-            aria-label="Show or hide keyboard shortcuts"
+            aria-label="Show or hide accessibility guide"
           >
-            Shortcuts
+            Accessibility Guide
             <ChevronDown
               size={16}
               className={showShortcuts ? "rotate" : ""}
@@ -2895,35 +3246,20 @@ useEffect(() => {
 
             {showShortcuts && (
               <div className="accessibility-shortcuts">
-                <strong>Keyboard Shortcuts</strong>
+                <strong>Accessibility Tools</strong>
 
                 <div className="shortcut-table">
-                  <span>Alt + Shift + A</span>
-                  <p>Open / Close Accessibility</p>
+                  <span>Voice Assistance</span>
+                  <p>After this menu guide, the microphone will automatically listen for your command. You can also press and hold the Voice Assistance button or hold F9 on desktop.</p>
 
-                  <span>Alt + Shift + M</span>
-                  <p>Voice Assistance</p>
-
-                  <span>Alt + Shift + H</span>
-                  <p>Help and Keyboard Shortcuts</p>
+                  <span>Tab Reader</span>
+                  <p>Say “turn on tab reader” after the guide, or press the Tab Reader button. Use this to hear focused items while using Tab.</p>
 
                   <span>Hold F9</span>
-                  <p>Speak / Listen</p>
+                  <p>Speak / Listen anytime</p>
 
                   <span>Release F9</span>
                   <p>Stop Listening</p>
-
-                  <span>Ctrl + Shift + Space</span>
-                  <p>Speak Alternative</p>
-
-                  <span>V then 1</span>
-                  <p>Voice Assistance</p>
-
-                  <span>V then 2</span>
-                  <p>Tab Reader</p>
-
-                  <span>V then 4</span>
-                  <p>Stop Talking</p>
 
                   <span>Esc</span>
                   <p>Stop Talking / Close</p>
